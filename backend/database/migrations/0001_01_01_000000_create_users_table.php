@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('password');
             $table->enum('role', ['admin', 'nurse', 'head_nurse']);
             $table->boolean('active')->default(true);
-            $table->boolean('new_account')->default(true);
+            $table->boolean('must_change_password')->default(true);
             $table->timestamps();
             $table->softDeletes();
         });

@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password'),
             'role' => UserRole::Admin,
             'active' => true,
-            'new_account' => false,
+            'must_change_password' => false,
         ]);
 
         User::query()->create([
@@ -32,7 +32,7 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password'),
             'role' => UserRole::HeadNurse,
             'active' => true,
-            'new_account' => false,
+            'must_change_password' => false,
         ]);
 
         collect([
@@ -56,7 +56,7 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'role' => UserRole::Nurse,
                 'active' => true,
-                'new_account' => false,
+                'must_change_password' => false,
             ]);
         });
 
@@ -79,6 +79,27 @@ class DatabaseSeeder extends Seeder
                 'name' => 'night',
                 'start_time' => '00:00:00',
                 'end_time' => '08:00:00',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'name' => 'holidays',
+                'start_time' => '00:00:00',
+                'end_time' => '00:00:00',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'name' => 'sick leave',
+                'start_time' => '00:00:00',
+                'end_time' => '00:00:00',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'name' => 'parental leave',
+                'start_time' => '00:00:00',
+                'end_time' => '00:00:00',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],

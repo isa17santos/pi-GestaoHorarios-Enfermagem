@@ -13,19 +13,9 @@ return new class extends Migration
     {
         Schema::create('shift_types', function (Blueprint $table) {
             $table->id();
-            $table->enum('name', ['morning', 'afternoon', 'night']);
+            $table->enum('name', ['morning', 'afternoon', 'night', 'holidays', 'sick leave', 'parental leave']);
             $table->time('start_time');
             $table->time('end_time');
-            $table->timestamps();
-            $table->softDeletes();
-        });
-
-        Schema::create('nurse_preferences', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
-            $table->boolean('prefers_morning')->default(false);
-            $table->boolean('prefers_afternoon')->default(false);
-            $table->boolean('prefers_night')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -35,6 +25,18 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->date('start_date');
             $table->date('end_date');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('nurse_preferences', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
+            $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
+            $table->boolean('prefers_morning')->default(false);
+            $table->boolean('prefers_afternoon')->default(false);
+            $table->boolean('prefers_night')->default(false);
+            $table->string('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
@@ -52,7 +54,6 @@ return new class extends Migration
         Schema::create('shifts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('shift_type_id')->constrained('shift_types')->restrictOnDelete();
             $table->date('shift_date');
             $table->timestamps();
@@ -61,11 +62,9 @@ return new class extends Migration
 
         Schema::create('shift_swap_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('requester_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('target_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('requester_shift_id')->constrained('shifts')->cascadeOnDelete();
-            $table->foreignId('target_shift_id')->constrained('shifts')->cascadeOnDelete();
-            $table->string('status');
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('shift_id')->constrained('shifts')->cascadeOnDelete();
+            $table->enum('status', ['pending', 'accepted', 'rejected']);
             $table->timestamps();
             $table->softDeletes();
         });
