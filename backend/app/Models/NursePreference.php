@@ -26,11 +26,13 @@ class NursePreference extends Model
         ];
     }
 
+    // Returns the user who owns this preference entry.
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    // Returns the schedule linked to this preference entry.
     public function schedule(): BelongsTo
     {
         return $this->belongsTo(Schedule::class);

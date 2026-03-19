@@ -25,21 +25,25 @@ class Schedule extends Model
         ];
     }
 
+    // Returns the user who created this schedule.
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    // Returns all nurse preferences linked to this schedule.
     public function nursePreferences(): HasMany
     {
         return $this->hasMany(NursePreference::class);
     }
 
+    // Returns all shifts included in this schedule.
     public function shifts(): HasMany
     {
         return $this->hasMany(Shift::class);
     }
 
+    // Returns all users assigned to this schedule.
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_schedules')

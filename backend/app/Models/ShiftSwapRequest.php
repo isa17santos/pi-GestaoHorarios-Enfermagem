@@ -22,12 +22,14 @@ class ShiftSwapRequest extends Model
         ];
     }
 
+    // Returns the users linked to this swap request.
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_swaps', 'swap_id', 'user_id')
             ->withTimestamps();
     }
 
+    // Returns the shifts linked to this swap request.
     public function shifts(): BelongsToMany
     {
         return $this->belongsToMany(Shift::class, 'swap_shifts', 'swap_id', 'shift_id')

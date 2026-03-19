@@ -24,6 +24,7 @@ class ShiftType extends Model
         ];
     }
 
+    // Returns all shifts that belong to this shift type.
     public function shifts(): HasMany
     {
         return $this->hasMany(Shift::class);
