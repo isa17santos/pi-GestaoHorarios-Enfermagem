@@ -12,7 +12,7 @@ class ScheduleController extends Controller
     {
         return response()->json(
             Schedule::query()
-                ->with(['creator', 'users', 'shifts'])
+                ->with(['creator', 'users', 'shifts.shiftType'])
                 ->get()
         );
     }
@@ -22,7 +22,7 @@ class ScheduleController extends Controller
     {
         return response()->json(
             Schedule::query()
-                ->with(['creator', 'users', 'shifts'])
+                ->with(['creator', 'users', 'shifts.shiftType'])
                 ->findOrFail($id)
         );
     }

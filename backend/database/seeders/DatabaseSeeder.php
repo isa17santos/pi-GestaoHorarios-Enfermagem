@@ -126,7 +126,9 @@ class DatabaseSeeder extends Seeder
         | endpoints GET nesta fase. Pode ser removido quando existirem fluxos
         | reais de criacao/edicao de dados na aplicacao.
         */
-        $headNurseId = DB::table('users')->where('email', 'ana.antunes@example.pt')->value('id');
+        $headNurseId = DB::table('users')
+            ->where('email', 'ana.antunes@example.pt')
+            ->value('id');
 
         $nurses = DB::table('users')
             ->where('role', UserRole::Nurse->value)
@@ -151,27 +153,58 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
+            [
+                'created_by' => $headNurseId,
+                'start_date' => '2026-03-30',
+                'end_date' => '2026-04-05',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
         ]);
 
-        $schedules = DB::table('schedules')->orderBy('id')->get(['id', 'start_date', 'end_date']);
+        $schedules = DB::table('schedules')->orderBy('id')->get(['id']);
         $firstScheduleId = $schedules[0]->id;
         $secondScheduleId = $schedules[1]->id;
+        $thirdScheduleId = $schedules[2]->id;
 
-        $userSchedules = $nurses->map(fn ($nurse) => [
-                'user_id' => $nurse->id,
+        DB::table('user_schedules')->insert([
+            [
+                'user_id' => $nurses[0]->id,
                 'schedule_id' => $firstScheduleId,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ])->all();
-
-        $userSchedules[] = [
-            'user_id' => $nurses[3]->id,
-            'schedule_id' => $secondScheduleId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ];
-
-        DB::table('user_schedules')->insert($userSchedules);
+            ],
+            [
+                'user_id' => $nurses[1]->id,
+                'schedule_id' => $firstScheduleId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[2]->id,
+                'schedule_id' => $firstScheduleId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[3]->id,
+                'schedule_id' => $secondScheduleId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[4]->id,
+                'schedule_id' => $secondScheduleId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[5]->id,
+                'schedule_id' => $thirdScheduleId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
 
         DB::table('nurse_preferences')->insert([
             [
@@ -214,6 +247,26 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
+            [
+                'user_id' => $nurses[4]->id,
+                'schedule_id' => $secondScheduleId,
+                'prefers_morning' => false,
+                'prefers_afternoon' => true,
+                'prefers_night' => true,
+                'notes' => 'Prefere tardes, mas pode fazer noites.',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[5]->id,
+                'schedule_id' => $thirdScheduleId,
+                'prefers_morning' => true,
+                'prefers_afternoon' => false,
+                'prefers_night' => true,
+                'notes' => 'Prefere manhas e aceita algumas noites.',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
         ]);
 
         DB::table('shifts')->insert([
@@ -252,6 +305,20 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
+            [
+                'schedule_id' => $thirdScheduleId,
+                'shift_type_id' => $shiftTypeIds['afternoon'],
+                'shift_date' => '2026-03-30',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'schedule_id' => $thirdScheduleId,
+                'shift_type_id' => $shiftTypeIds['morning'],
+                'shift_date' => '2026-04-01',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
         ]);
 
         $shifts = DB::table('shifts')->orderBy('id')->get(['id']);
@@ -287,95 +354,9 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
-        ]);
-
-        DB::table('notifications')->insert([
             [
-                'subject' => 'Atualizacao de horario',
-                'body' => 'Foi publicado um novo horario para a semana de 16 a 22 de marco.',
-                'read' => false,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'subject' => 'Pedido de troca recebido',
-                'body' => 'Recebeste um novo pedido de troca de turno.',
-                'read' => false,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'subject' => 'Preferencias submetidas',
-                'body' => 'Foram submetidas novas preferencias por parte dos enfermeiros.',
-                'read' => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-        ]);
-
-        $notifications = DB::table('notifications')->orderBy('id')->get(['id']);
-
-        DB::table('user_notifications')->insert([
-            [
-                'user_id' => $nurses[0]->id,
-                'notification_id' => $notifications[0]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[1]->id,
-                'notification_id' => $notifications[1]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $headNurseId,
-                'notification_id' => $notifications[2]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-        ]);
-
-        DB::table('shift_swap_requests')->insert([
-            [
-                'status' => 'pending',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'status' => 'accepted',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-        ]);
-
-        $swapRequests = DB::table('shift_swap_requests')->orderBy('id')->get(['id']);
-
-        DB::table('user_swaps')->insert([
-            [
-                'user_id' => $nurses[0]->id,
-                'swap_id' => $swapRequests[0]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[2]->id,
-                'swap_id' => $swapRequests[1]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-        ]);
-
-        DB::table('swap_shifts')->insert([
-            [
-                'swap_id' => $swapRequests[0]->id,
-                'shift_id' => $shifts[0]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'swap_id' => $swapRequests[1]->id,
-                'shift_id' => $shifts[2]->id,
+                'user_id' => $nurses[5]->id,
+                'shift_id' => $shifts[5]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
