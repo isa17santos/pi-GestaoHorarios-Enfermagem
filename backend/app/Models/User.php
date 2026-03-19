@@ -8,7 +8,6 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -55,9 +54,9 @@ class User extends Authenticatable
         ];
     }
 
-    public function nursePreference(): HasOne
+    public function nursePreferences(): HasMany
     {
-        return $this->hasOne(NursePreference::class);
+        return $this->hasMany(NursePreference::class);
     }
 
     public function createdSchedules(): HasMany

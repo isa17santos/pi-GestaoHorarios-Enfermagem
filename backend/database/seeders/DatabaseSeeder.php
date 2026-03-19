@@ -291,7 +291,6 @@ class DatabaseSeeder extends Seeder
 
         DB::table('notifications')->insert([
             [
-                'user_id' => $nurses[0]->id,
                 'subject' => 'Atualizacao de horario',
                 'body' => 'Foi publicado um novo horario para a semana de 16 a 22 de marco.',
                 'read' => false,
@@ -299,7 +298,6 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => $now,
             ],
             [
-                'user_id' => $nurses[1]->id,
                 'subject' => 'Pedido de troca recebido',
                 'body' => 'Recebeste um novo pedido de troca de turno.',
                 'read' => false,
@@ -307,7 +305,6 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => $now,
             ],
             [
-                'user_id' => $headNurseId,
                 'subject' => 'Preferencias submetidas',
                 'body' => 'Foram submetidas novas preferencias por parte dos enfermeiros.',
                 'read' => true,
@@ -316,52 +313,72 @@ class DatabaseSeeder extends Seeder
             ],
         ]);
 
-        $notifications = DB::table('notifications')->orderBy('id')->get(['id', 'user_id']);
+        $notifications = DB::table('notifications')->orderBy('id')->get(['id']);
 
-        DB::table('user_notifications')->insert(
-            $notifications->map(fn ($notification) => [
-                'user_id' => $notification->user_id,
-                'notification_id' => $notification->id,
+        DB::table('user_notifications')->insert([
+            [
+                'user_id' => $nurses[0]->id,
+                'notification_id' => $notifications[0]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ])->all()
-        );
+            ],
+            [
+                'user_id' => $nurses[1]->id,
+                'notification_id' => $notifications[1]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $headNurseId,
+                'notification_id' => $notifications[2]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
 
         DB::table('shift_swap_requests')->insert([
             [
-                'user_id' => $nurses[0]->id,
-                'shift_id' => $shifts[0]->id,
                 'status' => 'pending',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
-                'user_id' => $nurses[2]->id,
-                'shift_id' => $shifts[2]->id,
                 'status' => 'accepted',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
         ]);
 
-        $swapRequests = DB::table('shift_swap_requests')->orderBy('id')->get(['id', 'user_id', 'shift_id']);
+        $swapRequests = DB::table('shift_swap_requests')->orderBy('id')->get(['id']);
 
-        DB::table('user_swaps')->insert(
-            $swapRequests->map(fn ($swap) => [
-                'user_id' => $swap->user_id,
-                'swap_id' => $swap->id,
+        DB::table('user_swaps')->insert([
+            [
+                'user_id' => $nurses[0]->id,
+                'swap_id' => $swapRequests[0]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ])->all()
-        );
-
-        DB::table('swap_shifts')->insert(
-            $swapRequests->map(fn ($swap) => [
-                'swap_id' => $swap->id,
-                'shift_id' => $swap->shift_id,
+            ],
+            [
+                'user_id' => $nurses[2]->id,
+                'swap_id' => $swapRequests[1]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ])->all()
-        );
+            ],
+        ]);
+
+        DB::table('swap_shifts')->insert([
+            [
+                'swap_id' => $swapRequests[0]->id,
+                'shift_id' => $shifts[0]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'swap_id' => $swapRequests[1]->id,
+                'shift_id' => $shifts[2]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
     }
 }
