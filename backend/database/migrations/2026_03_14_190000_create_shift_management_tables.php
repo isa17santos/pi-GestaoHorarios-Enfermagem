@@ -31,7 +31,7 @@ return new class extends Migration
 
         Schema::create('nurse_preferences', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
             $table->boolean('prefers_morning')->default(false);
             $table->boolean('prefers_afternoon')->default(false);
@@ -43,7 +43,6 @@ return new class extends Migration
 
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->string('subject');
             $table->text('body');
             $table->boolean('read')->default(false);
@@ -62,9 +61,7 @@ return new class extends Migration
 
         Schema::create('shift_swap_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('shift_id')->constrained('shifts')->cascadeOnDelete();
-            $table->enum('status', ['pending', 'accepted', 'rejected']);
+            $table->enum('status', ['pending', 'accepted', 'rejected', 'cancelled']);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -73,7 +70,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['user_id', 'schedule_id']);
         });
@@ -82,7 +78,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('shift_id')->constrained('shifts')->cascadeOnDelete();
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['user_id', 'shift_id']);
         });
@@ -91,7 +86,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('notification_id')->constrained('notifications')->cascadeOnDelete();
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['user_id', 'notification_id']);
         });
@@ -100,7 +94,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('swap_id')->constrained('shift_swap_requests')->cascadeOnDelete();
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['user_id', 'swap_id']);
         });
@@ -109,7 +102,6 @@ return new class extends Migration
             $table->foreignId('swap_id')->constrained('shift_swap_requests')->cascadeOnDelete();
             $table->foreignId('shift_id')->constrained('shifts')->cascadeOnDelete();
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['swap_id', 'shift_id']);
         });

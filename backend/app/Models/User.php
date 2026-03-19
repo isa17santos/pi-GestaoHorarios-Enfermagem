@@ -6,6 +6,9 @@ use App\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -26,7 +29,6 @@ class User extends Authenticatable
         'password',
         'role',
         'active',
-        'new_account',
     ];
 
     /**
@@ -49,7 +51,41 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'active' => 'boolean',
-            'new_account' => 'boolean',
+            'must_change_password' => 'boolean',
         ];
+    }
+
+    public function nursePreference(): HasOne
+    {
+        return $this->hasOne(NursePreference::class);
+    }
+
+    public function createdSchedules(): HasMany
+    {
+        return $this->hasMany(Schedule::class, 'created_by');
+    }
+
+    public function schedules(): BelongsToMany
+    {
+        return $this->belongsToMany(Schedule::class, 'user_schedules')
+            ->withTimestamps();
+    }
+
+    public function shifts(): BelongsToMany
+    {
+        return $this->belongsToMany(Shift::class, 'user_shifts')
+            ->withTimestamps();
+    }
+
+    public function shiftSwaps(): BelongsToMany
+    {
+        return $this->belongsToMany(ShiftSwapRequest::class, 'user_swaps', 'user_id', 'swap_id')
+            ->withTimestamps();
+    }
+
+    public function notifications(): BelongsToMany
+    {
+        return $this->belongsToMany(SystemNotification::class, 'user_notifications')
+            ->withTimestamps();
     }
 }
