@@ -1,0 +1,335 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Gestao de Horarios API",
+        "description": "Documentacao OpenAPI da API de gestao de horarios de enfermagem.",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/nurse-preferences": {
+            "get": {
+                "tags": [
+                    "Nurse Preferences"
+                ],
+                "summary": "Lista todas as preferencias de enfermagem",
+                "operationId": "listNursePreferences",
+                "responses": {
+                    "200": {
+                        "description": "Lista de preferencias",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/nurse-preferences/by-shift-type/{type}": {
+            "get": {
+                "tags": [
+                    "Nurse Preferences"
+                ],
+                "summary": "Lista preferencias filtradas por tipo de turno",
+                "operationId": "listNursePreferencesByShiftType",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "path",
+                        "description": "Tipo de turno preferido",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "morning",
+                                "afternoon",
+                                "night"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de preferencias filtradas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Tipo de turno nao suportado"
+                    }
+                }
+            }
+        },
+        "/api/schedules": {
+            "get": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Lista todos os horarios",
+                "operationId": "listSchedules",
+                "responses": {
+                    "200": {
+                        "description": "Lista de horarios",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/schedules/{id}": {
+            "get": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Obtém um horario pelo ID",
+                "operationId": "showSchedule",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID do horario",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Horario encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Horario nao encontrado"
+                    }
+                }
+            }
+        },
+        "/api/shifts": {
+            "get": {
+                "tags": [
+                    "Shifts"
+                ],
+                "summary": "Lista todos os turnos",
+                "operationId": "listShifts",
+                "responses": {
+                    "200": {
+                        "description": "Lista de turnos",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shifts/{id}": {
+            "get": {
+                "tags": [
+                    "Shifts"
+                ],
+                "summary": "Obtém um turno pelo ID",
+                "operationId": "showShift",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID do turno",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Turno encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Turno nao encontrado"
+                    }
+                }
+            }
+        },
+        "/api/shift-types": {
+            "get": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Lista todos os tipos de turno",
+                "operationId": "listShiftTypes",
+                "responses": {
+                    "200": {
+                        "description": "Lista de tipos de turno",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shift-types/{id}": {
+            "get": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Obtém um tipo de turno pelo ID",
+                "operationId": "showShiftType",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID do tipo de turno",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tipo de turno encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Tipo de turno nao encontrado"
+                    }
+                }
+            }
+        },
+        "/api/users": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Lista todos os utilizadores",
+                "operationId": "listUsers",
+                "responses": {
+                    "200": {
+                        "description": "Lista de utilizadores",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/users/{id}": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Obtém um utilizador pelo ID",
+                "operationId": "showUser",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID do utilizador",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Utilizador encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilizador nao encontrado"
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Users",
+            "description": "Operacoes relacionadas com utilizadores."
+        },
+        {
+            "name": "Shift Types",
+            "description": "Operacoes relacionadas com tipos de turno."
+        },
+        {
+            "name": "Nurse Preferences",
+            "description": "Operacoes relacionadas com preferencias de enfermagem."
+        },
+        {
+            "name": "Schedules",
+            "description": "Operacoes relacionadas com horarios."
+        },
+        {
+            "name": "Shifts",
+            "description": "Operacoes relacionadas com turnos."
+        }
+    ]
+}
