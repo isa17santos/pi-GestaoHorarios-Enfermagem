@@ -14,6 +14,8 @@ class NursePreference extends Model
         'prefers_morning',
         'prefers_afternoon',
         'prefers_night',
+        'avoid_weekends',
+        'prefers_weekends',
         'notes',
     ];
 
@@ -23,6 +25,8 @@ class NursePreference extends Model
             'prefers_morning' => 'boolean',
             'prefers_afternoon' => 'boolean',
             'prefers_night' => 'boolean',
+            'avoid_weekends' => 'boolean',
+            'prefers_weekends' => 'boolean',
         ];
     }
 

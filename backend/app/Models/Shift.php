@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Shift extends Model
@@ -46,7 +47,14 @@ class Shift extends Model
     // Returns the swap requests that include this shift.
     public function swapRequests(): BelongsToMany
     {
-        return $this->belongsToMany(ShiftSwapRequest::class, 'swap_shifts', 'shift_id', 'swap_id')
+        return $this->belongsToMany(ShiftSwapRequest::class, 'shift_swap_request_shifts', 'shift_id', 'swap_id')
+            ->withPivot(['kind', 'owner_user_id'])
             ->withTimestamps();
+    }
+
+    // Returns the swap-request entries that reference this shift.
+    public function swapRequestEntries(): HasMany
+    {
+        return $this->hasMany(ShiftSwapRequestShift::class);
     }
 }

@@ -68,8 +68,27 @@ class User extends Authenticatable
     // Returns the shift swap requests linked to this user.
     public function shiftSwaps(): BelongsToMany
     {
-        return $this->belongsToMany(ShiftSwapRequest::class, 'user_swaps', 'user_id', 'swap_id')
+        return $this->belongsToMany(ShiftSwapRequest::class, 'shift_swap_participants', 'user_id', 'swap_id')
+            ->withPivot('role')
             ->withTimestamps();
+    }
+
+    // Returns the shift swap requests created by this user.
+    public function createdShiftSwaps(): HasMany
+    {
+        return $this->hasMany(ShiftSwapRequest::class, 'created_by');
+    }
+
+    // Returns the participant entries linked to this user.
+    public function shiftSwapParticipants(): HasMany
+    {
+        return $this->hasMany(ShiftSwapParticipant::class);
+    }
+
+    // Returns the shift entries this user owns inside swap requests.
+    public function shiftSwapRequestShifts(): HasMany
+    {
+        return $this->hasMany(ShiftSwapRequestShift::class, 'owner_user_id');
     }
 
     // Returns the notifications linked to this user.

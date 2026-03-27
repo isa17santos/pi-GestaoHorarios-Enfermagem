@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('shift_types', function (Blueprint $table) {
             $table->id();
-            $table->enum('name', ['morning', 'afternoon', 'night', 'holidays', 'sick leave', 'parental leave']);
+            $table->enum('name', ['morning', 'afternoon', 'night', 'dayOff', 'holidays', 'sick leave', 'parental leave']);
             $table->time('start_time');
             $table->time('end_time');
             $table->timestamps();
@@ -36,6 +36,8 @@ return new class extends Migration
             $table->boolean('prefers_morning')->default(false);
             $table->boolean('prefers_afternoon')->default(false);
             $table->boolean('prefers_night')->default(false);
+            $table->boolean('avoid_weekends')->default(false);
+            $table->boolean('prefers_weekends')->default(false);
             $table->string('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
@@ -61,7 +63,9 @@ return new class extends Migration
 
         Schema::create('shift_swap_requests', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->enum('status', ['pending', 'accepted', 'rejected', 'cancelled']);
+            $table->text('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
@@ -90,20 +94,30 @@ return new class extends Migration
             $table->index(['user_id', 'notification_id']);
         });
 
-        Schema::create('user_swaps', function (Blueprint $table) {
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+        Schema::create('shift_swap_participants', function (Blueprint $table) {
+            $table->id();
             $table->foreignId('swap_id')->constrained('shift_swap_requests')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->enum('role', ['requester', 'target']);
             $table->timestamps();
 
-            $table->index(['user_id', 'swap_id']);
+            $table->unique(['swap_id', 'user_id', 'role']);
+            $table->index(['swap_id', 'role']);
+            $table->index(['user_id', 'role']);
         });
 
-        Schema::create('swap_shifts', function (Blueprint $table) {
+        Schema::create('shift_swap_request_shifts', function (Blueprint $table) {
+            $table->id();
             $table->foreignId('swap_id')->constrained('shift_swap_requests')->cascadeOnDelete();
             $table->foreignId('shift_id')->constrained('shifts')->cascadeOnDelete();
+            $table->foreignId('owner_user_id')->constrained('users')->cascadeOnDelete();
+            $table->enum('kind', ['offered', 'requested']);
             $table->timestamps();
 
-            $table->index(['swap_id', 'shift_id']);
+            $table->unique(['swap_id', 'shift_id', 'kind', 'owner_user_id']);
+            $table->index(['swap_id', 'kind']);
+            $table->index(['shift_id', 'kind']);
+            $table->index(['owner_user_id', 'kind']);
         });
     }
 
@@ -112,8 +126,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('swap_shifts');
-        Schema::dropIfExists('user_swaps');
+        Schema::dropIfExists('shift_swap_request_shifts');
+        Schema::dropIfExists('shift_swap_participants');
         Schema::dropIfExists('user_notifications');
         Schema::dropIfExists('user_shifts');
         Schema::dropIfExists('user_schedules');
