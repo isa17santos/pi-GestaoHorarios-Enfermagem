@@ -1,5 +1,7 @@
 <?php
 
+require __DIR__.'/auth.php';
+
 use App\Http\Controllers\NursePreferenceController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\ShiftController;

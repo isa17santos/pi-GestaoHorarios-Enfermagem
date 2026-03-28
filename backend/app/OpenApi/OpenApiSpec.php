@@ -9,6 +9,16 @@ use OpenApi\Attributes as OA;
     title: 'Gestao de Horarios API',
     description: 'Documentacao OpenAPI da API de gestao de horarios de enfermagem.'
 )]
+#[OA\SecurityScheme(
+    securityScheme: 'bearerAuth',
+    type: 'http',
+    scheme: 'bearer',
+    bearerFormat: 'Sanctum'
+)]
+#[OA\Tag(
+    name: 'Auth',
+    description: 'Operacoes relacionadas com autenticação.'
+)]
 #[OA\Tag(
     name: 'Users',
     description: 'Operacoes relacionadas com utilizadores.'
