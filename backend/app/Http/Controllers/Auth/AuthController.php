@@ -3,14 +3,16 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\ForgotPasswordRequest;
-use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\SendPasswordRecoveryEmailRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\ValidatePasswordRecoveryTokenRequest;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
@@ -28,8 +30,8 @@ class AuthController extends Controller
             content: new OA\JsonContent(
                 required: ['email', 'password'],
                 properties: [
-                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'admin@example.com'),
-                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'password123'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'NovaPassword@123'),
                 ]
             )
         ),
@@ -41,7 +43,6 @@ class AuthController extends Controller
                     properties: [
                         new OA\Property(property: 'message', type: 'string', example: 'Login efetuado com sucesso.'),
                         new OA\Property(property: 'token', type: 'string', example: '1|abcdef123456'),
-                        new OA\Property(property: 'token_type', type: 'string', example: 'Bearer'),
                     ]
                 )
             ),
@@ -50,13 +51,18 @@ class AuthController extends Controller
                 description: 'Utilizador inativo',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'message', type: 'string', example: 'Este utilizador esta inativo.'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Este utilizador está inativo.'),
                     ]
                 )
             ),
             new OA\Response(
                 response: 422,
-                description: 'Credenciais inválidas'
+                description: 'Credenciais inválidas',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Credenciais inválidas'),
+                    ]
+                )
             ),
         ]
     )]
@@ -71,7 +77,7 @@ class AuthController extends Controller
         // Reject the request if the user does not exist or the password is incorrect.
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'email' => [__('auth.invalid_credentials')],
+                [__('auth.invalid_credentials')],
             ]);
         }
 
@@ -90,7 +96,6 @@ class AuthController extends Controller
             'message' => __('auth.login_success'),
             'token' => $token,
             'user' => [
-                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role instanceof \BackedEnum ? $user->role->value : $user->role,
@@ -106,19 +111,16 @@ class AuthController extends Controller
         responses: [
             new OA\Response(
                 response: 200,
-                description: 'Authenticated user returned successfully',
+                description: 'Utilizador autenticado returnado com sucesso',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(
                             property: 'user',
                             type: 'object',
                             properties: [
-                                new OA\Property(property: 'id', type: 'integer', example: 1),
-                                new OA\Property(property: 'name', type: 'string', example: 'Administrador'),
-                                new OA\Property(property: 'email', type: 'string', format: 'email', example: 'admin@example.com'),
+                                new OA\Property(property: 'name', type: 'string', example: 'Miguel Ferreira'),
+                                new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
                                 new OA\Property(property: 'role', type: 'string', example: 'admin'),
-                                new OA\Property(property: 'active', type: 'boolean', example: true),
-                                new OA\Property(property: 'must_change_password', type: 'boolean', example: false),
                             ]
                         ),
                     ]
@@ -126,13 +128,13 @@ class AuthController extends Controller
             ),
             new OA\Response(
                 response: 401,
-                description: 'Unauthenticated',
+                description: 'Utilizador não autenticado',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(
                             property: 'message',
                             type: 'string',
-                            example: 'Unauthenticated.'
+                            example: 'Utilizador não autenticado.'
                         ),
                     ]
                 )
@@ -147,12 +149,9 @@ class AuthController extends Controller
         // Return the authenticated user's public data.
         return response()->json([
             'user' => [
-                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role instanceof \BackedEnum ? $user->role->value : $user->role,
-                'active' => $user->active,
-                'must_change_password' => $user->must_change_password,
             ],
         ]);
     }
@@ -165,7 +164,7 @@ class AuthController extends Controller
         responses: [
             new OA\Response(
                 response: 200,
-                description: 'Logout successful',
+                description: 'Logout efetuado com sucesso',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(
@@ -178,13 +177,13 @@ class AuthController extends Controller
             ),
             new OA\Response(
                 response: 401,
-                description: 'Unauthenticated',
+                description: 'Não autenticado',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(
                             property: 'message',
                             type: 'string',
-                            example: 'Unauthenticated.'
+                            example: 'Não autenticado.'
                         ),
                     ]
                 )
@@ -199,6 +198,227 @@ class AuthController extends Controller
         // Return a translated success message.
         return response()->json([
             'message' => __('auth.logout_success'),
+        ]);
+    }
+
+
+    #[OA\Post(
+        path: '/api/password-recovery/email',
+        summary: 'Envia o email de recuperação de password',
+        tags: ['Auth'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 202,
+                description: 'Pedido aceite',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                            example: 'Se o email existir, será enviado um link de recuperação.'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Payload inválido',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Credenciais invalidas.'),
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function sendPasswordRecoveryEmail(SendPasswordRecoveryEmailRequest $request): JsonResponse
+    {
+        Password::sendResetLink($request->validated());
+
+        return response()->json([
+            'message' => __('auth.password_recovery_email_sent'),
+        ], 202);
+    }
+
+    private function passwordBrokerStatusMessage(string $status): string
+    {
+        return match ($status) {
+            Password::INVALID_TOKEN => __('auth.password_reset_token_invalid'),
+            Password::INVALID_USER => __('auth.password_reset_user_not_found'),
+            Password::RESET_LINK_SENT => __('auth.password_reset_link_sent'),
+            Password::PASSWORD_RESET => __('auth.password_reset_completed'),
+            default => __('auth.password_reset_token_invalid'),
+        };
+    }
+
+
+    #[OA\Post(
+        path: '/api/password-recovery/reset',
+        summary: 'Redefine a password com token de recuperação',
+        tags: ['Auth'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['token', 'email', 'password', 'password_confirmation'],
+                properties: [
+                    new OA\Property(property: 'token', type: 'string', example: '4f2d7d8f2f3f...'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'NovaPassword123'),
+                    new OA\Property(property: 'password_confirmation', type: 'string', format: 'password', example: 'NovaPassword123'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Password redefinida com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'message',
+                            type: 'string',
+                            example: 'Password redefinida com sucesso.'
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Token inválido ou payload inválido',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'The given data was invalid.'),
+                        new OA\Property(
+                            property: 'errors',
+                            type: 'object',
+                            example: [
+                                'email' => ['Token invalido.'],
+                            ]
+                        ),
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $status = Password::reset(
+            $request->validated(),
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => $password,
+                    'must_change_password' => false,
+                ])->save();
+
+                $user->tokens()->delete();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'token' => [$this->passwordBrokerStatusMessage($status)],
+            ]);
+        }
+
+        return response()->json([
+            'message' => __('auth.password_reset_success'),
+        ]);
+    }
+
+
+
+    #[OA\Get(
+        path: '/api/password-recovery/validate-token',
+        summary: 'Valida o token de recuperação de password',
+        tags: ['Auth'],
+        parameters: [
+            new OA\Parameter(
+                name: 'token',
+                in: 'query',
+                required: true,
+                schema: new OA\Schema(type: 'string'),
+                example: '4f2d7d8f2f3f...'
+            ),
+            new OA\Parameter(
+                name: 'email',
+                in: 'query',
+                required: true,
+                schema: new OA\Schema(type: 'string', format: 'email'),
+                example: 'miguel.ferreira@example.pt'
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Token válido',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Token válido.'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Token inválido ou expirado',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'The given data was invalid.'),
+                        new OA\Property(
+                            property: 'errors',
+                            type: 'object',
+                            example: [
+                                'token' => ['O token de recuperação é inválido ou expirou.'],
+                            ]
+                        ),
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function validatePasswordRecoveryToken(ValidatePasswordRecoveryTokenRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'token' => [__('auth.invalid_or_expired_reset_token')],
+            ]);
+        }
+
+        $record = DB::table(config('auth.passwords.users.table', 'password_reset_tokens'))
+            ->where('email', $validated['email'])
+            ->first();
+
+        if (! $record) {
+            throw ValidationException::withMessages([
+                'token' => [__('auth.invalid_or_expired_reset_token')],
+            ]);
+        }
+
+        $expiresAt = Carbon::parse($record->created_at)
+            ->addMinutes((int) config('auth.passwords.users.expire', 60));
+
+        if ($expiresAt->isPast() || ! Hash::check($validated['token'], $record->token)) {
+            throw ValidationException::withMessages([
+                'token' => [__('auth.invalid_or_expired_reset_token')],
+            ]);
+        }
+
+        return response()->json([
+            'message' => __('auth.valid_reset_token'),
         ]);
     }
 }
