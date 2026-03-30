@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Route;
 // Public route used to authenticate a user and issue a token.
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::post('/password-recovery/email', [AuthController::class, 'sendPasswordRecoveryEmail']);
+Route::get('/password-recovery/validate-token', [AuthController::class, 'validatePasswordRecoveryToken']);
+Route::post('/password-recovery/reset', [AuthController::class, 'resetPassword']);
 
 // Protected routes that require a valid Sanctum bearer token.
 Route::middleware('auth:sanctum')->group(function () {

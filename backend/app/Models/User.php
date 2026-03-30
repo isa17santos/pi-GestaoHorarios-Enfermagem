@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Notifications\Auth\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -37,6 +37,11 @@ class User extends Authenticatable
             'active' => 'boolean',
             'must_change_password' => 'boolean',
         ];
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     // Returns all preference records linked to this user.

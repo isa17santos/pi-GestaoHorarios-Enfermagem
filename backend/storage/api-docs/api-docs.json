@@ -26,12 +26,12 @@
                                     "email": {
                                         "type": "string",
                                         "format": "email",
-                                        "example": "admin@example.com"
+                                        "example": "miguel.ferreira@example.pt"
                                     },
                                     "password": {
                                         "type": "string",
                                         "format": "password",
-                                        "example": "password123"
+                                        "example": "NovaPassword@123"
                                     }
                                 },
                                 "type": "object"
@@ -53,10 +53,6 @@
                                         "token": {
                                             "type": "string",
                                             "example": "1|abcdef123456"
-                                        },
-                                        "token_type": {
-                                            "type": "string",
-                                            "example": "Bearer"
                                         }
                                     },
                                     "type": "object"
@@ -72,7 +68,7 @@
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "Este utilizador esta inativo."
+                                            "example": "Este utilizador está inativo."
                                         }
                                     },
                                     "type": "object"
@@ -81,7 +77,20 @@
                         }
                     },
                     "422": {
-                        "description": "Credenciais inválidas"
+                        "description": "Credenciais inválidas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Credenciais inválidas"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -95,37 +104,25 @@
                 "operationId": "57d51f3fa328d534a6ee8562484d0687",
                 "responses": {
                     "200": {
-                        "description": "Authenticated user returned successfully",
+                        "description": "Utilizador autenticado returnado com sucesso",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "user": {
                                             "properties": {
-                                                "id": {
-                                                    "type": "integer",
-                                                    "example": 1
-                                                },
                                                 "name": {
                                                     "type": "string",
-                                                    "example": "Administrador"
+                                                    "example": "Miguel Ferreira"
                                                 },
                                                 "email": {
                                                     "type": "string",
                                                     "format": "email",
-                                                    "example": "admin@example.com"
+                                                    "example": "miguel.ferreira@example.pt"
                                                 },
                                                 "role": {
                                                     "type": "string",
                                                     "example": "admin"
-                                                },
-                                                "active": {
-                                                    "type": "boolean",
-                                                    "example": true
-                                                },
-                                                "must_change_password": {
-                                                    "type": "boolean",
-                                                    "example": false
                                                 }
                                             },
                                             "type": "object"
@@ -137,14 +134,14 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthenticated",
+                        "description": "Utilizador não autenticado",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "Unauthenticated."
+                                            "example": "Utilizador não autenticado."
                                         }
                                     },
                                     "type": "object"
@@ -169,7 +166,7 @@
                 "operationId": "5ff2dc8b48bff52908d3821a0ecc9b3e",
                 "responses": {
                     "200": {
-                        "description": "Logout successful",
+                        "description": "Logout efetuado com sucesso",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -185,14 +182,14 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthenticated",
+                        "description": "Não autenticado",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "Unauthenticated."
+                                            "example": "Não autenticado."
                                         }
                                     },
                                     "type": "object"
@@ -208,23 +205,62 @@
                 ]
             }
         },
-        "/api/nurse-preferences": {
-            "get": {
+        "/api/password-recovery/email": {
+            "post": {
                 "tags": [
-                    "Nurse Preferences"
+                    "Auth"
                 ],
-                "summary": "Lista todas as preferencias de enfermagem",
-                "operationId": "listNursePreferences",
+                "summary": "Envia o email de recuperação de password",
+                "operationId": "6006d69a765f3af9a08210bdd2062a7d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "miguel.ferreira@example.pt"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
-                    "200": {
-                        "description": "Lista de preferencias",
+                    "202": {
+                        "description": "Pedido aceite",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Se o email existir, será enviado um link de recuperação."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Payload inválido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Credenciais invalidas."
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -232,281 +268,162 @@
                 }
             }
         },
-        "/api/nurse-preferences/by-shift-type/{type}": {
+        "/api/password-recovery/reset": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Redefine a password com token de recuperação",
+                "operationId": "59512508145de3b7d3fd8878e042d394",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "token",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "token": {
+                                        "type": "string",
+                                        "example": "4f2d7d8f2f3f..."
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "miguel.ferreira@example.pt"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "NovaPassword123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "NovaPassword123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password redefinida com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password redefinida com sucesso."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Token inválido ou payload inválido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The given data was invalid."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "email": [
+                                                    "Token invalido."
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/password-recovery/validate-token": {
             "get": {
                 "tags": [
-                    "Nurse Preferences"
+                    "Auth"
                 ],
-                "summary": "Lista preferencias filtradas por tipo de turno",
-                "operationId": "listNursePreferencesByShiftType",
+                "summary": "Valida o token de recuperação de password",
+                "operationId": "e56744a10fe396b765a652dfbac2b448",
                 "parameters": [
                     {
-                        "name": "type",
-                        "in": "path",
-                        "description": "Tipo de turno preferido",
+                        "name": "token",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "4f2d7d8f2f3f..."
+                    },
+                    {
+                        "name": "email",
+                        "in": "query",
                         "required": true,
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "morning",
-                                "afternoon",
-                                "night"
-                            ]
-                        }
+                            "format": "email"
+                        },
+                        "example": "miguel.ferreira@example.pt"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Lista de preferencias filtradas",
+                        "description": "Token válido",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Tipo de turno nao suportado"
-                    }
-                }
-            }
-        },
-        "/api/schedules": {
-            "get": {
-                "tags": [
-                    "Schedules"
-                ],
-                "summary": "Lista todos os horarios",
-                "operationId": "listSchedules",
-                "responses": {
-                    "200": {
-                        "description": "Lista de horarios",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/schedules/{id}": {
-            "get": {
-                "tags": [
-                    "Schedules"
-                ],
-                "summary": "Obtém um horario pelo ID",
-                "operationId": "showSchedule",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID do horario",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Horario encontrado",
-                        "content": {
-                            "application/json": {
-                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Token válido."
+                                        }
+                                    },
                                     "type": "object"
                                 }
                             }
                         }
                     },
-                    "404": {
-                        "description": "Horario nao encontrado"
-                    }
-                }
-            }
-        },
-        "/api/shifts": {
-            "get": {
-                "tags": [
-                    "Shifts"
-                ],
-                "summary": "Lista todos os turnos",
-                "operationId": "listShifts",
-                "responses": {
-                    "200": {
-                        "description": "Lista de turnos",
+                    "422": {
+                        "description": "Token inválido ou expirado",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/shifts/{id}": {
-            "get": {
-                "tags": [
-                    "Shifts"
-                ],
-                "summary": "Obtém um turno pelo ID",
-                "operationId": "showShift",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID do turno",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Turno encontrado",
-                        "content": {
-                            "application/json": {
-                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "The given data was invalid."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "token": [
+                                                    "O token de recuperação é inválido ou expirou."
+                                                ]
+                                            }
+                                        }
+                                    },
                                     "type": "object"
                                 }
                             }
                         }
-                    },
-                    "404": {
-                        "description": "Turno nao encontrado"
-                    }
-                }
-            }
-        },
-        "/api/shift-types": {
-            "get": {
-                "tags": [
-                    "Shift Types"
-                ],
-                "summary": "Lista todos os tipos de turno",
-                "operationId": "listShiftTypes",
-                "responses": {
-                    "200": {
-                        "description": "Lista de tipos de turno",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/shift-types/{id}": {
-            "get": {
-                "tags": [
-                    "Shift Types"
-                ],
-                "summary": "Obtém um tipo de turno pelo ID",
-                "operationId": "showShiftType",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID do tipo de turno",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Tipo de turno encontrado",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Tipo de turno nao encontrado"
-                    }
-                }
-            }
-        },
-        "/api/users": {
-            "get": {
-                "tags": [
-                    "Users"
-                ],
-                "summary": "Lista todos os utilizadores",
-                "operationId": "listUsers",
-                "responses": {
-                    "200": {
-                        "description": "Lista de utilizadores",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/users/{id}": {
-            "get": {
-                "tags": [
-                    "Users"
-                ],
-                "summary": "Obtém um utilizador pelo ID",
-                "operationId": "showUser",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "ID do utilizador",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Utilizador encontrado",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Utilizador nao encontrado"
                     }
                 }
             }
@@ -525,26 +442,6 @@
         {
             "name": "Auth",
             "description": "Operacoes relacionadas com autenticação."
-        },
-        {
-            "name": "Users",
-            "description": "Operacoes relacionadas com utilizadores."
-        },
-        {
-            "name": "Shift Types",
-            "description": "Operacoes relacionadas com tipos de turno."
-        },
-        {
-            "name": "Nurse Preferences",
-            "description": "Operacoes relacionadas com preferencias de enfermagem."
-        },
-        {
-            "name": "Schedules",
-            "description": "Operacoes relacionadas com horarios."
-        },
-        {
-            "name": "Shifts",
-            "description": "Operacoes relacionadas com turnos."
         }
     ]
 }
