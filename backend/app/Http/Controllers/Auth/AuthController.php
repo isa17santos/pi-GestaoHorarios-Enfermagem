@@ -31,7 +31,7 @@ class AuthController extends Controller
                 required: ['email', 'password'],
                 properties: [
                     new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
-                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'NovaPassword@123'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'password'),
                 ]
             )
         ),
@@ -234,7 +234,7 @@ class AuthController extends Controller
                 description: 'Payload inválido',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'message', type: 'string', example: 'Credenciais invalidas.'),
+                        new OA\Property(property: 'message', type: 'string', example: 'O email deve ter um formato válido.'),
                     ]
                 )
             ),
@@ -242,20 +242,33 @@ class AuthController extends Controller
     )]
     public function sendPasswordRecoveryEmail(SendPasswordRecoveryEmailRequest $request): JsonResponse
     {
+        // Triggers Laravel's password broker to send the password reset link to the provided email address
         Password::sendResetLink($request->validated());
 
+        // Returns a JSON response confirming that the password recovery email has been queued/sent
         return response()->json([
             'message' => __('auth.password_recovery_email_sent'),
         ], 202);
     }
 
+    // Maps Laravel password broker status codes to translated user-friendly messages
     private function passwordBrokerStatusMessage(string $status): string
     {
         return match ($status) {
+
+            // Returned when the provided password reset token is invalid
             Password::INVALID_TOKEN => __('auth.password_reset_token_invalid'),
+
+            // Returned when no user is found for the provided credentials
             Password::INVALID_USER => __('auth.password_reset_user_not_found'),
+
+            // Returned when the password reset link has been successfully sent
             Password::RESET_LINK_SENT => __('auth.password_reset_link_sent'),
+
+            // Returned when the password has been successfully reset
             Password::PASSWORD_RESET => __('auth.password_reset_completed'),
+
+            // Fallback message for any unexpected or unmapped status
             default => __('auth.password_reset_token_invalid'),
         };
     }
@@ -272,8 +285,8 @@ class AuthController extends Controller
                 properties: [
                     new OA\Property(property: 'token', type: 'string', example: '4f2d7d8f2f3f...'),
                     new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
-                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'NovaPassword123'),
-                    new OA\Property(property: 'password_confirmation', type: 'string', format: 'password', example: 'NovaPassword123'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'NovaPassword@123'),
+                    new OA\Property(property: 'password_confirmation', type: 'string', format: 'password', example: 'NovaPassword@123'),
                 ]
             )
         ),
@@ -296,12 +309,12 @@ class AuthController extends Controller
                 description: 'Token inválido ou payload inválido',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'message', type: 'string', example: 'The given data was invalid.'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Dados inválidos.'),
                         new OA\Property(
                             property: 'errors',
                             type: 'object',
                             example: [
-                                'email' => ['Token invalido.'],
+                                'email' => ['Token inválido.'],
                             ]
                         ),
                     ]
@@ -311,26 +324,31 @@ class AuthController extends Controller
     )]
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
+        // Attempts to reset the password through Laravel's password broker using the validated request data
         $status = Password::reset(
             $request->validated(),
             function (User $user, string $password): void {
+                // Updates the user's password and clears the flag that forces a password change
                 $user->forceFill([
                     'password' => $password,
                     'must_change_password' => false,
                 ])->save();
 
+                // Revokes all existing personal access tokens so the user must authenticate again with the new password
                 $user->tokens()->delete();
 
                 event(new PasswordReset($user));
             }
         );
 
+        // Throws a validation error if the password broker did not complete the reset successfully
         if ($status !== Password::PASSWORD_RESET) {
             throw ValidationException::withMessages([
                 'token' => [$this->passwordBrokerStatusMessage($status)],
             ]);
         }
 
+        // Returns a JSON response confirming that the password was reset successfully
         return response()->json([
             'message' => __('auth.password_reset_success'),
         ]);
@@ -373,7 +391,7 @@ class AuthController extends Controller
                 description: 'Token inválido ou expirado',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'message', type: 'string', example: 'The given data was invalid.'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Dados inválidos.'),
                         new OA\Property(
                             property: 'errors',
                             type: 'object',
@@ -388,35 +406,43 @@ class AuthController extends Controller
     )]
     public function validatePasswordRecoveryToken(ValidatePasswordRecoveryTokenRequest $request): JsonResponse
     {
+        // Retrieves the already validated token and email from the request
         $validated = $request->validated();
 
+        // Looks up the user associated with the provided email address
         $user = User::where('email', $validated['email'])->first();
 
+        // Throws a validation error if no user exists for the given email
         if (! $user) {
             throw ValidationException::withMessages([
                 'token' => [__('auth.invalid_or_expired_reset_token')],
             ]);
         }
 
+        // Retrieves the password reset token record for the given email from the configured password reset table
         $record = DB::table(config('auth.passwords.users.table', 'password_reset_tokens'))
             ->where('email', $validated['email'])
             ->first();
 
+        // Throws a validation error if no reset token record exists for the given email
         if (! $record) {
             throw ValidationException::withMessages([
                 'token' => [__('auth.invalid_or_expired_reset_token')],
             ]);
         }
 
+        // Calculates the token expiration time based on the record creation time and configured expiration window
         $expiresAt = Carbon::parse($record->created_at)
             ->addMinutes((int) config('auth.passwords.users.expire', 60));
 
+        // Throws a validation error if the token has expired or does not match the hashed token stored in the database
         if ($expiresAt->isPast() || ! Hash::check($validated['token'], $record->token)) {
             throw ValidationException::withMessages([
                 'token' => [__('auth.invalid_or_expired_reset_token')],
             ]);
         }
 
+        // Returns a JSON response confirming that the password recovery token is valid
         return response()->json([
             'message' => __('auth.valid_reset_token'),
         ]);

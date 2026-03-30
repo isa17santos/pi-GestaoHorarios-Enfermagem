@@ -18,18 +18,22 @@ class ResetPasswordNotification extends Notification implements ShouldQueue
     }
 
 
+    // Specifies that this notification should be delivered through the mail channel
     public function via(object $notifiable): array
     {
         return ['mail'];
     }
 
 
+    // Builds the email message that will be sent to the user
     public function toMail(object $notifiable): MailMessage
     {
+        // Builds the frontend password reset URL with the reset token and the user's email as query parameters
         $resetUrl = rtrim(config('app.frontend_url'), '/')
             . '/reset-password?token=' . urlencode($this->token)
             . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
 
+        // Creates the reset password email message with translated subject, content, action button, expiration info, and ignore notice
         return (new MailMessage)
             ->subject(__('auth.reset_password_subject'))
             ->line(__('auth.reset_password_line'))

@@ -7,11 +7,13 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class SendPasswordRecoveryEmailRequest extends FormRequest
 {
+    // Allows any user to make this request
     public function authorize(): bool
     {
         return true;
     }
 
+    // Defines the validation rules for the password recovery email request.
     public function rules(): array
     {
         return [
@@ -19,6 +21,7 @@ class SendPasswordRecoveryEmailRequest extends FormRequest
         ];
     }
 
+    // Defines custom validation error messages using translation keys.
     public function messages(): array
     {
         return [

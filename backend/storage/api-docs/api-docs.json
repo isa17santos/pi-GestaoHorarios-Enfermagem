@@ -31,7 +31,7 @@
                                     "password": {
                                         "type": "string",
                                         "format": "password",
-                                        "example": "NovaPassword@123"
+                                        "example": "password"
                                     }
                                 },
                                 "type": "object"
@@ -257,7 +257,7 @@
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "Credenciais invalidas."
+                                            "example": "O email deve ter um formato válido."
                                         }
                                     },
                                     "type": "object"
@@ -299,12 +299,12 @@
                                     "password": {
                                         "type": "string",
                                         "format": "password",
-                                        "example": "NovaPassword123"
+                                        "example": "NovaPassword@123"
                                     },
                                     "password_confirmation": {
                                         "type": "string",
                                         "format": "password",
-                                        "example": "NovaPassword123"
+                                        "example": "NovaPassword@123"
                                     }
                                 },
                                 "type": "object"
@@ -337,13 +337,13 @@
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "The given data was invalid."
+                                            "example": "Dados inválidos."
                                         },
                                         "errors": {
                                             "type": "object",
                                             "example": {
                                                 "email": [
-                                                    "Token invalido."
+                                                    "Token inválido."
                                                 ]
                                             }
                                         }
@@ -409,7 +409,7 @@
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "The given data was invalid."
+                                            "example": "Dados inválidos."
                                         },
                                         "errors": {
                                             "type": "object",

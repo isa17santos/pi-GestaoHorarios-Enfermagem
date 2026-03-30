@@ -8,11 +8,13 @@ use Illuminate\Validation\Rules\Password;
 
 class ResetPasswordRequest extends FormRequest
 {
+    // Allows any user to make this request
     public function authorize(): bool
     {
         return true;
     }
 
+    // Defines the validation rules for the password reset request payload.
     public function rules(): array
     {
         return [
@@ -29,6 +31,7 @@ class ResetPasswordRequest extends FormRequest
         ];
     }
 
+    // Defines custom validation error messages using translation keys.
     public function messages(): array
     {
         return [

@@ -39,6 +39,7 @@ class User extends Authenticatable
         ];
     }
 
+    // Sends the password reset notification to the user with the provided reset token
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new ResetPasswordNotification($token));

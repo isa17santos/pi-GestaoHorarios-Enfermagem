@@ -7,11 +7,13 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class ValidatePasswordRecoveryTokenRequest extends FormRequest
 {
+    // Allows any user to make this request
     public function authorize(): bool
     {
         return true;
     }
 
+    // Defines the validation rules for checking a password recovery token.
     public function rules(): array
     {
         return [
@@ -20,6 +22,7 @@ class ValidatePasswordRecoveryTokenRequest extends FormRequest
         ];
     }
 
+    // Defines custom validation error messages using translation keys.
     public function messages(): array
     {
         return [

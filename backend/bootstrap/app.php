@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use App\Http\Middleware\ForceJsonResponse;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +24,14 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Apply the locale middleware globally so each request uses the correct language.
         $middleware->append(SetLocale::class);
+
+
+        // Prepend the ForceJsonResponse middleware to the API middleware group
+        // so it runs before the other API middleware and ensures requests to
+        // API routes are treated as expecting JSON responses.
+        $middleware->api(prepend: [
+            ForceJsonResponse::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Register a global exception renderer for JSON/API requests.
