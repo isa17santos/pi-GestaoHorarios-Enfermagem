@@ -64,7 +64,7 @@ return [
     | is set to "UTC" by default as it is suitable for most use cases.
     |
     */
-    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
 
     'timezone' => 'UTC',
 
