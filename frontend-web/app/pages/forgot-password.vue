@@ -1,5 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
+  // Use the default public layout for the forgot-password page
   layout: 'default',
 })
 
@@ -8,13 +9,16 @@ import logoUrl from '~/assets/images/logotipo.png'
 const config = useRuntimeConfig()
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
+// Keep track of the timeout used to clear feedback messages
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null
 
 const scheduleFeedbackClear = () => {
+  // Avoid overlapping timers when the feedback message changes
   if (feedbackTimeout) {
     clearTimeout(feedbackTimeout)
   }
 
+  // Clear both success and error messages after a short delay
   feedbackTimeout = setTimeout(() => {
     errorMessage.value = ''
     successMessage.value = ''
@@ -22,28 +26,34 @@ const scheduleFeedbackClear = () => {
 }
 
 onBeforeUnmount(() => {
+  // Clean up the timer when the component is destroyed
   if (feedbackTimeout) {
     clearTimeout(feedbackTimeout)
   }
 })
 
 
+// Reactive form model used by the forgot-password form
 const form = reactive({
   email: '',
 })
 
+// Reactive UI state for request feedback and loading
 const errorMessage = ref('')
 const successMessage = ref('')
 const isSubmitting = ref(false)
 
+// Compute the label shown on the language switch button
 const localeLabel = computed(() =>
   currentLocale.value === 'pt' ? 'English' : 'Português'
 )
 
+// Compute the language indicator shown on the switch
 const localeFlag = computed(() =>
   currentLocale.value === 'pt' ? 'en' : 'pt'
 )
 
+// Centralize all UI strings for reactive language switching
 const texts = computed(() => ({
   eyebrow:
     currentLocale.value === 'pt'
@@ -106,14 +116,17 @@ const texts = computed(() => ({
 }))
 
 const toggleLanguage = () => {
+  // Toggle the page language between Portuguese and English
   currentLocale.value = currentLocale.value === 'pt' ? 'en' : 'pt'
 }
 
 const isValidEmail = (email: string) => {
+  // Basic client-side email format validation
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 const handleSubmit = async () => {
+  // Reset previous feedback before validating a new submission
   errorMessage.value = ''
   successMessage.value = ''
 
@@ -132,6 +145,7 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
+    // Request a password recovery email from the backend
     const response = await $fetch<{ message: string }>(
       `${config.public.apiBase}/password-recovery/email`,
       {
@@ -142,15 +156,20 @@ const handleSubmit = async () => {
       }
     )
 
+    // Show the backend message or fallback success text
     successMessage.value = response.message || texts.value.success
     scheduleFeedbackClear()
+
+    // Clear the email field after a successful submission
     form.email = ''
   } catch (error: any) {
+    // Show a field-level backend error if available, otherwise use generic feedback
     errorMessage.value =
       error?.data?.errors?.email?.[0]
       || error?.data?.message
       || texts.value.genericError
   } finally {
+    // Re-enable the submit button after the request completes
     isSubmitting.value = false
   }
 }

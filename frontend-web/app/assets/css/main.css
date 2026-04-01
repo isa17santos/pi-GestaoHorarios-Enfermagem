@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
+/* ------- DEFAULT COLORS -------- */
 :root {
   --bg: #fcf8ff;
   --surface: rgba(255, 255, 255, 0.82);
@@ -16,6 +17,8 @@
   --danger-background: #f6c79295; 
   --shadow: 0 24px 60px rgba(102, 67, 155, 0.18);
 }
+/* ------- DEFAULT COLORS -------- */
+
 
 * {
   box-sizing: border-box;
@@ -53,6 +56,8 @@ input {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
 }
+
+/* -------- BRAND PANEL LOGIN ------- */
 
 .brand-panel {
   position: relative;
@@ -167,6 +172,10 @@ input {
   background-size: 34px 34px;
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent 90%);
 }
+/* -------- BRAND PANEL LOGIN ------- */
+
+
+
 
 .login-panel {
   display: flex;

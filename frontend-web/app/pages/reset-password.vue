@@ -1,5 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
+    // Use the default public layout for the reset-password page
     layout: 'default',
 })
 
@@ -9,6 +10,7 @@ const config = useRuntimeConfig()
 const route = useRoute()
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
+// Reactive form model used by the reset-password form
 const form = reactive({
     email: '',
     token: '',
@@ -16,19 +18,24 @@ const form = reactive({
     password_confirmation: '',
 })
 
+
+// Keep track of the timeout used to clear feedback messages
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null
 
 const scheduleFeedbackClear = () => {
+    // Avoid overlapping timers when feedback changes
     if (feedbackTimeout) {
         clearTimeout(feedbackTimeout)
     }
 
+    // Clear both error and success messages after a short delay
     feedbackTimeout = setTimeout(() => {
         errorMessage.value = ''
         successMessage.value = ''
     }, 4000)
 }
 
+// Reactive UI state used by the page
 const errorMessage = ref('')
 const successMessage = ref('')
 const isSubmitting = ref(false)
@@ -39,22 +46,26 @@ const showPassword = ref(false)
 const showPasswordConfirmation = ref(false)
 
 const togglePasswordVisibility = () => {
+    // Toggle visibility of the new password field
     showPassword.value = !showPassword.value
 }
 
 const togglePasswordConfirmationVisibility = () => {
+    // Toggle visibility of the confirmation password field
     showPasswordConfirmation.value = !showPasswordConfirmation.value
 }
 
-
+// Compute the label shown on the language switch button
 const localeLabel = computed(() =>
     currentLocale.value === 'pt' ? 'English' : 'Português'
 )
 
+// Compute the language indicator shown on the switch
 const localeFlag = computed(() =>
     currentLocale.value === 'pt' ? 'en' : 'pt'
 )
 
+// Centralize all UI strings for reactive language switching
 const texts = computed(() => ({
     eyebrow:
         currentLocale.value === 'pt'
@@ -140,6 +151,7 @@ const texts = computed(() => ({
 }))
 
 const toggleLanguage = () => {
+    // Toggle the page language between Portuguese and English
     currentLocale.value = currentLocale.value === 'pt' ? 'en' : 'pt'
 }
 
@@ -147,12 +159,15 @@ const validateToken = async () => {
     errorMessage.value = ''
     isCheckingToken.value = true
 
+    // Read the token and email from the query string
     const token = String(route.query.token || '')
     const email = String(route.query.email || '')
 
+    // Mirror the query values into the reactive form model
     form.token = token
     form.email = email
 
+    // The page cannot proceed without both token and email
     if (!token || !email) {
         isValidToken.value = false
         errorMessage.value = texts.value.tokenInvalid
@@ -162,6 +177,7 @@ const validateToken = async () => {
     }
 
     try {
+        // Ask the backend to validate the recovery token before showing the form
         await $fetch(`${config.public.apiBase}/password-recovery/validate-token`, {
             method: 'GET',
             query: {
@@ -172,6 +188,7 @@ const validateToken = async () => {
 
         isValidToken.value = true
     } catch (error: any) {
+        // Mark the token as invalid and show the most relevant backend message
         isValidToken.value = false
         errorMessage.value =
             error?.data?.errors?.token?.[0]
@@ -179,11 +196,13 @@ const validateToken = async () => {
             || texts.value.tokenInvalid
         scheduleFeedbackClear()
     } finally {
+        // Stop the loading state after validation completes
         isCheckingToken.value = false
     }
 }
 
 const handleSubmit = async () => {
+    // Reset previous feedback before validating a new submission
     errorMessage.value = ''
     successMessage.value = ''
 
@@ -208,6 +227,7 @@ const handleSubmit = async () => {
     isSubmitting.value = true
 
     try {
+        // Submit the new password together with the validated token and email
         const response = await $fetch<{ message: string }>(
             `${config.public.apiBase}/password-recovery/reset`,
             {
@@ -221,15 +241,21 @@ const handleSubmit = async () => {
             }
         )
 
+        // Show the success message returned by the backend
         successMessage.value = response.message || texts.value.success
+
+        // Clear sensitive password fields after a successful reset
         form.password = ''
         form.password_confirmation = ''
+
         scheduleFeedbackClear()
 
+        // Redirect the user back to the login page after a short delay
         setTimeout(() => {
             navigateTo('/')
         }, 2000)
     } catch (error: any) {
+        // Show the most specific backend validation error available
         errorMessage.value =
             error?.data?.errors?.password?.[0]
             || error?.data?.errors?.token?.[0]
@@ -237,11 +263,13 @@ const handleSubmit = async () => {
             || texts.value.tokenInvalid
         scheduleFeedbackClear()
     } finally {
+        // Re-enable the submit button after the request completes
         isSubmitting.value = false
     }
 }
 
 onMounted(() => {
+    // Validate the token as soon as the page loads
     validateToken()
 })
 </script>

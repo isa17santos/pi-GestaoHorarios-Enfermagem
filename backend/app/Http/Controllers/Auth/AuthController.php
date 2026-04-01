@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 
@@ -88,10 +89,25 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Create a new Sanctum personal access token for this authenticated user.
+        // If the user is required to change their password, do not authenticate them yet.
+        // Instead, generate a Laravel password reset token so the frontend can redirect
+        // them to the existing reset-password flow and reuse the current reset endpoint.
+        if ($user->must_change_password) {
+            $resetToken = Password::createToken($user);
+
+            return response()->json([
+                'message' => 'Tem que alterar a password',
+                'must_change_password' => true,
+                'email' => $user->email,
+                'password_reset_token' => $resetToken,
+            ]);
+        }
+
+        // Create a new Sanctum personal access token only when the user is allowed
+        // to complete the login flow and access the application immediately.
         $token = $user->createToken('auth-token')->plainTextToken;
 
-        // Return the token and the authenticated user data.
+        // Return the API token and the authenticated user's public data
         return response()->json([
             'message' => __('auth.login_success'),
             'token' => $token,
@@ -99,6 +115,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role instanceof \BackedEnum ? $user->role->value : $user->role,
+                'must_change_password' => $user->must_change_password,
             ],
         ]);
     }
@@ -146,12 +163,15 @@ class AuthController extends Controller
         // Get the currently authenticated user from the bearer token.
         $user = $request->user();
 
-        // Return the authenticated user's public data.
+        // Return the authenticated user's public data, including the
+        // must_change_password flag so the frontend can preserve the
+        // forced-password-change flow after page reloads
         return response()->json([
             'user' => [
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role instanceof \BackedEnum ? $user->role->value : $user->role,
+                'must_change_password' => $user->must_change_password,
             ],
         ]);
     }

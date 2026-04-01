@@ -54,6 +54,36 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
+            [
+                'name' => 'Andre Sousa',
+                'email' => 'andre.sousa@example.pt',
+                'password' => Hash::make('password'),
+                'role' => UserRole::Nurse->value,
+                'active' => true,
+                'must_change_password' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'name' => 'Bruno Andrade',
+                'email' => 'bruno.andrade@example.pt',
+                'password' => Hash::make('password'),
+                'role' => UserRole::Nurse->value,
+                'active' => true,
+                'must_change_password' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'name' => 'Julio Magalhaes',
+                'email' => 'julio.magalhaes@example.pt',
+                'password' => Hash::make('password'),
+                'role' => UserRole::Nurse->value,
+                'active' => true,
+                'must_change_password' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
         ]);
 
         collect([

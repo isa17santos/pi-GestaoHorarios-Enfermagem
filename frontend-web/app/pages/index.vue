@@ -1,23 +1,28 @@
 <script setup lang="ts">
 definePageMeta({
+  // Use the default public layout for the login page.
   layout: 'default',
 })
 
 import logoUrl from '~/assets/images/logotipo.png'
 
+// Keep track of the timeout used to clear feedback messages
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null
 
 const scheduleFeedbackClear = () => {
+  // Avoid multiple overlapping timers when feedback changes quickly
   if (feedbackTimeout) {
     clearTimeout(feedbackTimeout)
   }
 
+  // Clear the visible error message after a short delay
   feedbackTimeout = setTimeout(() => {
     errorMessage.value = ''
   }, 4000)
 }
 
 onBeforeUnmount(() => {
+  // Clean up the timer when the component is destroyed
   if (feedbackTimeout) {
     clearTimeout(feedbackTimeout)
   }
@@ -27,30 +32,38 @@ onBeforeUnmount(() => {
 const showPassword = ref(false)
 
 const togglePasswordVisibility = () => {
+  // Toggle between hidden and visible password input
   showPassword.value = !showPassword.value
 }
 
-
+// Access the auth helpers needed for login and redirect checks
 const { login, isLoggedIn } = useAuth()
 
+// Reactive form model used by the login form inputs
 const form = reactive({
   email: '',
   password: '',
 })
 
+// Reactive UI state for form feedback and submission status
 const errorMessage = ref('')
 const isSubmitting = ref(false)
 
+
+// Store the current language selection globally
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
+// Compute the label shown on the language switch button
 const localeLabel = computed(() =>
   currentLocale.value === 'pt' ? 'English' : 'Português'
 )
 
+// Compute the language indicator shown on the switch
 const localeFlag = computed(() =>
   currentLocale.value === 'pt' ? 'en' : 'pt'
 )
 
+// Centralize all UI texts so the page can switch language reactively
 const texts = computed(() => ({
   brandTitle:
     currentLocale.value === 'pt'
@@ -115,18 +128,22 @@ const texts = computed(() => ({
 
 
 const toggleLanguage = () => {
+  // Toggle the page language between Portuguese and English
   currentLocale.value = currentLocale.value === 'pt' ? 'en' : 'pt'
 }
 
+// Redirect already authenticated users away from the login page
 if (process.client && isLoggedIn.value) {
   await navigateTo('/dashboard')
 }
 
 const isValidEmail = (email: string) => {
+  // Basic client-side email format validation
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 const handleLogin = async () => {
+  // Reset the previous error before validating the new submission
   errorMessage.value = ''
 
   if (!form.email.trim()) {
@@ -150,11 +167,31 @@ const handleLogin = async () => {
   isSubmitting.value = true
 
   try {
-    await login(form.email, form.password)
+    // Attempt to log in through the backend API
+    const response = await login(form.email, form.password)
+
+    // If the backend requires a password change, redirect the user
+    // to the reset-password page with the token and email expected by that flow
+    if (response.must_change_password) {
+      await navigateTo({
+        path: '/reset-password',
+        query: {
+          token: response.password_reset_token,
+          email: response.email,
+        },
+      })
+      return
+    }
+
+    // Otherwise, send the authenticated user to the dashboard
     await navigateTo('/dashboard')
   } catch (error: any) {
-    errorMessage.value = texts.value.validation.invalidCredentials
+    // Show the backend error if available, or fallback to a generic login message
+    errorMessage.value =
+      error?.data?.message || texts.value.validation.invalidCredentials
+    scheduleFeedbackClear()
   } finally {
+    // Re-enable the submit button after the request completes
     isSubmitting.value = false
   }
 }
