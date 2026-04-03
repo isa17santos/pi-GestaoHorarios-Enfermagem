@@ -255,12 +255,20 @@ const handleSubmit = async () => {
             navigateTo('/')
         }, 2000)
     } catch (error: any) {
-        // Show the most specific backend validation error available
+        // Keep this specific backend password complexity error aligned with the current UI language.
+        const passwordError = error?.data?.errors?.password?.[0]
+        const backendMessage = error?.data?.message
+        const isPortuguesePasswordComplexity =
+            passwordError === 'A password deve ter pelo menos 8 caracteres, uma letra maiúscula, uma letra minúscula e um caracter especial.'
+            || backendMessage === 'A password deve ter pelo menos 8 caracteres, uma letra maiúscula, uma letra minúscula e um caracter especial.'
+
         errorMessage.value =
-            error?.data?.errors?.password?.[0]
-            || error?.data?.errors?.token?.[0]
-            || error?.data?.message
-            || texts.value.tokenInvalid
+            isPortuguesePasswordComplexity
+                ? texts.value.passwordHint
+                : passwordError
+                || error?.data?.errors?.token?.[0]
+                || backendMessage
+                || texts.value.tokenInvalid
         scheduleFeedbackClear()
     } finally {
         // Re-enable the submit button after the request completes

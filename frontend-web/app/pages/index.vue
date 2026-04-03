@@ -186,9 +186,15 @@ const handleLogin = async () => {
     // Otherwise, send the authenticated user to the dashboard
     await navigateTo('/dashboard')
   } catch (error: any) {
-    // Show the backend error if available, or fallback to a generic login message
+    // Keep this specific backend login error aligned with the current UI language.
+    const backendMessage = error?.data?.message
+    const isPortugueseInvalidCredentials =
+      backendMessage === 'As credenciais fornecidas sao invalidas.'
+
     errorMessage.value =
-      error?.data?.message || texts.value.validation.invalidCredentials
+      isPortugueseInvalidCredentials
+        ? texts.value.validation.invalidCredentials
+        : backendMessage || texts.value.validation.invalidCredentials
     scheduleFeedbackClear()
   } finally {
     // Re-enable the submit button after the request completes

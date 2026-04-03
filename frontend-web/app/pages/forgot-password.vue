@@ -156,8 +156,15 @@ const handleSubmit = async () => {
       }
     )
 
-    // Show the backend message or fallback success text
-    successMessage.value = response.message || texts.value.success
+    // Keep this specific backend success message aligned with the current UI language.
+    const backendMessage = response.message
+    const isPortugueseRecoverySuccess =
+      backendMessage === 'Se o email existir, será enviado um link de recuperação.'
+
+    successMessage.value =
+      isPortugueseRecoverySuccess
+        ? texts.value.success
+        : backendMessage || texts.value.success
     scheduleFeedbackClear()
 
     // Clear the email field after a successful submission
