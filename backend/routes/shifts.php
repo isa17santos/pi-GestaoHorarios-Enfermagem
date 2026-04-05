@@ -1,0 +1,9 @@
+<?php
+
+use App\Http\Controllers\ShiftController;
+use Illuminate\Support\Facades\Route;
+
+// Individual shift creation endpoint.
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/shifts', [ShiftController::class, 'store']);
+});
