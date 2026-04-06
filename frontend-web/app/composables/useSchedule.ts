@@ -47,29 +47,29 @@ type ShiftType = {
 
 // Response shape for fetching multiple nurses
 type NursesResponse = {
-  nurses: Nurse[]
+  data: Nurse[]
 }
 
 // Response shape for fetching a single nurse's preferences
 type NursePreferencesResponse = {
-  preferences: NursePreference[]
+  data: NursePreference[]
 }
 
 // Response shape for fetching shift types
 type ShiftTypesResponse = {
-  shift_types: ShiftType[]
+  data: ShiftType[]
 }
 
 // Response shape when creating a schedule
 type CreateScheduleResponse = {
   message: string
-  schedule: Schedule
+  data: Schedule
 }
 
 // Response shape when creating a shift
 type CreateShiftResponse = {
   message: string
-  shift: Shift
+  data: Shift
 }
 
 export const useSchedule = () => {
@@ -157,7 +157,7 @@ export const useSchedule = () => {
 
       // Fetch preferences for each nurse
       const nursesWithPreferences = await Promise.all(
-        nursesResponse.nurses.map(async (nurse) => {
+        nursesResponse.data.map(async (nurse) => {
           try {
             const preferencesResponse = await $fetch<NursePreferencesResponse>(
               `${config.public.apiBase}/users/${nurse.id}/preferences`,
@@ -167,9 +167,10 @@ export const useSchedule = () => {
                 },
               }
             )
+
             return {
               ...nurse,
-              preferences: preferencesResponse.preferences,
+              preferences: preferencesResponse.data,
             }
           } catch (error) {
             // If preferences fail for a specific nurse, continue without them
@@ -209,8 +210,8 @@ export const useSchedule = () => {
         }
       )
 
-      shiftTypes.value = response.shift_types
-      return response.shift_types
+      shiftTypes.value = response.data
+      return response.data
     } catch (error) {
       errorShiftTypes.value = error instanceof Error ? error.message : 'Failed to fetch shift types'
       console.error('Error fetching shift types:', error)
@@ -244,9 +245,9 @@ export const useSchedule = () => {
         }
       )
 
-      schedule.value = response.schedule
+      schedule.value = response.data
       shifts.value = [] // Reset shifts for the new schedule
-      return response.schedule
+      return response.data
     } catch (error) {
       errorScheduleCreation.value = error instanceof Error ? error.message : 'Failed to create schedule'
       console.error('Error creating schedule:', error)
@@ -287,8 +288,8 @@ export const useSchedule = () => {
       )
 
       // Add the new shift to the shifts array
-      shifts.value.push(response.shift)
-      return response.shift
+      shifts.value.push(response.data)
+      return response.data
     } catch (error) {
       errorShiftCreation.value = error instanceof Error ? error.message : 'Failed to create shift'
       console.error('Error creating shift:', error)

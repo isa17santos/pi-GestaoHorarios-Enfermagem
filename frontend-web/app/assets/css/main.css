@@ -389,6 +389,115 @@ input {
   margin-top: 18px;
 }
 
+.dashboard-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 12px;
+}
+
+.schedule-page {
+  padding: 120px 24px 40px;
+}
+
+.schedule-card {
+  width: min(100%, 980px);
+}
+
+.schedule-intro {
+  margin: 10px 0 26px;
+  color: var(--muted);
+}
+
+.schedule-period {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.schedule-shift-block {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.schedule-shift-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.schedule-shift-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.schedule-remove-button,
+.schedule-secondary-button {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.schedule-remove-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.schedule-shift-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.schedule-select {
+  width: 100%;
+  height: 60px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+}
+
+.schedule-nurse-list {
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.schedule-nurse-list legend {
+  padding: 0 6px;
+  color: var(--muted);
+}
+
+.schedule-nurse-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.schedule-nurse-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.schedule-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .login-shell {
   position: relative;
 }
@@ -615,6 +724,34 @@ input {
 
   .login-card__header {
     align-items: flex-start;
+  }
+
+  .dashboard-link-button {
+    margin-left: 0;
+  }
+
+  .schedule-page {
+    padding: 104px 16px 24px;
+  }
+
+  .schedule-card {
+    padding: 24px;
+  }
+
+  .schedule-period,
+  .schedule-shift-fields,
+  .schedule-nurse-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-actions-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .schedule-secondary-button,
+  .schedule-actions-row .login-button {
+    width: 100%;
   }
 
   .login-card h2 {
