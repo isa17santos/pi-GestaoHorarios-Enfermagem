@@ -498,6 +498,144 @@ input {
   gap: 14px;
 }
 
+.schedule-grid-page {
+  align-content: start;
+}
+
+.schedule-grid-card {
+  width: min(100%, 1280px);
+}
+
+.schedule-grid-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.schedule-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.schedule-month-label {
+  text-transform: capitalize;
+  min-width: 170px;
+  text-align: center;
+}
+
+.schedule-legend {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.schedule-legend__title {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.schedule-legend__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schedule-legend__item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.schedule-grid-container {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.schedule-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 1280px;
+}
+
+.schedule-grid th,
+.schedule-grid td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.schedule-grid__nurse-header,
+.schedule-grid__nurse-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.95);
+  min-width: 190px;
+  max-width: 190px;
+  text-align: left;
+  padding: 12px;
+}
+
+.schedule-grid__nurse-header {
+  z-index: 3;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.schedule-grid__day-header {
+  min-width: 60px;
+  text-align: center;
+  padding: 10px 6px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.schedule-grid__day-header.is-weekend,
+.schedule-grid__cell.is-weekend {
+  background: rgba(236, 229, 248, 0.65);
+}
+
+.schedule-grid__cell {
+  min-width: 60px;
+  height: 56px;
+  text-align: center;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.schedule-grid__cell-text {
+  display: inline-block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #4f3b76;
+}
+
+.schedule-grid__select {
+  width: 100%;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 0 4px;
+}
+
+.schedule-grid__feedback {
+  text-align: center;
+  color: var(--muted);
+  padding: 18px;
+}
+
 .login-shell {
   position: relative;
 }

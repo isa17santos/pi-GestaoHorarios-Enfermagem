@@ -79,7 +79,20 @@ export const useSchedule = () => {
   // ==================== STATE ====================
 
   // The current schedule being created/edited
-  const schedule = useState<Schedule | null>('schedule.current', () => null)
+  const schedule = useState<Schedule | null>('schedule.current', () => {
+    if (process.client) {
+      const rawSchedule = localStorage.getItem('schedule.current')
+      if (rawSchedule) {
+        try {
+          return JSON.parse(rawSchedule) as Schedule
+        } catch {
+          localStorage.removeItem('schedule.current')
+        }
+      }
+    }
+
+    return null
+  })
 
   // Array of shifts for the current schedule
   const shifts = useState<Shift[]>('schedule.shifts', () => [])
@@ -246,6 +259,11 @@ export const useSchedule = () => {
       )
 
       schedule.value = response.data
+
+      if (process.client) {
+        localStorage.setItem('schedule.current', JSON.stringify(response.data))
+      }
+
       shifts.value = [] // Reset shifts for the new schedule
       return response.data
     } catch (error) {
