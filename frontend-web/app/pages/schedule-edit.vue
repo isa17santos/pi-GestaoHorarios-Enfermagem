@@ -3,6 +3,8 @@ definePageMeta({
   middleware: 'auth',
 })
 
+// ==================== Dependencies ====================
+
 // Pull schedule state and actions from the composable.
 const {
   schedule,
@@ -27,11 +29,15 @@ const {
 const { user, fetchMe } = useAuth()
 const route = useRoute()
 
+// ==================== Access Control ====================
+
 // Returns true if the current user is allowed to create/edit schedules.
 const canCreateSchedule = computed(() => {
   const normalizedRole = user.value?.role?.trim().toLowerCase() || ''
   return normalizedRole === 'admin' || normalizedRole === 'head nurse' || normalizedRole === 'head_nurse'
 })
+
+// ==================== Local UI State ====================
 
 // Local feedback messages shown to the user.
 const localError = ref('')
@@ -57,6 +63,8 @@ const hoveredCellKey = ref<string | null>(null)
 
 // In-memory map of cell assignments: "nurseId::YYYY-MM-DD" -> shiftTypeId.
 const cellAssignments = ref<Record<string, number | null>>({})
+
+// ==================== Computed View State ====================
 
 // Reads and validates the schedule id from the URL query string.
 const scheduleId = computed(() => {
@@ -108,6 +116,8 @@ const shiftTypeStyleMap = computed(() => {
   }, {})
 })
 
+// ==================== Grid Helpers ====================
+
 // Returns a unique key for a grid cell in the format "nurseId::YYYY-MM-DD".
 const getCellKey = (nurseId: number, dateIso: string) => `${nurseId}::${dateIso}`
 
@@ -115,6 +125,75 @@ const getCellKey = (nurseId: number, dateIso: string) => `${nurseId}::${dateIso}
 const getCellShiftTypeId = (nurseId: number, dateIso: string) => {
   return cellAssignments.value[getCellKey(nurseId, dateIso)] ?? null
 }
+
+// ==================== Preference Helpers ====================
+
+// Returns the nurse preference object for the current schedule.
+const getNursePreference = (nurseId: number) => {
+  const nurse = nurses.value.find((item) => item.id === nurseId)
+  const preferences = nurse?.preferences
+
+  if (!preferences || !Array.isArray(preferences)) return null
+  return preferences.find((pref) => pref.schedule_id === scheduleId.value) ?? preferences[0]
+}
+
+const isWeekendDateIso = (dateIso: string) => {
+  const date = new Date(`${dateIso}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return false
+  const weekDay = date.getDay()
+  return weekDay === 0 || weekDay === 6
+}
+
+const goesAgainstPreference = (nurseId: number, dateIso: string, shiftTypeId: number): boolean => {
+  const preference = getNursePreference(nurseId)
+  if (!preference) return false
+
+  const shiftName = getShiftTypeNameById(shiftTypeId).trim().toLowerCase()
+  if (shiftName === 'morning' && preference.prefers_morning === false) return true
+  if (shiftName === 'afternoon' && preference.prefers_afternoon === false) return true
+  if (shiftName === 'night' && preference.prefers_night === false) return true
+  if (isWeekendDateIso(dateIso) && preference.avoid_weekends) return true
+
+  return false
+}
+
+const getNursePreferenceSummary = (nurseId: number) => computed(() => {
+  const preference = getNursePreference(nurseId)
+  if (!preference) {
+    return {
+      conflicts: 0,
+      preferenceText: 'Sem preferências definidas',
+    }
+  }
+
+  let conflicts = 0
+  for (const day of monthDays.value) {
+    const shiftTypeId = getCellShiftTypeId(nurseId, day.dateIso)
+    if (shiftTypeId !== null && goesAgainstPreference(nurseId, day.dateIso, shiftTypeId)) {
+      conflicts += 1
+    }
+  }
+
+  const preferredTimes: string[] = []
+  if (preference.prefers_morning) preferredTimes.push('manhã')
+  if (preference.prefers_afternoon) preferredTimes.push('tarde')
+  if (preference.prefers_night) preferredTimes.push('noite')
+  if (preference.prefers_weekends && !preference.avoid_weekends) preferredTimes.push('fins de semana')
+
+  const parts: string[] = []
+  if (preferredTimes.length) {
+    parts.push(`Prefere: ${preferredTimes.join(', ')}.`)
+  }
+
+  if (preference.avoid_weekends) {
+    parts.push('Evita: fins de semana.')
+  }
+
+  return {
+    conflicts,
+    preferenceText: parts.length > 0 ? parts.join(' ') : 'Sem preferências definidas',
+  }
+})
 
 // Returns the display name for a shift type, or an empty string if not found.
 const getShiftTypeNameById = (shiftTypeId: number | null): string => {
@@ -128,6 +207,131 @@ const getShiftTypeBackgroundColor = (shiftTypeId: number | null) => {
   return shiftTypeStyleMap.value[shiftTypeId] || ''
 }
 
+// ==================== Validation Helpers ====================
+
+// Returns ids for shift types that represent blocking absences.
+const blockingShiftTypeIds = computed(() => {
+  const blockingNames = new Set(['dayoff', 'holidays', 'sick leave', 'parental leave'])
+
+  return shiftTypes.value.reduce<Set<number>>((acc, shiftType) => {
+    const normalizedName = shiftType.name.trim().toLowerCase()
+
+    if (blockingNames.has(normalizedName)) {
+      acc.add(shiftType.id)
+    }
+
+    return acc
+  }, new Set<number>())
+})
+
+type FillValidationResult = {
+  allowed: boolean
+  reason?: 'overlap' | 'rest_warning'
+}
+
+// Parses HH:mm:ss into total minutes.
+const toMinutes = (time: string) => {
+  const [hoursRaw, minutesRaw] = time.split(':')
+  const hours = Number(hoursRaw)
+  const minutes = Number(minutesRaw)
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
+  return (hours * 60) + minutes
+}
+
+// Returns the dateIso for the previous/next day.
+const getRelativeDateIso = (dateIso: string, dayOffset: number) => {
+  const date = new Date(`${dateIso}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return null
+
+  date.setDate(date.getDate() + dayOffset)
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+const shiftCrossesMidnight = (shiftType: { start_time: string; end_time: string }) => {
+  const startMinutes = toMinutes(shiftType.start_time)
+  const endMinutes = toMinutes(shiftType.end_time)
+  if (startMinutes === null || endMinutes === null) return false
+  return endMinutes <= startMinutes
+}
+
+const effectiveShiftEndMinutes = (shiftType: { start_time: string; end_time: string }) => {
+  const endMinutes = toMinutes(shiftType.end_time)
+  if (endMinutes === null) return null
+
+  return shiftCrossesMidnight(shiftType)
+    ? endMinutes + 24 * 60
+    : endMinutes
+}
+
+const restGapAfterPreviousShift = (
+  previousShiftType: { start_time: string; end_time: string },
+  nextShiftType: { start_time: string; end_time: string }
+) => {
+  const previousEndAbsolute = effectiveShiftEndMinutes(previousShiftType)
+  const nextStartMinutes = toMinutes(nextShiftType.start_time)
+
+  if (previousEndAbsolute === null || nextStartMinutes === null) return null
+
+  return (nextStartMinutes + 24 * 60) - previousEndAbsolute
+}
+
+// Returns true when assigning a shift creates a sub-11h rest interval with adjacent days.
+const hasRestWarningForAssignment = (nurseId: number, dateIso: string, shiftTypeId: number) => {
+  if (blockingShiftTypeIds.value.has(shiftTypeId)) return false
+
+  const previousDateIso = getRelativeDateIso(dateIso, -1)
+  if (previousDateIso) {
+    const previousShiftTypeId = getCellShiftTypeId(nurseId, previousDateIso)
+
+    if (previousShiftTypeId && !blockingShiftTypeIds.value.has(previousShiftTypeId)) {
+      const previousShiftType = shiftTypes.value.find((item) => item.id === previousShiftTypeId)
+      const currentShiftType = shiftTypes.value.find((item) => item.id === shiftTypeId)
+
+      if (previousShiftType && currentShiftType) {
+        const gap = restGapAfterPreviousShift(previousShiftType, currentShiftType)
+        if (gap !== null && gap < 11 * 60) {
+          return true
+        }
+      }
+    }
+  }
+
+  const nextDateIso = getRelativeDateIso(dateIso, 1)
+  if (nextDateIso) {
+    const nextShiftTypeId = getCellShiftTypeId(nurseId, nextDateIso)
+
+    if (nextShiftTypeId && !blockingShiftTypeIds.value.has(nextShiftTypeId)) {
+      const currentShiftType = shiftTypes.value.find((item) => item.id === shiftTypeId)
+      const nextShiftType = shiftTypes.value.find((item) => item.id === nextShiftTypeId)
+
+      if (currentShiftType && nextShiftType) {
+        const gap = restGapAfterPreviousShift(currentShiftType, nextShiftType)
+        if (gap !== null && gap < 11 * 60) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
+// Returns true if a filled cell should show the rest warning indicator.
+const hasCellRestWarning = (nurseId: number, dateIso: string) => {
+  const shiftTypeId = getCellShiftTypeId(nurseId, dateIso)
+  if (!shiftTypeId) return false
+
+  return hasRestWarningForAssignment(nurseId, dateIso, shiftTypeId)
+}
+
+// ==================== Fill Validation ====================
+
 // Returns true when the date is inside the schedule period.
 const isDateWithinScheduleRange = (dateIso: string) => {
   if (!schedule.value) return false
@@ -138,14 +342,64 @@ const isDateWithinScheduleRange = (dateIso: string) => {
   return dateIso >= startDate && dateIso <= endDate
 }
 
-// Returns true if a cell can receive a new assignment.
-const canFillCell = (nurseId: number, dateIso: string) => {
-  if (!selectedShiftTypeId.value) return false
-  if (!isDateWithinScheduleRange(dateIso)) return false
+// Returns the fill result for a cell, including hard-block reasons.
+const canFillCell = (nurseId: number, dateIso: string): FillValidationResult => {
+  if (!selectedShiftTypeId.value) return { allowed: false }
+  if (!isDateWithinScheduleRange(dateIso)) return { allowed: false }
 
   const currentShiftTypeId = getCellShiftTypeId(nurseId, dateIso)
-  return currentShiftTypeId === null
+
+  // A cell with a blocking absence cannot receive any other assignment.
+  if (currentShiftTypeId && blockingShiftTypeIds.value.has(currentShiftTypeId)) {
+    return { allowed: false }
+  }
+
+  // A blocking shift type can only be assigned to an empty cell.
+  if (blockingShiftTypeIds.value.has(selectedShiftTypeId.value) && currentShiftTypeId !== null) {
+    return { allowed: false }
+  }
+
+  if (currentShiftTypeId !== null) {
+    return { allowed: false, reason: 'overlap' }
+  }
+
+  const selectedShiftType = shiftTypes.value.find((item) => item.id === selectedShiftTypeId.value)
+  if (!selectedShiftType) return { allowed: false }
+
+  const previousDateIso = getRelativeDateIso(dateIso, -1)
+  if (previousDateIso) {
+    const previousShiftTypeId = getCellShiftTypeId(nurseId, previousDateIso)
+
+    if (previousShiftTypeId && !blockingShiftTypeIds.value.has(previousShiftTypeId)) {
+      const previousShiftType = shiftTypes.value.find((item) => item.id === previousShiftTypeId)
+      if (previousShiftType) {
+        const gap = restGapAfterPreviousShift(previousShiftType, selectedShiftType)
+        if (gap !== null && gap < 11 * 60) {
+          return { allowed: true, reason: 'rest_warning' }
+        }
+      }
+    }
+  }
+
+  const nextDateIso = getRelativeDateIso(dateIso, 1)
+  if (nextDateIso) {
+    const nextShiftTypeId = getCellShiftTypeId(nurseId, nextDateIso)
+
+    if (nextShiftTypeId && !blockingShiftTypeIds.value.has(nextShiftTypeId)) {
+      const nextShiftType = shiftTypes.value.find((item) => item.id === nextShiftTypeId)
+      if (nextShiftType) {
+        const gap = restGapAfterPreviousShift(selectedShiftType, nextShiftType)
+        if (gap !== null && gap < 11 * 60) {
+          return { allowed: true, reason: 'rest_warning' }
+        }
+      }
+    }
+  }
+
+  return { allowed: true }
 }
+
+// ==================== Cell Update Actions ====================
 
 // Stores or updates the shift type assignment for a cell. Pass null to clear it.
 const setCellAssignment = (nurseId: number, dateIso: string, shiftTypeId: number | null) => {
@@ -156,10 +410,14 @@ const setCellAssignment = (nurseId: number, dateIso: string, shiftTypeId: number
 // Applies the selected shift type to one cell if allowed by the fill rules.
 const fillCell = (nurseId: number, dateIso: string) => {
   if (!selectedShiftTypeId.value) return
-  if (!canFillCell(nurseId, dateIso)) return
+
+  const fillResult = canFillCell(nurseId, dateIso)
+  if (!fillResult.allowed) return
 
   setCellAssignment(nurseId, dateIso, selectedShiftTypeId.value)
 }
+
+// ==================== Interaction Handlers ====================
 
 // Selects or unselects a shift type from the toolbar.
 const selectShiftType = (shiftTypeId: number) => {
@@ -194,6 +452,7 @@ const handleCellClick = (nurseId: number, dateIso: string) => {
 
 // Clears one cell assignment.
 const clearCellAssignment = (nurseId: number, dateIso: string) => {
+  // Clearing is always allowed, including blocking shift types.
   setCellAssignment(nurseId, dateIso, null)
 }
 
@@ -206,6 +465,8 @@ const setHoveredCell = (nurseId: number, dateIso: string) => {
 const clearHoveredCell = () => {
   hoveredCellKey.value = null
 }
+
+// ==================== Month Navigation ====================
 
 // Navigates to the previous month, wrapping from January to December of the previous year.
 const goToPreviousMonth = () => {
@@ -222,6 +483,8 @@ const goToNextMonth = () => {
   setSelectedPeriod(month, year)
   handleCellMouseUp()
 }
+
+// ==================== Data Sync ====================
 
 // Syncs the visible month/year with the schedule's start date stored in the composable.
 const applyScheduleMonthFromState = () => {
@@ -249,6 +512,8 @@ const loadExistingAssignmentsFromState = () => {
 
   cellAssignments.value = nextAssignments
 }
+
+// ==================== Save Flow ====================
 
 // Saves all filled grid cells to the API, one request per assignment.
 const saveGridAssignments = async () => {
@@ -320,6 +585,8 @@ const saveGridAssignments = async () => {
   }
 }
 
+// ==================== Persistence Helpers ====================
+
 // Stops drag fill when the mouse is released outside the table.
 const handleGlobalMouseUp = () => {
   handleCellMouseUp()
@@ -345,6 +612,8 @@ const tryRestoreScheduleFromStorage = (expectedScheduleId: number): boolean => {
     return false
   }
 }
+
+// ==================== Lifecycle ====================
 
 onMounted(async () => {
   if (process.client) {
@@ -404,10 +673,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- ==================== Page Layout ==================== -->
   <main class="dashboard-page schedule-page schedule-grid-page">
     <section class="dashboard-card schedule-card schedule-grid-card">
       <p class="eyebrow">Edicao de horario</p>
       <h1>Horário mensal</h1>
+
+      <!-- ==================== Header Actions ==================== -->
 
       <div class="schedule-grid-top-actions">
         <button type="button" class="schedule-secondary-button" @click="navigateTo('/dashboard')">
@@ -427,6 +699,8 @@ onBeforeUnmount(() => {
       <p class="schedule-intro">
         Seleciona o tipo de turno em cada celula para atribuir o enfermeiro nesse dia.
       </p>
+
+      <!-- ==================== Active Shift Toolbar ==================== -->
 
       <div class="schedule-legend">
         <span class="schedule-legend__title">Turno ativo:</span>
@@ -460,6 +734,8 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
+      <!-- ==================== Feedback Messages ==================== -->
+
       <p v-if="localError" class="form-error">
         {{ localError }}
       </p>
@@ -471,6 +747,8 @@ onBeforeUnmount(() => {
       <p v-if="errorNurses || errorShiftTypes" class="form-error">
         {{ errorNurses || errorShiftTypes }}
       </p>
+
+      <!-- ==================== Schedule Grid ==================== -->
 
       <div class="schedule-grid-container">
         <table class="schedule-grid">
@@ -502,7 +780,19 @@ onBeforeUnmount(() => {
             </tr>
 
             <tr v-for="nurse in nurses" v-else :key="nurse.id">
-              <td class="schedule-grid__nurse-cell">{{ nurse.name }}</td>
+              <td
+                class="schedule-grid__nurse-cell"
+                :title="getNursePreferenceSummary(nurse.id).value.preferenceText"
+              >
+                {{ nurse.name }}
+                <span
+                  v-if="getNursePreferenceSummary(nurse.id).value.conflicts > 0"
+                  class="schedule-grid__nurse-warning"
+                  :title="`${getNursePreferenceSummary(nurse.id).value.conflicts} turnos atribuídos contra as preferências`"
+                >
+                  ⚠️
+                </span>
+              </td>
 
               <td
                 v-for="day in monthDays"
@@ -542,6 +832,21 @@ onBeforeUnmount(() => {
 
                 <span class="schedule-grid__cell-text">
                   {{ getShiftTypeNameById(getCellShiftTypeId(nurse.id, day.dateIso)) || '-' }}
+                </span>
+
+                <span
+                  v-if="hasCellRestWarning(nurse.id, day.dateIso)"
+                  :style="{
+                    position: 'absolute',
+                    bottom: '2px',
+                    right: '4px',
+                    fontSize: '0.72rem',
+                    color: '#b45309',
+                    pointerEvents: 'none'
+                  }"
+                  title="Less than 11 hours rest"
+                >
+                  ▲
                 </span>
               </td>
             </tr>

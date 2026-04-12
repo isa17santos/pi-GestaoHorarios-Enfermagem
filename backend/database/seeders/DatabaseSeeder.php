@@ -130,7 +130,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'name' => 'night',
-                'start_time' => '00:00:00',
+                'start_time' => '23:00:00',
                 'end_time' => '08:00:00',
                 'created_at' => $now,
                 'updated_at' => $now,

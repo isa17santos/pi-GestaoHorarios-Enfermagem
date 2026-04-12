@@ -612,6 +612,13 @@ input {
   padding: 4px;
 }
 
+.schedule-grid__nurse-warning {
+  margin-left: 6px;
+  font-size: 0.78rem;
+  color: rgba(120, 93, 14, 0.9);
+  cursor: help;
+}
+
 .schedule-grid__cell-text {
   display: inline-block;
   font-size: 0.82rem;
