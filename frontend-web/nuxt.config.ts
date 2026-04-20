@@ -5,6 +5,8 @@ export default defineNuxtConfig({
 
   css: [
     '~/assets/css/main.css',
+    '~/assets/css/schedule-create.css',
+    '~/assets/css/schedule-edit.css',
   ],
 
   runtimeConfig: {
