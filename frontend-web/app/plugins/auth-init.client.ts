@@ -22,12 +22,17 @@ export default defineNuxtPlugin(async () => {
   }
 
   if (token.value) {
+    // Keep the token being validated so we do not wipe a newer session created meanwhile.
+    const validatingToken = token.value
+
     try {
       // Validate and refresh the authenticated user data with the backend
       await fetchMe()
     } catch {
-      // Clear the local session if the token is no longer valid
-      clearSession()
+      // Only clear the session if the same token is still active after the failed check.
+      if (token.value === validatingToken) {
+        clearSession()
+      }
     }
   }
 })

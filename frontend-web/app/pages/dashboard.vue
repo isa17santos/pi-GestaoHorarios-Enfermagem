@@ -4,6 +4,12 @@ definePageMeta({
 })
 
 const { user, logout } = useAuth()
+
+// Only users with admin/head nurse profiles should see schedule creation actions.
+const canCreateSchedule = computed(() => {
+  const normalizedRole = user.value?.role?.trim().toLowerCase() || ''
+  return normalizedRole === 'admin' || normalizedRole === 'head nurse' || normalizedRole === 'head_nurse'
+})
 </script>
 
 <template>
@@ -24,6 +30,14 @@ const { user, logout } = useAuth()
       <button class="login-button dashboard-button" @click="logout">
         Terminar sessao
       </button>
+
+      <NuxtLink
+        v-if="canCreateSchedule"
+        to="/schedule-create"
+        class="login-button dashboard-button dashboard-link-button"
+      >
+        Criar horario
+      </NuxtLink>
     </div>
   </main>
 </template>

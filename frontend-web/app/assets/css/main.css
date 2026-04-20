@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import './schedule-create.css';
+@import './schedule-edit.css';
 
 /* ------- DEFAULT COLORS -------- */
 :root {
@@ -389,6 +391,36 @@ input {
   margin-top: 18px;
 }
 
+.dashboard-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 12px;
+}
+
+.schedule-page {
+  padding: 120px 24px 40px;
+}
+
+.schedule-card {
+  width: min(100%, 980px);
+}
+
+.schedule-intro {
+  margin: 10px 0 26px;
+  color: var(--muted);
+}
+
+.schedule-secondary-button {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  cursor: pointer;
+}
+
 .login-shell {
   position: relative;
 }
@@ -617,6 +649,18 @@ input {
     align-items: flex-start;
   }
 
+  .dashboard-link-button {
+    margin-left: 0;
+  }
+
+  .schedule-page {
+    padding: 104px 16px 24px;
+  }
+
+  .schedule-card {
+    padding: 24px;
+  }
+
   .login-card h2 {
     font-size: 1.9rem;
     line-height: 1.05;
@@ -660,3 +704,4 @@ input {
     font-size: 1.65rem;
   }
 }
+

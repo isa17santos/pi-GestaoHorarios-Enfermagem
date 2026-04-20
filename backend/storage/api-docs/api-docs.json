@@ -427,6 +427,390 @@
                     }
                 }
             }
+        },
+        "/api/users/{id}/preferences": {
+            "get": {
+                "tags": [
+                    "Nurse Preferences"
+                ],
+                "summary": "Lista as preferencias de um utilizador",
+                "operationId": "2d566c5d87d12976419a8f9d4643f194",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 4
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Preferencias devolvidas com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user_id": {
+                                            "type": "integer",
+                                            "example": 4
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "schedule_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "prefers_morning": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    },
+                                                    "prefers_afternoon": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    },
+                                                    "prefers_night": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    },
+                                                    "avoid_weekends": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    },
+                                                    "prefers_weekends": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    },
+                                                    "notes": {
+                                                        "type": "string",
+                                                        "example": "Prefere turnos de manha durante a semana.",
+                                                        "nullable": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilizador não encontrado"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/schedules": {
+            "post": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Cria um novo horario",
+                "operationId": "cec681726db3f091faae4410db8ee14c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "start_date",
+                                    "end_date"
+                                ],
+                                "properties": {
+                                    "start_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-04-06"
+                                    },
+                                    "end_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-04-12"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Horario criado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Horario criado com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 4
+                                                },
+                                                "created_by": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "start_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-04-06"
+                                                },
+                                                "end_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-04-12"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para criar horarios"
+                    },
+                    "422": {
+                        "description": "Payload inválido"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/shifts": {
+            "post": {
+                "tags": [
+                    "Shifts"
+                ],
+                "summary": "Cria um turno individual",
+                "operationId": "e43fcd33fd574cc167cc295540976f82",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "schedule_id",
+                                    "shift_type_id",
+                                    "shift_date"
+                                ],
+                                "properties": {
+                                    "schedule_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "shift_type_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "shift_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-04-07"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Turno criado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Turno criado com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "schedule_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "shift_type_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "shift_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-04-07"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para criar turnos"
+                    },
+                    "422": {
+                        "description": "Payload inválido"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/shift-types": {
+            "get": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Lista todos os tipos de turno",
+                "operationId": "ef44b459da9624275d115ad047919790",
+                "responses": {
+                    "200": {
+                        "description": "Tipos de turno devolvidos com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "morning"
+                                                    },
+                                                    "start_time": {
+                                                        "type": "string",
+                                                        "example": "08:00:00"
+                                                    },
+                                                    "end_time": {
+                                                        "type": "string",
+                                                        "example": "16:00:00"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/users": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Lista todos os utilizadores",
+                "operationId": "c457726701591d1183b53aa71fc13441",
+                "responses": {
+                    "200": {
+                        "description": "Utilizadores devolvidos com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Miguel Ferreira"
+                                                    },
+                                                    "email": {
+                                                        "type": "string",
+                                                        "format": "email",
+                                                        "example": "miguel.ferreira@example.pt"
+                                                    },
+                                                    "role": {
+                                                        "type": "string",
+                                                        "example": "admin"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -442,6 +826,26 @@
         {
             "name": "Auth",
             "description": "Operacoes relacionadas com autenticação."
+        },
+        {
+            "name": "Users",
+            "description": "Operacoes relacionadas com utilizadores."
+        },
+        {
+            "name": "Shift Types",
+            "description": "Operacoes relacionadas com tipos de turno."
+        },
+        {
+            "name": "Nurse Preferences",
+            "description": "Operacoes relacionadas com preferencias de enfermagem."
+        },
+        {
+            "name": "Schedules",
+            "description": "Operacoes relacionadas com horarios."
+        },
+        {
+            "name": "Shifts",
+            "description": "Operacoes relacionadas com turnos."
         }
     ]
 }
