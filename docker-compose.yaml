@@ -1,5 +1,4 @@
 services:
-
   # ========================
   # FRONTEND
   # ========================
@@ -9,9 +8,9 @@ services:
     container_name: gh_frontend
     ports:
       - "3000:3000"
+    command: sh -c "npm install && npm run dev"
     volumes:
       - ./frontend-web:/app
-      - frontend_node_modules:/app/node_modules
     depends_on:
       - api
 
@@ -24,9 +23,9 @@ services:
     container_name: gh_api
     ports:
       - "8000:8000"
+    command: sh -c "composer install && php artisan serve --host=0.0.0.0 --port=8000"
     volumes:
       - ./backend:/var/www
-      - backend_vendor:/var/www/vendor
     depends_on:
       - db
       - redis
@@ -35,10 +34,9 @@ services:
   queue-worker:
     build: ./backend
     container_name: gh_queue
-    command: php artisan queue:work
+    command: sh -c "while [ ! -f vendor/autoload.php ]; do sleep 1; done; php artisan queue:work"
     volumes:
       - ./backend:/var/www
-      - backend_vendor:/var/www/vendor
     depends_on:
       - api
       - redis
@@ -77,10 +75,8 @@ services:
     image: axllent/mailpit:latest
     container_name: gh_mailpit
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
 
 volumes:
   postgres_data:
-  frontend_node_modules:
-  backend_vendor:
