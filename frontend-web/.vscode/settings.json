@@ -1,8 +1,1 @@
-{
-    "chat.tools.terminal.autoApprove": {
-        "/^cd /app && npm i --save-dev @types/node$/": {
-            "approve": true,
-            "matchCommandLine": true
-        }
-    }
-}
+{}
