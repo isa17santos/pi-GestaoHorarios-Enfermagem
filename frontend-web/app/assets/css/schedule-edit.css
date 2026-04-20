@@ -1,0 +1,211 @@
+.schedule-grid-page {
+  position: relative;
+  align-content: start;
+}
+
+.schedule-grid-card {
+  width: calc(100vw - 3rem);
+  max-width: 1600px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+  box-sizing: border-box;
+}
+
+.schedule-grid-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.schedule-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.schedule-month-label {
+  text-transform: capitalize;
+  min-width: 170px;
+  text-align: center;
+}
+
+.schedule-legend {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.schedule-legend__title {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.schedule-legend__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schedule-legend__item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.schedule-grid-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.schedule-grid {
+  width: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0 auto;
+  min-width: max-content;
+  table-layout: auto;
+}
+
+.schedule-grid th,
+.schedule-grid td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.schedule-grid__nurse-header,
+.schedule-grid__nurse-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.95);
+  width: 150px;
+  min-width: 150px;
+  max-width: 150px;
+  text-align: left;
+  padding: 12px 10px;
+  overflow: visible;
+}
+
+.schedule-grid__nurse-name {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  overflow: visible;
+  gap: 4px;
+  max-width: 100%;
+}
+.schedule-grid__nurse-name-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.schedule-grid__nurse-warning {
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.schedule-grid__nurse-warning svg {
+  display: block;
+}
+
+.schedule-grid__nurse-header {
+  z-index: 3;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.schedule-grid__day-header {
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  text-align: center;
+  padding: 10px 6px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.75rem;
+}
+
+.schedule-grid__day-header.is-weekend,
+.schedule-grid__cell.is-weekend {
+  background: rgba(236, 229, 248, 0.65);
+}
+
+.schedule-grid__cell {
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  height: 56px;
+  text-align: center;
+  cursor: pointer;
+  padding: 8px 6px;
+}
+
+.schedule-grid__cell-text {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4f3b76;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.schedule-grid__feedback {
+  text-align: center;
+  color: var(--muted);
+  padding: 18px;
+}
+
+.schedule-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+}
+
+.schedule-tooltip--warning {
+  color: #f59e0b;
+}
+
+.schedule-tooltip--warning svg {
+  stroke: currentColor;
+}
+
+.schedule-tooltip-fixed {
+  position: fixed;
+  background: #1f2937;
+  color: #ffffff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.schedule-grid__cell-warning {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+}

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
+
 definePageMeta({
   middleware: 'auth',
 })
@@ -28,6 +30,9 @@ const {
 // Pull auth state to enforce role-based access.
 const { user, fetchMe } = useAuth()
 const route = useRoute()
+
+// Use shared schedule texts composable
+const { currentLocale, texts, toggleLanguage, localeLabel, localeFlag } = useScheduleTexts()
 
 // ==================== Access Control ====================
 
@@ -61,6 +66,21 @@ const draggingNurseId = ref<number | null>(null)
 // Cell currently hovered, used to show the clear button.
 const hoveredCellKey = ref<string | null>(null)
 
+// Floating tooltip state for preference and warning messages.
+const tooltipVisible = ref(false)
+const tooltipText = ref('')
+const tooltipTop = ref(0)
+const tooltipLeft = ref(0)
+
+const tooltipStyle = computed<CSSProperties>(() => ({
+  position: 'fixed',
+  top: `${tooltipTop.value}px`,
+  left: `${tooltipLeft.value}px`,
+  transform: 'translateX(-50%) translateY(-100%)',
+  zIndex: '9999',
+  pointerEvents: 'none',
+}))
+
 // In-memory map of cell assignments: "nurseId::YYYY-MM-DD" -> shiftTypeId.
 const cellAssignments = ref<Record<string, number | null>>({})
 
@@ -76,13 +96,14 @@ const scheduleId = computed(() => {
 // Returns the current month and year as a localised string, e.g. "abril de 2026".
 const monthLabel = computed(() => {
   const date = new Date(selectedYear.value, selectedMonth.value - 1, 1)
-  return new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric' }).format(date)
+  const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-US'
+  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date)
 })
 
 // Returns an array of day objects for the current month, used to build the grid columns.
 const monthDays = computed(() => {
   const year = selectedYear.value
-  const month = selectedMonth.value
+  const month = Math.min(12, Math.max(1, selectedMonth.value))
   const daysInMonth = new Date(year, month, 0).getDate()
 
   return Array.from({ length: daysInMonth }, (_, index) => {
@@ -162,7 +183,7 @@ const getNursePreferenceSummary = (nurseId: number) => computed(() => {
   if (!preference) {
     return {
       conflicts: 0,
-      preferenceText: 'Sem preferências definidas',
+      preferenceText: texts.value.edit.noPreferences,
     }
   }
 
@@ -175,23 +196,23 @@ const getNursePreferenceSummary = (nurseId: number) => computed(() => {
   }
 
   const preferredTimes: string[] = []
-  if (preference.prefers_morning) preferredTimes.push('manhã')
-  if (preference.prefers_afternoon) preferredTimes.push('tarde')
-  if (preference.prefers_night) preferredTimes.push('noite')
-  if (preference.prefers_weekends && !preference.avoid_weekends) preferredTimes.push('fins de semana')
+  if (preference.prefers_morning) preferredTimes.push(texts.value.edit.shiftNames.morning)
+  if (preference.prefers_afternoon) preferredTimes.push(texts.value.edit.shiftNames.afternoon)
+  if (preference.prefers_night) preferredTimes.push(texts.value.edit.shiftNames.night)
+  if (preference.prefers_weekends && !preference.avoid_weekends) preferredTimes.push(texts.value.edit.weekends)
 
   const parts: string[] = []
   if (preferredTimes.length) {
-    parts.push(`Prefere: ${preferredTimes.join(', ')}.`)
+    parts.push(`${texts.value.edit.preferLabel} ${preferredTimes.join(', ')}.`)
   }
 
   if (preference.avoid_weekends) {
-    parts.push('Evita: fins de semana.')
+    parts.push(`${texts.value.edit.avoidLabel} ${texts.value.edit.weekends}.`)
   }
 
   return {
     conflicts,
-    preferenceText: parts.length > 0 ? parts.join(' ') : 'Sem preferências definidas',
+    preferenceText: parts.length > 0 ? parts.join(' ') : texts.value.edit.noPreferences,
   }
 })
 
@@ -281,8 +302,8 @@ const restGapAfterPreviousShift = (
   return (nextStartMinutes + 24 * 60) - previousEndAbsolute
 }
 
-// Returns true when assigning a shift creates a sub-11h rest interval with adjacent days.
-const hasRestWarningForAssignment = (nurseId: number, dateIso: string, shiftTypeId: number) => {
+// Returns true when assigning a shift would violate the 11h rest rule with adjacent days.
+const hasRestViolation = (nurseId: number, dateIso: string, shiftTypeId: number): boolean => {
   if (blockingShiftTypeIds.value.has(shiftTypeId)) return false
 
   const previousDateIso = getRelativeDateIso(dateIso, -1)
@@ -320,6 +341,11 @@ const hasRestWarningForAssignment = (nurseId: number, dateIso: string, shiftType
   }
 
   return false
+}
+
+// Returns true when assigning a shift creates a sub-11h rest interval with adjacent days.
+const hasRestWarningForAssignment = (nurseId: number, dateIso: string, shiftTypeId: number) => {
+  return hasRestViolation(nurseId, dateIso, shiftTypeId)
 }
 
 // Returns true if a filled cell should show the rest warning indicator.
@@ -366,34 +392,8 @@ const canFillCell = (nurseId: number, dateIso: string): FillValidationResult => 
   const selectedShiftType = shiftTypes.value.find((item) => item.id === selectedShiftTypeId.value)
   if (!selectedShiftType) return { allowed: false }
 
-  const previousDateIso = getRelativeDateIso(dateIso, -1)
-  if (previousDateIso) {
-    const previousShiftTypeId = getCellShiftTypeId(nurseId, previousDateIso)
-
-    if (previousShiftTypeId && !blockingShiftTypeIds.value.has(previousShiftTypeId)) {
-      const previousShiftType = shiftTypes.value.find((item) => item.id === previousShiftTypeId)
-      if (previousShiftType) {
-        const gap = restGapAfterPreviousShift(previousShiftType, selectedShiftType)
-        if (gap !== null && gap < 11 * 60) {
-          return { allowed: true, reason: 'rest_warning' }
-        }
-      }
-    }
-  }
-
-  const nextDateIso = getRelativeDateIso(dateIso, 1)
-  if (nextDateIso) {
-    const nextShiftTypeId = getCellShiftTypeId(nurseId, nextDateIso)
-
-    if (nextShiftTypeId && !blockingShiftTypeIds.value.has(nextShiftTypeId)) {
-      const nextShiftType = shiftTypes.value.find((item) => item.id === nextShiftTypeId)
-      if (nextShiftType) {
-        const gap = restGapAfterPreviousShift(selectedShiftType, nextShiftType)
-        if (gap !== null && gap < 11 * 60) {
-          return { allowed: true, reason: 'rest_warning' }
-        }
-      }
-    }
+  if (hasRestViolation(nurseId, dateIso, selectedShiftTypeId.value)) {
+    return { allowed: true, reason: 'rest_warning' }
   }
 
   return { allowed: true }
@@ -464,6 +464,31 @@ const setHoveredCell = (nurseId: number, dateIso: string) => {
 // Clears hovered cell state.
 const clearHoveredCell = () => {
   hoveredCellKey.value = null
+}
+
+const getLocalizedShiftTypeName = (name: string) => {
+  const normalizedName = name.trim().toLowerCase()
+  const shiftNames = texts.value.edit.shiftNames as Record<string, string>
+  return (
+    shiftNames[normalizedName] ||
+    shiftNames[normalizedName.replace(/\s+/g, ' ')] ||
+    name
+  )
+}
+
+const showFloatingTooltip = (text: string, event: MouseEvent) => {
+  const target = event.currentTarget as HTMLElement | null
+  if (!target) return
+
+  const rect = target.getBoundingClientRect()
+  tooltipLeft.value = rect.left + rect.width / 2
+  tooltipTop.value = rect.top - 8
+  tooltipText.value = text
+  tooltipVisible.value = true
+}
+
+const hideFloatingTooltip = () => {
+  tooltipVisible.value = false
 }
 
 // ==================== Month Navigation ====================
@@ -676,14 +701,19 @@ onBeforeUnmount(() => {
   <!-- ==================== Page Layout ==================== -->
   <main class="dashboard-page schedule-page schedule-grid-page">
     <section class="dashboard-card schedule-card schedule-grid-card">
-      <p class="eyebrow">Edicao de horario</p>
-      <h1>Horário mensal</h1>
+      <button class="language-switch" type="button" @click="toggleLanguage">
+        <span class="language-switch__flag">{{ localeFlag }}</span>
+        <span>{{ localeLabel }}</span>
+      </button>
+
+      <p class="eyebrow">{{ texts.edit.pageEyebrow }}</p>
+      <h1>{{ texts.edit.pageTitle }}</h1>
 
       <!-- ==================== Header Actions ==================== -->
 
       <div class="schedule-grid-top-actions">
         <button type="button" class="schedule-secondary-button" @click="navigateTo('/dashboard')">
-          Voltar
+          {{ texts.backButton }}
         </button>
 
         <button
@@ -692,18 +722,18 @@ onBeforeUnmount(() => {
           :disabled="isBootstrapping || loadingShiftCreation || isSaving"
           @click="saveGridAssignments"
         >
-          {{ isSaving ? 'A guardar...' : 'Guardar atribuições' }}
+          {{ isSaving ? texts.edit.savingAssignments : texts.edit.saveAssignments }}
         </button>
       </div>
 
       <p class="schedule-intro">
-        Seleciona o tipo de turno em cada celula para atribuir o enfermeiro nesse dia.
+        {{ texts.edit.pageSubtitle }}
       </p>
 
       <!-- ==================== Active Shift Toolbar ==================== -->
 
       <div class="schedule-legend">
-        <span class="schedule-legend__title">Turno ativo:</span>
+        <span class="schedule-legend__title">{{ texts.edit.activeShiftLabel }}</span>
         <div class="schedule-legend__items">
           <button
             v-for="shiftType in shiftTypes"
@@ -717,20 +747,20 @@ onBeforeUnmount(() => {
             }"
             @click="selectShiftType(shiftType.id)"
           >
-            {{ shiftType.name }}
+            {{ getLocalizedShiftTypeName(shiftType.name) }}
           </button>
         </div>
       </div>
 
       <div class="schedule-month-nav">
         <button type="button" class="schedule-secondary-button" @click="goToPreviousMonth">
-          Mes anterior
+          {{ texts.edit.previousMonth }}
         </button>
 
         <strong class="schedule-month-label">{{ monthLabel }}</strong>
 
         <button type="button" class="schedule-secondary-button" @click="goToNextMonth">
-          Mes seguinte
+          {{ texts.edit.nextMonth }}
         </button>
       </div>
 
@@ -754,7 +784,7 @@ onBeforeUnmount(() => {
         <table class="schedule-grid">
           <thead>
             <tr>
-              <th class="schedule-grid__nurse-header">Enfermeiro</th>
+              <th class="schedule-grid__nurse-header">{{ texts.edit.nurseHeader }}</th>
               <th
                 v-for="day in monthDays"
                 :key="day.dateIso"
@@ -769,28 +799,36 @@ onBeforeUnmount(() => {
           <tbody>
             <tr v-if="isBootstrapping || loadingNurses || loadingShiftTypes">
               <td :colspan="monthDays.length + 1" class="schedule-grid__feedback">
-                A carregar grelha...
+                {{ texts.edit.loadingGrid }}
               </td>
             </tr>
 
             <tr v-else-if="!nurses.length">
               <td :colspan="monthDays.length + 1" class="schedule-grid__feedback">
-                Nao existem enfermeiros para mostrar.
+                {{ texts.edit.noNurses }}
               </td>
             </tr>
 
             <tr v-for="nurse in nurses" v-else :key="nurse.id">
-              <td
-                class="schedule-grid__nurse-cell"
-                :title="getNursePreferenceSummary(nurse.id).value.preferenceText"
-              >
-                {{ nurse.name }}
+              <td class="schedule-grid__nurse-cell">
+                <span
+                  class="schedule-grid__nurse-name schedule-tooltip"
+                  @mouseenter="showFloatingTooltip(getNursePreferenceSummary(nurse.id).value.preferenceText, $event)"
+                  @mouseleave="hideFloatingTooltip"
+                >
+                  <span class="schedule-grid__nurse-name-text">{{ nurse.name }}</span>
+                </span>
                 <span
                   v-if="getNursePreferenceSummary(nurse.id).value.conflicts > 0"
                   class="schedule-grid__nurse-warning"
-                  :title="`${getNursePreferenceSummary(nurse.id).value.conflicts} turnos atribuídos contra as preferências`"
+                  @mouseenter="showFloatingTooltip(texts.edit.assignmentsAgainstPreferences(getNursePreferenceSummary(nurse.id).value.conflicts), $event)"
+                  @mouseleave="hideFloatingTooltip"
                 >
-                  ⚠️
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M10.29 3.86L1.82 18a1.75 1.75 0 0 0 1.51 2.64h17.34a1.75 1.75 0 0 0 1.51-2.64L13.71 3.86a1.75 1.75 0 0 0-3.42 0Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
                 </span>
               </td>
 
@@ -831,28 +869,36 @@ onBeforeUnmount(() => {
                 </button>
 
                 <span class="schedule-grid__cell-text">
-                  {{ getShiftTypeNameById(getCellShiftTypeId(nurse.id, day.dateIso)) || '-' }}
+                  {{ getLocalizedShiftTypeName(getShiftTypeNameById(getCellShiftTypeId(nurse.id, day.dateIso))) || '-' }}
                 </span>
 
                 <span
                   v-if="hasCellRestWarning(nurse.id, day.dateIso)"
-                  :style="{
-                    position: 'absolute',
-                    bottom: '2px',
-                    right: '4px',
-                    fontSize: '0.72rem',
-                    color: '#b45309',
-                    pointerEvents: 'none'
-                  }"
-                  title="Less than 11 hours rest"
+                  class="schedule-tooltip schedule-tooltip--warning schedule-grid__cell-warning"
+                  @mouseenter="showFloatingTooltip(texts.edit.restWarning, $event)"
+                  @mouseleave="hideFloatingTooltip"
                 >
-                  ▲
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M10.29 3.86L1.82 18a1.75 1.75 0 0 0 1.51 2.64h17.34a1.75 1.75 0 0 0 1.51-2.64L13.71 3.86a1.75 1.75 0 0 0-3.42 0Z" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
                 </span>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <Teleport to="body" v-if="tooltipVisible">
+        <div
+          class="schedule-tooltip-fixed"
+          :style="tooltipStyle"
+        >
+          {{ tooltipText }}
+        </div>
+      </Teleport>
     </section>
   </main>
 </template>
+

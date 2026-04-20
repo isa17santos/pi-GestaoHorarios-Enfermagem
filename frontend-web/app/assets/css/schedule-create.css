@@ -1,0 +1,105 @@
+.schedule-period {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.schedule-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.schedule-shift-block {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.schedule-shift-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.schedule-shift-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.schedule-remove-button {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.schedule-remove-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.schedule-shift-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.schedule-select {
+  width: 100%;
+  height: 60px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+}
+
+.schedule-nurse-list {
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.schedule-nurse-list legend {
+  padding: 0 6px;
+  color: var(--muted);
+}
+
+.schedule-nurse-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.schedule-nurse-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+@media (max-width: 960px) {
+  .schedule-period,
+  .schedule-shift-fields,
+  .schedule-nurse-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-actions-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .schedule-secondary-button,
+  .schedule-actions-row .login-button {
+    width: 100%;
+  }
+}

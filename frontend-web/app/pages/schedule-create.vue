@@ -14,6 +14,9 @@ const {
 // Access authenticated user state to enforce role-based access in this page too.
 const { user, fetchMe } = useAuth()
 
+// Use shared schedule texts composable
+const { texts, toggleLanguage, localeLabel, localeFlag } = useScheduleTexts()
+
 // Protect this page at component level: only admin/head nurse can use schedule creation.
 const canCreateSchedule = computed(() => {
   const normalizedRole = user.value?.role?.trim().toLowerCase() || ''
@@ -35,12 +38,12 @@ const validateForm = () => {
   localError.value = ''
 
   if (!form.start_date || !form.end_date) {
-    localError.value = 'Seleciona as datas de inicio e fim do horario.'
+    localError.value = texts.value.create.errors.required
     return false
   }
 
   if (form.end_date < form.start_date) {
-    localError.value = 'A data de fim nao pode ser anterior a data de inicio.'
+    localError.value = texts.value.create.errors.endBeforeStart
     return false
   }
 
@@ -67,7 +70,7 @@ const handleSubmit = async () => {
   } catch {
     localError.value =
       errorScheduleCreation.value
-      || 'Nao foi possivel criar o horario. Tenta novamente.'
+      || texts.value.create.errors.createFailed
   } finally {
     isSubmitting.value = false
   }
@@ -102,8 +105,7 @@ onMounted(async () => {
       return
     }
   } catch {
-    localError.value =
-      'Nao foi possivel carregar os dados iniciais.'
+    localError.value = texts.value.create.errors.initialData
   } finally {
     isBootstrapping.value = false
   }
@@ -112,16 +114,21 @@ onMounted(async () => {
 
 <template>
   <main class="dashboard-page schedule-page">
-    <section class="dashboard-card schedule-card">
-      <p class="eyebrow">Criacao de horario</p>
-      <h1>Novo horario</h1>
+    <section class="dashboard-card schedule-card" style="position: relative;">
+      <button class="language-switch" type="button" @click="toggleLanguage">
+        <span class="language-switch__flag">{{ localeFlag }}</span>
+        <span>{{ localeLabel }}</span>
+      </button>
+
+      <p class="eyebrow">{{ texts.create.pageEyebrow }}</p>
+      <h1>{{ texts.create.pageTitle }}</h1>
 
       <button type="button" class="schedule-secondary-button" @click="navigateTo('/dashboard')">
-        Voltar
+        {{ texts.backButton }}
       </button>
 
       <p class="schedule-intro">
-        Define o periodo do horario. A atribuicao de turnos sera feita na pagina seguinte.
+        {{ texts.create.intro }}
       </p>
 
       <p v-if="localError" class="form-error">
@@ -131,12 +138,12 @@ onMounted(async () => {
       <form class="login-form" novalidate @submit.prevent="handleSubmit">
         <div class="schedule-period">
           <label class="field">
-            <span>Data de inicio</span>
+            <span>{{ texts.create.startDate }}</span>
             <input v-model="form.start_date" type="date" name="start_date">
           </label>
 
           <label class="field">
-            <span>Data de fim</span>
+            <span>{{ texts.create.endDate }}</span>
             <input v-model="form.end_date" type="date" name="end_date">
           </label>
         </div>
@@ -151,7 +158,7 @@ onMounted(async () => {
               || isSubmitting
             "
           >
-            {{ isSubmitting ? 'A criar...' : 'Continuar para a grelha' }}
+            {{ isSubmitting ? texts.create.submitting : texts.create.submit }}
           </button>
         </div>
       </form>
