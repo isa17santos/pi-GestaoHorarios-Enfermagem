@@ -7,6 +7,7 @@ use App\Models\Schedule;
 use App\Models\Shift;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use OpenApi\Attributes as OA;
 
 class ScheduleController extends Controller
@@ -174,7 +175,7 @@ class ScheduleController extends Controller
             ),
             new OA\Response(response: 401, description: 'Não autenticado'),
             new OA\Response(response: 403, description: 'Sem permissão para criar horários'),
-            new OA\Response(response: 422, description: 'Payload inválido'),
+            new OA\Response(response: 422, description: 'Payload inválido ou já existe um horário para este mês'),
         ]
     )]
     public function store(Request $request): JsonResponse
@@ -202,6 +203,16 @@ class ScheduleController extends Controller
                 'end_date.after_or_equal' => 'O campo end_date deve ser uma data posterior ou igual a start_date.',
             ]
         );
+
+        // Prevent creating two schedules that start within the same calendar month.
+        $startDate = Carbon::parse($validated['start_date']);
+        if (Schedule::whereYear('start_date', $startDate->year)
+            ->whereMonth('start_date', $startDate->month)
+            ->exists()) {
+            return response()->json([
+                'message' => 'Já existe um horário para este mês.',
+            ], 422);
+        }
 
         // Persist schedule and stamp the creator from the current token.
         $schedule = new Schedule();

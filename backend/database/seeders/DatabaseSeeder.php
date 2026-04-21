@@ -195,24 +195,8 @@ class DatabaseSeeder extends Seeder
         DB::table('schedules')->insert([
             [
                 'created_by' => $headNurseId,
-                'start_date' => '2026-03-16',
-                'end_date' => '2026-03-22',
-                'status' => 'draft',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'created_by' => $headNurseId,
-                'start_date' => '2026-03-23',
-                'end_date' => '2026-03-29',
-                'status' => 'draft',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'created_by' => $headNurseId,
-                'start_date' => '2026-03-30',
-                'end_date' => '2026-04-05',
+                'start_date' => '2026-03-01',
+                'end_date' => '2026-03-31',
                 'status' => 'draft',
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -228,45 +212,43 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $schedules = DB::table('schedules')->orderBy('id')->get(['id']);
-        $firstScheduleId = $schedules[0]->id;
-        $secondScheduleId = $schedules[1]->id;
-        $thirdScheduleId = $schedules[2]->id;
-        $publishedScheduleId = $schedules[3]->id;
+        $draftScheduleId = $schedules[0]->id;
+        $publishedScheduleId = $schedules[1]->id;
 
         DB::table('user_schedules')->insert([
             [
                 'user_id' => $nurses[0]->id,
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
                 'user_id' => $nurses[1]->id,
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
                 'user_id' => $nurses[2]->id,
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
                 'user_id' => $nurses[3]->id,
-                'schedule_id' => $secondScheduleId,
+                'schedule_id' => $publishedScheduleId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
                 'user_id' => $nurses[4]->id,
-                'schedule_id' => $secondScheduleId,
+                'schedule_id' => $publishedScheduleId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
                 'user_id' => $nurses[5]->id,
-                'schedule_id' => $thirdScheduleId,
+                'schedule_id' => $publishedScheduleId,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
@@ -275,7 +257,7 @@ class DatabaseSeeder extends Seeder
         DB::table('nurse_preferences')->insert([
             [
                 'user_id' => $nurses[0]->id,
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'prefers_morning' => true,
                 'prefers_afternoon' => false,
                 'prefers_night' => false,
@@ -287,7 +269,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[1]->id,
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'prefers_morning' => false,
                 'prefers_afternoon' => true,
                 'prefers_night' => false,
@@ -299,7 +281,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[2]->id,
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'prefers_morning' => false,
                 'prefers_afternoon' => false,
                 'prefers_night' => true,
@@ -311,7 +293,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[3]->id,
-                'schedule_id' => $secondScheduleId,
+                'schedule_id' => $publishedScheduleId,
                 'prefers_morning' => true,
                 'prefers_afternoon' => true,
                 'prefers_night' => false,
@@ -323,7 +305,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[4]->id,
-                'schedule_id' => $secondScheduleId,
+                'schedule_id' => $publishedScheduleId,
                 'prefers_morning' => false,
                 'prefers_afternoon' => true,
                 'prefers_night' => true,
@@ -335,7 +317,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[5]->id,
-                'schedule_id' => $thirdScheduleId,
+                'schedule_id' => $publishedScheduleId,
                 'prefers_morning' => true,
                 'prefers_afternoon' => false,
                 'prefers_night' => true,
@@ -349,51 +331,23 @@ class DatabaseSeeder extends Seeder
 
         DB::table('shifts')->insert([
             [
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'shift_type_id' => $shiftTypeIds['morning'],
-                'shift_date' => '2026-03-16',
+                'shift_date' => '2026-03-10',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'shift_type_id' => $shiftTypeIds['afternoon'],
-                'shift_date' => '2026-03-16',
+                'shift_date' => '2026-03-10',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
-                'schedule_id' => $firstScheduleId,
+                'schedule_id' => $draftScheduleId,
                 'shift_type_id' => $shiftTypeIds['night'],
-                'shift_date' => '2026-03-17',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'schedule_id' => $secondScheduleId,
-                'shift_type_id' => $shiftTypeIds['morning'],
-                'shift_date' => '2026-03-23',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'schedule_id' => $secondScheduleId,
-                'shift_type_id' => $shiftTypeIds['night'],
-                'shift_date' => '2026-03-24',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'schedule_id' => $thirdScheduleId,
-                'shift_type_id' => $shiftTypeIds['afternoon'],
-                'shift_date' => '2026-03-30',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'schedule_id' => $thirdScheduleId,
-                'shift_type_id' => $shiftTypeIds['morning'],
-                'shift_date' => '2026-04-01',
+                'shift_date' => '2026-03-10',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
@@ -442,8 +396,26 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => $now,
             ],
             [
-                'user_id' => $nurses[3]->id,
+                'user_id' => $nurses[0]->id,
                 'shift_id' => $shifts[3]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[1]->id,
+                'shift_id' => $shifts[3]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[2]->id,
+                'shift_id' => $shifts[3]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[3]->id,
+                'shift_id' => $shifts[4]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
@@ -455,61 +427,25 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[5]->id,
+                'shift_id' => $shifts[4]->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'user_id' => $nurses[0]->id,
                 'shift_id' => $shifts[5]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
-                'user_id' => $nurses[0]->id,
-                'shift_id' => $shifts[7]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
                 'user_id' => $nurses[1]->id,
-                'shift_id' => $shifts[7]->id,
+                'shift_id' => $shifts[5]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
             [
                 'user_id' => $nurses[2]->id,
-                'shift_id' => $shifts[7]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[3]->id,
-                'shift_id' => $shifts[8]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[4]->id,
-                'shift_id' => $shifts[8]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[5]->id,
-                'shift_id' => $shifts[8]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[0]->id,
-                'shift_id' => $shifts[9]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[1]->id,
-                'shift_id' => $shifts[9]->id,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
-                'user_id' => $nurses[2]->id,
-                'shift_id' => $shifts[9]->id,
+                'shift_id' => $shifts[5]->id,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
