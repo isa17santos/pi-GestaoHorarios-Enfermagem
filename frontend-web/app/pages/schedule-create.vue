@@ -63,7 +63,7 @@ const handleSubmit = async () => {
     const createdSchedule = await createSchedule(start_date, end_date)
 
     await navigateTo({
-      path: '/schedule-edit',
+      path: '/schedule-create-grid',
       query: {
         scheduleId: String(createdSchedule.id),
       },
