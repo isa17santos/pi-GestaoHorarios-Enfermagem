@@ -14,17 +14,13 @@ export const useScheduleTexts = () => {
       intro: currentLocale.value === 'pt'
         ? 'Define o período do horário. A atribuição de turnos será feita na página seguinte.'
         : 'Define the schedule period. Shift assignments will be done on the next page.',
-      startDate: currentLocale.value === 'pt' ? 'Data de início' : 'Start date',
-      endDate: currentLocale.value === 'pt' ? 'Data de fim' : 'End date',
+      month: currentLocale.value === 'pt' ? 'Mês' : 'Month',
       submitting: currentLocale.value === 'pt' ? 'A criar...' : 'Creating...',
       submit: currentLocale.value === 'pt' ? 'Continuar para a grelha' : 'Continue to grid',
       errors: {
         required: currentLocale.value === 'pt'
-          ? 'Seleciona as datas de início e fim do horário.'
-          : 'Please select the start and end dates.',
-        endBeforeStart: currentLocale.value === 'pt'
-          ? 'A data de fim não pode ser anterior à data de início.'
-          : 'The end date cannot be before the start date.',
+          ? 'Seleciona o mês do horário.'
+          : 'Please select the schedule month.',
         createFailed: currentLocale.value === 'pt'
           ? 'Não foi possível criar o horário. Tenta novamente.'
           : 'Could not create the schedule. Please try again.',
@@ -36,8 +32,8 @@ export const useScheduleTexts = () => {
 
     // Schedule edit texts
     edit: {
-      pageEyebrow: currentLocale.value === 'pt' ? 'EDIÇÃO DE HORÁRIO' : 'SCHEDULE EDITOR',
-      pageTitle: currentLocale.value === 'pt' ? 'Edição de Horário' : 'Schedule Editor',
+      pageEyebrow: currentLocale.value === 'pt' ? 'CRIAÇÃO DE HORÁRIO' : 'SCHEDULE CREATION',
+      pageTitle: currentLocale.value === 'pt' ? 'Horário Mensal' : 'Monthly Schedule',
       pageSubtitle: currentLocale.value === 'pt'
         ? 'Seleciona o tipo de turno em cada célula para atribuir o enfermeiro nesse dia.'
         : 'Select the shift type in each cell to assign the nurse for that day.',

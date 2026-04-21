@@ -25,8 +25,7 @@ const canCreateSchedule = computed(() => {
 
 // Schedule period form model.
 const form = reactive({
-  start_date: '',
-  end_date: '',
+  month: '',
 })
 
 const localError = ref('')
@@ -37,13 +36,8 @@ const isSubmitting = ref(false)
 const validateForm = () => {
   localError.value = ''
 
-  if (!form.start_date || !form.end_date) {
+  if (!form.month) {
     localError.value = texts.value.create.errors.required
-    return false
-  }
-
-  if (form.end_date < form.start_date) {
-    localError.value = texts.value.create.errors.endBeforeStart
     return false
   }
 
@@ -59,7 +53,14 @@ const handleSubmit = async () => {
   isSubmitting.value = true
 
   try {
-    const createdSchedule = await createSchedule(form.start_date, form.end_date)
+    const [yearRaw, monthRaw] = form.month.split('-')
+    const year = Number(yearRaw)
+    const month = Number(monthRaw)
+    const start_date = `${form.month}-01`
+    const lastDay = new Date(year, month, 0).getDate()
+    const end_date = `${form.month}-${String(lastDay).padStart(2, '0')}`
+
+    const createdSchedule = await createSchedule(start_date, end_date)
 
     await navigateTo({
       path: '/schedule-edit',
@@ -76,13 +77,13 @@ const handleSubmit = async () => {
   }
 }
 
-// Keep the composable selected month/year in sync with the chosen start date.
+// Keep the composable selected month/year in sync with the chosen month.
 watch(
-  () => form.start_date,
+  () => form.month,
   (value) => {
     if (!value) return
 
-    const selectedDate = new Date(value)
+    const selectedDate = new Date(`${value}-01`)
     if (Number.isNaN(selectedDate.getTime())) return
 
     setSelectedPeriod(selectedDate.getMonth() + 1, selectedDate.getFullYear())
@@ -138,13 +139,8 @@ onMounted(async () => {
       <form class="login-form" novalidate @submit.prevent="handleSubmit">
         <div class="schedule-period">
           <label class="field">
-            <span>{{ texts.create.startDate }}</span>
-            <input v-model="form.start_date" type="date" name="start_date">
-          </label>
-
-          <label class="field">
-            <span>{{ texts.create.endDate }}</span>
-            <input v-model="form.end_date" type="date" name="end_date">
+            <span>{{ texts.create.month }}</span>
+            <input v-model="form.month" type="month" name="month">
           </label>
         </div>
 
