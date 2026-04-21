@@ -1,9 +1,17 @@
 export default defineNuxtRouteMiddleware(() => {
-  // Read the global auth state to protect private pages
-  const { isLoggedIn } = useAuth()
+  if (process.server) return;
 
-  if (!isLoggedIn.value) {
-    // Redirect unauthenticated users back to the login page
-    return navigateTo('/')
+  // Read the global auth state to protect private pages
+  const { token } = useAuth();
+
+  if (process.client && !token.value) {
+    const saved = localStorage.getItem("auth.token");
+    if (saved) {
+      token.value = saved;
+    }
   }
-})
+
+  if (!token.value) {
+    return navigateTo("/");
+  }
+});

@@ -6,6 +6,8 @@ definePageMeta({
 
 import logoUrl from '~/assets/images/logotipo.png'
 
+const router = useRouter()
+
 // Keep track of the timeout used to clear feedback messages
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -133,9 +135,11 @@ const toggleLanguage = () => {
 }
 
 // Redirect already authenticated users away from the login page
-if (process.client && isLoggedIn.value) {
-  await navigateTo('/dashboard')
-}
+watchEffect(() => {
+  if (process.client && isLoggedIn.value) {
+    navigateTo('/dashboard')
+  }
+})
 
 const isValidEmail = (email: string) => {
   // Basic client-side email format validation
@@ -183,8 +187,10 @@ const handleLogin = async () => {
       return
     }
 
-    // Otherwise, send the authenticated user to the dashboard
-    await navigateTo('/dashboard')
+    await nextTick()
+
+    // Redirect to the dashboard
+    router.push('/dashboard')
   } catch (error: any) {
     // Keep this specific backend login error aligned with the current UI language.
     const backendMessage = error?.data?.message
