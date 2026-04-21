@@ -68,6 +68,75 @@ class ScheduleController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/api/schedules/{id}',
+        summary: 'Obtém um horário por ID',
+        security: [['bearerAuth' => []]],
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Horário obtido com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer', example: 1),
+                                new OA\Property(property: 'created_by_name', type: 'string', example: 'Ana Silva'),
+                                new OA\Property(property: 'start_date', type: 'string', format: 'date', example: '2026-04-06'),
+                                new OA\Property(property: 'end_date', type: 'string', format: 'date', example: '2026-04-12'),
+                                new OA\Property(property: 'status', type: 'string', example: 'published'),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Não autenticado'),
+            new OA\Response(response: 403, description: 'Sem permissão'),
+            new OA\Response(response: 404, description: 'Horário não encontrado'),
+        ]
+    )]
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        $schedule = Schedule::with('creator')->find($id);
+
+        if (! $schedule) {
+            return response()->json([
+                'message' => 'Horário não encontrado.',
+            ], 404);
+        }
+
+        if ($role === UserRole::Nurse->value && $schedule->status === 'draft') {
+            return response()->json([
+                'message' => 'Sem permissão para visualizar este horário.',
+            ], 403);
+        }
+
+        return response()->json([
+            'data' => [
+                'id' => $schedule->id,
+                'created_by_name' => $schedule->creator?->name,
+                'start_date' => $schedule->start_date?->toDateString(),
+                'end_date' => $schedule->end_date?->toDateString(),
+                'status' => $schedule->status,
+            ],
+        ]);
+    }
+
     #[OA\Post(
         path: '/api/schedules',
         summary: 'Cria um novo horario',
