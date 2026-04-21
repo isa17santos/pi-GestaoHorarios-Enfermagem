@@ -519,6 +519,65 @@
             }
         },
         "/api/schedules": {
+            "get": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Lista horários",
+                "operationId": "c2791edf6c0550c67fac652cad98e09e",
+                "responses": {
+                    "200": {
+                        "description": "Horários obtidos com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "created_by_name": {
+                                                        "type": "string",
+                                                        "example": "Ana Silva"
+                                                    },
+                                                    "start_date": {
+                                                        "type": "string",
+                                                        "format": "date",
+                                                        "example": "2026-04-06"
+                                                    },
+                                                    "end_date": {
+                                                        "type": "string",
+                                                        "format": "date",
+                                                        "example": "2026-04-12"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "published"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
             "post": {
                 "tags": [
                     "Schedules"
@@ -553,14 +612,14 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Horario criado com sucesso",
+                        "description": "Horário criado com sucesso",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "message": {
                                             "type": "string",
-                                            "example": "Horario criado com sucesso."
+                                            "example": "Horário criado com sucesso."
                                         },
                                         "data": {
                                             "properties": {
@@ -568,9 +627,9 @@
                                                     "type": "integer",
                                                     "example": 4
                                                 },
-                                                "created_by": {
-                                                    "type": "integer",
-                                                    "example": 2
+                                                "created_by_name": {
+                                                    "type": "string",
+                                                    "example": "Ana Silva"
                                                 },
                                                 "start_date": {
                                                     "type": "string",
@@ -595,10 +654,78 @@
                         "description": "Não autenticado"
                     },
                     "403": {
-                        "description": "Sem permissão para criar horarios"
+                        "description": "Sem permissão para criar horários"
                     },
                     "422": {
                         "description": "Payload inválido"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/schedules/{id}/publish": {
+            "patch": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Publica um horário",
+                "operationId": "4d19d4fa8d663d73291f6ada32f0afde",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Horário publicado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Horário publicado com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "published"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão"
+                    },
+                    "404": {
+                        "description": "Horário não encontrado"
+                    },
+                    "422": {
+                        "description": "Horário já publicado, sem turnos atribuídos, ou turnos com enfermeiros insuficientes"
                     }
                 },
                 "security": [
@@ -734,6 +861,10 @@
                                                     "end_time": {
                                                         "type": "string",
                                                         "example": "16:00:00"
+                                                    },
+                                                    "min_nurses": {
+                                                        "type": "integer",
+                                                        "example": 3
                                                     }
                                                 },
                                                 "type": "object"

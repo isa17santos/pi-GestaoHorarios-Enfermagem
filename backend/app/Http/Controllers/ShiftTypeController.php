@@ -29,6 +29,7 @@ class ShiftTypeController extends Controller
                                     new OA\Property(property: 'name', type: 'string', example: 'morning'),
                                     new OA\Property(property: 'start_time', type: 'string', example: '08:00:00'),
                                     new OA\Property(property: 'end_time', type: 'string', example: '16:00:00'),
+                                    new OA\Property(property: 'min_nurses', type: 'integer', example: 3),
                                 ]
                             )
                         ),
@@ -46,7 +47,7 @@ class ShiftTypeController extends Controller
         // Return only the fields needed by schedule-building screens.
         $shiftTypes = ShiftType::query()
             ->orderBy('id')
-            ->get(['id', 'name', 'start_time', 'end_time']);
+            ->get(['id', 'name', 'start_time', 'end_time', 'min_nurses']);
 
         return response()->json([
             'data' => $shiftTypes,

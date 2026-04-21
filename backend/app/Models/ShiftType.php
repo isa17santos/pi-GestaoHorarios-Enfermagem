@@ -15,6 +15,7 @@ class ShiftType extends Model
         'name',
         'start_time',
         'end_time',
+        'min_nurses',
     ];
 
     protected function casts(): array

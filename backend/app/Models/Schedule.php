@@ -15,6 +15,7 @@ class Schedule extends Model
     protected $fillable = [
         'start_date',
         'end_date',
+        'status',
     ];
 
     protected function casts(): array
@@ -22,6 +23,7 @@ class Schedule extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
+            'status' => 'string',
         ];
     }
 
