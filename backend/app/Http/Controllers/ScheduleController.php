@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
-use App\Http\Requests\Schedule\StoreScheduleRequest;
 use App\Models\Schedule;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 
 class ScheduleController extends Controller
@@ -50,19 +50,22 @@ class ScheduleController extends Controller
             new OA\Response(response: 422, description: 'Payload inválido'),
         ]
     )]
-    public function store(StoreScheduleRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
         $user = $request->user();
         $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
 
-        // Only admin/head nurse can create planning periods.
-        if (! in_array($role, [UserRole::Admin->value, UserRole::HeadNurse->value], true)) {
+        // Only head nurse can create planning periods.
+        if ($role !== UserRole::HeadNurse->value) {
             return response()->json([
                 'message' => 'Sem permissão para criar horários.',
             ], 403);
         }
 
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+        ]);
 
         // Persist schedule and stamp the creator from the current token.
         $schedule = new Schedule();
