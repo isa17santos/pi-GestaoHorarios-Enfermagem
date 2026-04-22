@@ -216,24 +216,35 @@
   .dashboard-layout { padding: 16px; }
   
   .dashboard-top-row {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
+    gap: 16px;
     margin-bottom: 32px;
   }
   
-  .dashboard-logo-img { order: 1; margin: 0; }
+  .dashboard-logo-link { 
+    grid-column: 1; 
+    grid-row: 1; 
+    margin: 0; 
+    display: flex; 
+  }
   
   .dashboard-actions-group { display: contents; }
   
-  .dashboard-lang-override { order: 2; margin: 0; }
+  .dashboard-lang-override { 
+    grid-column: 2; 
+    grid-row: 1; 
+    margin: 0; 
+    position: static !important;
+  }
   
   .dashboard-header {
-    order: 3;
-    flex: 0 0 100%;
-    margin: 24px auto 0;
-    max-width: 500px;
+    grid-column: 1 / span 2;
+    grid-row: 2;
+    width: 100%;
+    margin: 8px 0 0;
+    max-width: none;
     padding: 12px 24px;
     border-radius: 28px;
   }
