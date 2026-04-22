@@ -657,7 +657,7 @@
                         "description": "Sem permissão para criar horários"
                     },
                     "422": {
-                        "description": "Payload inválido"
+                        "description": "Payload inválido ou já existe um horário para este mês"
                     }
                 },
                 "security": [
@@ -801,6 +801,79 @@
                     },
                     "422": {
                         "description": "Horário já publicado, sem turnos atribuídos, ou turnos com enfermeiros insuficientes"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/schedules/{id}/shifts": {
+            "get": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Lista turnos de um horário",
+                "operationId": "8d2be720919dc01eea82cb2059c6c449",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Turnos obtidos com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "shift_type_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "shift_date": {
+                                                        "type": "string",
+                                                        "format": "date",
+                                                        "example": "2026-05-10"
+                                                    },
+                                                    "user_ids": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "integer",
+                                                            "example": 1
+                                                        }
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "404": {
+                        "description": "Horário não encontrado"
                     }
                 },
                 "security": [

@@ -332,4 +332,72 @@ class ScheduleController extends Controller
             ],
         ], 200);
     }
+
+    #[OA\Get(
+        path: '/api/schedules/{id}/shifts',
+        summary: 'Lista turnos de um horário',
+        security: [['bearerAuth' => []]],
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Turnos obtidos com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'array',
+                            items: new OA\Items(
+                                type: 'object',
+                                properties: [
+                                    new OA\Property(property: 'id', type: 'integer', example: 1),
+                                    new OA\Property(property: 'shift_type_id', type: 'integer', example: 1),
+                                    new OA\Property(property: 'shift_date', type: 'string', format: 'date', example: '2026-05-10'),
+                                    new OA\Property(
+                                        property: 'user_ids',
+                                        type: 'array',
+                                        items: new OA\Items(type: 'integer', example: 1)
+                                    ),
+                                ]
+                            )
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Não autenticado'),
+            new OA\Response(response: 404, description: 'Horário não encontrado'),
+        ]
+    )]
+    public function shifts(int $id): JsonResponse
+    {
+        $schedule = Schedule::find($id);
+
+        if (! $schedule) {
+            return response()->json([
+                'message' => 'Horário não encontrado.',
+            ], 404);
+        }
+
+        $shifts = Shift::with('users')->where('schedule_id', $id)->get()->map(function (Shift $shift): array {
+            return [
+                'id' => $shift->id,
+                'shift_type_id' => $shift->shift_type_id,
+                'shift_date' => $shift->shift_date?->toDateString(),
+                'user_ids' => $shift->users->pluck('id')->values()->all(),
+            ];
+        });
+
+        return response()->json([
+            'data' => $shifts,
+        ]);
+    }
 }

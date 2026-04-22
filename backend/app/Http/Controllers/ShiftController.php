@@ -79,6 +79,7 @@ class ShiftController extends Controller
         }
 
         $shift = Shift::query()->create($validated);
+        $shift->users()->attach($validated['user_ids']);
 
         return response()->json([
             'message' => 'Turno criado com sucesso.',
@@ -87,6 +88,7 @@ class ShiftController extends Controller
                 'schedule_id' => $shift->schedule_id,
                 'shift_type_id' => $shift->shift_type_id,
                 'shift_date' => $shift->shift_date?->toDateString(),
+                'user_ids' => $validated['user_ids'],
             ],
         ], 201);
     }

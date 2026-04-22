@@ -9,4 +9,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/schedules/{id}', [ScheduleController::class, 'show']);
     Route::post('/schedules', [ScheduleController::class, 'store']);
     Route::patch('/schedules/{id}/publish', [ScheduleController::class, 'publish']);
+    Route::get('/schedules/{id}/shifts', [ScheduleController::class, 'shifts']);
 });
