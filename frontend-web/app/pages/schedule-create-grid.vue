@@ -1017,7 +1017,9 @@ const publishSchedule = async () => {
     }
 
     await fetchSchedule(scheduleId.value)
-    localSuccess.value = currentLocale.value === 'pt' ? 'Horario publicado com sucesso.' : 'Schedule published successfully.'
+    localSuccess.value = currentLocale.value === 'pt'
+      ? 'Horário publicado com sucesso. Email enviado à equipa de enfermagem.'
+      : 'Schedule published successfully. Email sent to the nursing team.'
   } catch (error: unknown) {
     const statusCode = (error as { statusCode?: number, status?: number })?.statusCode ?? (error as { status?: number })?.status
     const backendError = getBackendErrorMessage(error)
