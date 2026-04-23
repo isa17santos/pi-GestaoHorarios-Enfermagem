@@ -376,4 +376,3 @@ onMounted(async () => {
   </main>
 </template>
 
-<style src="~/assets/css/user-create.css"></style>

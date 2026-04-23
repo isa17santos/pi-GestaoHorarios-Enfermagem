@@ -417,6 +417,3 @@ onMounted(async () => {
     </transition>
   </main>
 </template>
-
-<style src="~/assets/css/human-resources.css"></style>
-<style src="~/assets/css/dashboardAdmin.css"></style>

@@ -17,5 +17,3 @@ const { user, logout } = useAuth()
     </section>
   </main>
 </template>
-
-<style src="~/assets/css/dashboardAdmin.css"></style>
