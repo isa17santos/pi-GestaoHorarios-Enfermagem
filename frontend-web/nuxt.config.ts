@@ -19,6 +19,9 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'ShiftCare',
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/images/icon_logotipo.png?v=1' }
+      ],
       meta: [
         {
           name: 'viewport',

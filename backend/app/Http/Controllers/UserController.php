@@ -50,7 +50,7 @@ class UserController extends Controller
         // Keep response lightweight and avoid exposing sensitive columns.
         $users = User::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role']);
+            ->get(['id', 'name', 'email', 'role', 'active']);
 
         return response()->json([
             'data' => $users,
@@ -121,9 +121,58 @@ class UserController extends Controller
         return response()->json([
             'message' => 'Utilizador criado com sucesso.',
         ], 201);
-
     }
 
+    #[OA\Get(
+        path: '/api/users/{id}',
+        summary: 'Obter detalhes de um utilizador',
+        tags: ['Users'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: 'ID do utilizador',
+                schema: new OA\Schema(type: 'integer', example: 1)
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Detalhes do utilizador',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', type: 'object', properties: [
+                            new OA\Property(property: 'id', type: 'integer', example: 1),
+                            new OA\Property(property: 'name', type: 'string', example: 'Miguel Ferreira'),
+                            new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
+                            new OA\Property(property: 'role', type: 'string', example: 'admin'),
+                            new OA\Property(property: 'active', type: 'boolean', example: true),
+                        ])
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'Utilizador não encontrado.'
+            ),
+        ]
+    )]
+    public function show($id): JsonResponse
+    {
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Utilizador não encontrado.'
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $user->only(['id', 'name', 'email', 'role', 'active']),
+        ]);
+    }
 
     #[OA\Patch(
         path: '/api/users/{id}',
@@ -145,6 +194,8 @@ class UserController extends Controller
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Mario Varela'),
                     new OA\Property(property: 'email', type: 'string', format: 'email', example: 'mario.varela@example.pt'),
+                    new OA\Property(property: 'role', type: 'string', example: 'nurse'),
+                    new OA\Property(property: 'active', type: 'boolean', example: true),
                 ]
             )
         ),
@@ -201,9 +252,7 @@ class UserController extends Controller
         return response()->json([
             'message' => 'Utilizador atualizado com sucesso.',
         ], 200);
-
     }
-
 
     #[OA\Delete(
         path: '/api/users/{id}',
@@ -261,6 +310,4 @@ class UserController extends Controller
             'message' => 'Utilizador eliminado com sucesso.',
         ], 200);
     }
-
-
 }

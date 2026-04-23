@@ -3,9 +3,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-import logoUrl from '~/assets/images/logotipo.png'
-
-const { user, logout } = useAuth()
+const { user } = useAuth()
 
 // Only users with head nurse profiles should see schedule creation actions.
 const canCreateSchedule = computed(() => {
@@ -19,66 +17,22 @@ const canManageHR = computed(() => {
   return normalizedRole === 'admin'
 })
 
-
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
-const localeLabel = computed(() =>
-  currentLocale.value === 'pt' ? 'English' : 'Português'
-)
-const localeFlag = computed(() =>
-  currentLocale.value === 'pt' ? 'en' : 'pt'
-)
-const toggleLanguage = () => {
-  currentLocale.value = currentLocale.value === 'pt' ? 'en' : 'pt'
-}
 
 const texts = computed(() => ({
   welcome: currentLocale.value === 'pt' ? 'Bem-vindo' : 'Welcome',
-  logout: currentLocale.value === 'pt' ? 'Terminar sessão' : 'Sign out',
   createSchedule: currentLocale.value === 'pt' ? 'Criar horário' : 'Create schedule',
   humanResources: currentLocale.value === 'pt' ? 'Gestão Recursos Humanos' : 'Human Resources Management',
   vacations: currentLocale.value === 'pt' ? 'Gestão férias' : 'Vacations',
   sickLeaves: currentLocale.value === 'pt' ? 'Gestão baixas' : 'Absences',
   shiftTypes: currentLocale.value === 'pt' ? 'Gestão tipos de turno' : 'Shift types',
   statistics: currentLocale.value === 'pt' ? 'Estatísticas' : 'Statistics',
-  myProfile: currentLocale.value === 'pt' ? 'Meu Perfil' : 'My Profile',
 }))
 </script>
 
 <template>
   <main class="dashboard-layout">
-    <div class="dashboard-top-row">
-      <!-- Logo -->
-      <img :src="logoUrl" alt="ShiftCare" class="dashboard-logo-img" />
-      
-      <!-- Nav bar and Language Switch aligned together -->
-      <div class="dashboard-actions-group">
-        <header class="dashboard-header">
-          <div class="header-right">
-            <div class="header-user" v-if="user">
-              <span class="user-name">{{ user.name }}</span>
-              <span class="user-role">{{ user.role }}</span>
-            </div>
-            
-            <NuxtLink to="/profile" class="header-action-btn" :title="texts.myProfile">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            </NuxtLink>
-            
-            <button class="header-action-btn header-action-btn--danger" @click="logout" :title="texts.logout">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-            </button>
-          </div>
-        </header>
-
-        <button class="language-switch dashboard-lang-override" type="button" @click="toggleLanguage">
-          <span class="language-switch__flag">{{ localeFlag }}</span>
-          <span>{{ localeLabel }}</span>
-        </button>
-      </div>
-    </div>
+    <AppNavbar />
 
     <section class="dashboard-content">
       <div class="dashboard-greeting" v-if="user">
@@ -145,7 +99,10 @@ const texts = computed(() => ({
 
         <NuxtLink v-if="canManageHR" to="/shift-types" class="bento-card bento-card--shifts">
           <div class="bento-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
           </div>
           <h3>{{ texts.shiftTypes }}</h3>
           <p>{{ currentLocale === 'pt' ? 'Configuração de tipos de turnos' : 'Configuration of shift patterns' }}</p>
@@ -153,7 +110,11 @@ const texts = computed(() => ({
 
         <NuxtLink v-if="canManageHR" to="/statistics" class="bento-card bento-card--stats">
           <div class="bento-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
           </div>
           <h3>{{ texts.statistics }}</h3>
           <p>{{ currentLocale === 'pt' ? 'Controlo de serviços e recursos' : 'Service and resource control' }}</p>
@@ -163,4 +124,3 @@ const texts = computed(() => ({
   </main>
 </template>
 
-<style src="~/assets/css/dashboardAdmin.css"></style>
