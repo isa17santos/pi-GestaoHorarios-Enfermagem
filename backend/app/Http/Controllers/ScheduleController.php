@@ -5,9 +5,13 @@ namespace App\Http\Controllers;
 use App\Enums\UserRole;
 use App\Models\Schedule;
 use App\Models\Shift;
+use App\Models\ShiftType;
+use App\Models\User;
+use App\Notifications\SchedulePublishedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Carbon;
 use OpenApi\Attributes as OA;
 
@@ -369,26 +373,104 @@ class ScheduleController extends Controller
             ], 422);
         }
 
-        $shifts = Shift::with(['users', 'shiftType'])
+        \Carbon\Carbon::setLocale('pt');
+
+        $scheduleShifts = Shift::with('users:id,name')
             ->where('schedule_id', $schedule->id)
             ->get();
 
-        foreach ($shifts as $shift) {
-            $minNurses = (int) ($shift->shiftType?->min_nurses ?? 0);
+        $nurseIds = $scheduleShifts
+            ->flatMap(fn($shift) => $shift->users->pluck('id'))
+            ->unique()
+            ->values();
 
-            if ($shift->users->count() < $minNurses) {
-                $shiftDate = $shift->shift_date?->toDateString() ?? (string) $shift->shift_date;
-                $shiftTypeName = $shift->shiftType?->name;
-                $shiftTypeName = $shiftTypeName instanceof \BackedEnum ? $shiftTypeName->value : (string) $shiftTypeName;
+        $nurseNames = User::whereIn('id', $nurseIds)
+            ->where('role', UserRole::Nurse->value)
+            ->pluck('name', 'id');
+
+        $nurseIds = $nurseNames->keys()->values();
+
+        $assignedByDateAndNurse = $scheduleShifts
+            ->flatMap(function ($shift) {
+                $date = $shift->shift_date->toDateString();
+                return $shift->users->map(fn($nurse) => $date . '_' . $nurse->id);
+            })
+            ->unique()
+            ->flip();
+
+        $startDate = $schedule->start_date?->copy()->startOfDay();
+        $endDate = $schedule->end_date?->copy()->startOfDay();
+
+        if (! $startDate || ! $endDate) {
+            return response()->json([
+                'message' => 'O horário tem um intervalo de datas inválido.',
+            ], 422);
+        }
+
+        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+            $dateString = $date->toDateString();
+
+            foreach ($nurseIds as $nurseId) {
+                $assignmentKey = $dateString . '_' . $nurseId;
+
+                if (! $assignedByDateAndNurse->has($assignmentKey)) {
+                    $formatted = $date->translatedFormat('d \\d\\e F \\d\\e Y');
+                    $nurseName = $nurseNames->get($nurseId, 'Enfermeiro');
+
+                    return response()->json([
+                        'message' => "O enfermeiro {$nurseName} não tem turno atribuído no dia {$formatted}.",
+                    ], 422);
+                }
+            }
+        }
+
+        $blockingTypeIds = ShiftType::whereIn('name', ['dayOff', 'holidays', 'sick leave', 'parental leave'])
+            ->pluck('id')
+            ->all();
+
+        $shifts = Shift::with('shiftType')
+            ->where('schedule_id', $schedule->id)
+            ->whereNotIn('shift_type_id', $blockingTypeIds)
+            ->get()
+            ->groupBy(fn($s) => $s->shift_date->toDateString() . '_' . $s->shift_type_id);
+
+        $shiftTypeNames = [
+            'morning'        => 'Manhã',
+            'afternoon'      => 'Tarde',
+            'night'          => 'Noite',
+            'dayOff'         => 'Folga',
+            'holidays'       => 'Férias',
+            'sick leave'     => 'Baixa Médica',
+            'parental leave' => 'Licença Parental',
+        ];
+
+        foreach ($shifts as $group) {
+            $shiftType = $group->first()->shiftType;
+            $minNurses = (int) ($shiftType?->min_nurses ?? 0);
+
+            if ($group->count() < $minNurses) {
+                $shiftDate = $group->first()->shift_date->translatedFormat('d \d\e F \d\e Y');
+                $rawName = $shiftType?->name;
+                $rawName = $rawName instanceof \BackedEnum ? $rawName->value : (string) $rawName;
+                $translatedName = $shiftTypeNames[$rawName] ?? $rawName;
 
                 return response()->json([
-                    'message' => "O turno de {$shiftDate} ({$shiftTypeName}) tem menos do que {$minNurses} enfermeiros atribuídos.",
+                    'message' => "O dia {$shiftDate} ({$translatedName}) tem menos do que {$minNurses} enfermeiros atribuídos.",
                 ], 422);
             }
         }
 
         $schedule->status = 'published';
         $schedule->save();
+
+        $nurseIds = Shift::where('schedule_id', $schedule->id)
+            ->join('user_shifts', 'shifts.id', '=', 'user_shifts.shift_id')
+            ->pluck('user_shifts.user_id')
+            ->unique();
+
+        $nurses = User::whereIn('id', $nurseIds)->get();
+
+        Notification::send($nurses, new SchedulePublishedNotification($schedule));
 
         return response()->json([
             'message' => 'Horário publicado com sucesso.',

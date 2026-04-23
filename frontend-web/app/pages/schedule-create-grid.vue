@@ -192,19 +192,17 @@ const normalizeErrorMessage = (message: string) => {
     .toLowerCase()
 }
 
-const getPublishWarningMessage = (message: string) => {
-  const normalizedMessage = normalizeErrorMessage(message)
-
-  if (normalizedMessage.includes('sem turnos atribuidos')) {
-    return texts.value.edit.publishWarnings.noAssignedShifts
+const isNetworkPublishError = (error: unknown) => {
+  const statusCode = (error as { statusCode?: number, status?: number })?.statusCode ?? (error as { status?: number })?.status
+  if (typeof statusCode === 'number') {
+    return false
   }
 
-  const insufficientNursesMatch = normalizedMessage.match(/menos do que\s+(\d+)\s+enfermeiros?/i)
-  if (insufficientNursesMatch) {
-    return texts.value.edit.publishWarnings.insufficientNurses(Number(insufficientNursesMatch[1]))
-  }
-
-  return ''
+  const normalizedMessage = normalizeErrorMessage(getBackendErrorMessage(error))
+  return normalizedMessage.includes('failed to fetch')
+    || normalizedMessage.includes('networkerror')
+    || normalizedMessage.includes('network error')
+    || normalizedMessage.includes('load failed')
 }
 
 const shouldTryNextPublishEndpoint = (error: unknown) => {
@@ -792,6 +790,50 @@ const loadExistingAssignmentsFromState = () => {
   cellAssignments.value = nextAssignments
 }
 
+// Returns true when the current grid has assignments not yet persisted in shifts state.
+const hasUnsavedGridChanges = () => {
+  if (!scheduleId.value) return false
+
+  const persistedAssignments = new Map<string, number>()
+
+  for (const existingShift of shifts.value) {
+    if (existingShift.schedule_id !== scheduleId.value) continue
+
+    const normalizedUserIds = Array.isArray(existingShift.user_ids)
+      ? existingShift.user_ids.map((userId) => Number(userId)).filter((userId) => Number.isFinite(userId))
+      : Number.isFinite(Number(existingShift.user_ids))
+        ? [Number(existingShift.user_ids)]
+        : []
+
+    for (const nurseId of normalizedUserIds) {
+      persistedAssignments.set(`${nurseId}::${existingShift.shift_date}`, Number(existingShift.shift_type_id))
+    }
+  }
+
+  const desiredAssignments = new Map<string, number>()
+
+  for (const [key, shiftTypeId] of Object.entries(cellAssignments.value)) {
+    if (!shiftTypeId) continue
+
+    const [, shiftDate] = key.split('::') as [string, string]
+    if (!isDateWithinScheduleRange(shiftDate)) continue
+
+    desiredAssignments.set(key, Number(shiftTypeId))
+  }
+
+  if (persistedAssignments.size !== desiredAssignments.size) {
+    return true
+  }
+
+  for (const [key, desiredShiftTypeId] of desiredAssignments.entries()) {
+    if (persistedAssignments.get(key) !== desiredShiftTypeId) {
+      return true
+    }
+  }
+
+  return false
+}
+
 // ==================== Save Flow ====================
 
 // Saves all filled grid cells to the API, one request per assignment.
@@ -927,6 +969,14 @@ const publishSchedule = async () => {
   isPublishing.value = true
 
   try {
+    if (hasUnsavedGridChanges()) {
+      await saveGridAssignments()
+
+      if (localError.value) {
+        return
+      }
+    }
+
     const authHeaders = {
       Authorization: `Bearer ${token.value}`,
     }
@@ -969,17 +1019,22 @@ const publishSchedule = async () => {
     await fetchSchedule(scheduleId.value)
     localSuccess.value = currentLocale.value === 'pt' ? 'Horario publicado com sucesso.' : 'Schedule published successfully.'
   } catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number, status?: number })?.statusCode ?? (error as { status?: number })?.status
     const backendError = getBackendErrorMessage(error)
-    const warningMessage = backendError ? getPublishWarningMessage(backendError) : ''
 
-    if (warningMessage) {
-      localWarning.value = warningMessage
+    if (statusCode === 422 && backendError) {
+      localWarning.value = backendError
       return
     }
 
-    localError.value = backendError || (currentLocale.value === 'pt'
-      ? 'Nao foi possivel publicar o horario.'
-      : 'Could not publish schedule.')
+    if (backendError) {
+      localError.value = backendError
+      return
+    }
+
+    localError.value = isNetworkPublishError(error)
+      ? (currentLocale.value === 'pt' ? 'Erro de rede ao publicar o horario. Verifica a ligacao e tenta novamente.' : 'Network error while publishing schedule. Check your connection and try again.')
+      : (currentLocale.value === 'pt' ? 'Ocorreu um erro inesperado ao publicar o horario.' : 'An unexpected error occurred while publishing schedule.')
   } finally {
     isPublishing.value = false
   }
