@@ -90,7 +90,7 @@ type SchedulesResponse = {
 
 export const useSchedule = () => {
   const config = useRuntimeConfig()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
 
   // ==================== STATE ====================
 
@@ -190,6 +190,11 @@ export const useSchedule = () => {
     }
 
     return token.value
+  }
+
+  const isHeadNurseRole = () => {
+    const normalizedRole = user.value?.role?.trim().toLowerCase() || ''
+    return normalizedRole === 'head nurse' || normalizedRole === 'head_nurse'
   }
 
   const extractApiErrorMessage = (error: unknown, fallback: string) => {
@@ -767,6 +772,49 @@ export const useSchedule = () => {
   }
 
   /**
+   * Delete a schedule on the backend and clear local state when it matches the current schedule.
+   */
+  const deleteSchedule = async (scheduleId: number) => {
+    loadingScheduleCreation.value = true
+    errorScheduleCreation.value = null
+
+    try {
+      if (!isHeadNurseRole()) {
+        throw new Error('Only the head nurse can delete draft schedules.')
+      }
+
+      const targetSchedule = schedule.value?.id === scheduleId
+        ? schedule.value
+        : schedules.value.find((item) => item.id === scheduleId) ?? null
+
+      if (targetSchedule?.status === 'published') {
+        throw new Error('Published schedules cannot be deleted.')
+      }
+
+      const authToken = requireAuthToken()
+
+      await $fetch(`${config.public.apiBase}/schedules/${scheduleId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      })
+
+      schedules.value = schedules.value.filter((item) => item.id !== scheduleId)
+
+      if (schedule.value?.id === scheduleId) {
+        clearScheduleState()
+      }
+    } catch (error) {
+      errorScheduleCreation.value = extractApiErrorMessage(error, 'Failed to delete schedule')
+      console.error('Error deleting schedule:', error)
+      throw error
+    } finally {
+      loadingScheduleCreation.value = false
+    }
+  }
+
+  /**
    * Create a new shift within the current schedule
    */
   const createShift = async (shiftTypeId: number, shiftDate: string, userIds: number[]) => {
@@ -803,6 +851,113 @@ export const useSchedule = () => {
     } catch (error) {
       errorShiftCreation.value = error instanceof Error ? error.message : 'Failed to create shift'
       console.error('Error creating shift:', error)
+      throw error
+    } finally {
+      loadingShiftCreation.value = false
+    }
+  }
+
+  /**
+   * Update an existing shift assignment.
+   */
+  const updateShift = async (shiftId: number, shiftTypeId: number, shiftDate: string, userIds: number[]) => {
+    if (!schedule.value) {
+      throw new Error('No schedule selected. Please create or select a schedule first.')
+    }
+
+    loadingShiftCreation.value = true
+    errorShiftCreation.value = null
+
+    try {
+      const authToken = requireAuthToken()
+      const currentScheduleId = schedule.value.id
+
+      const requestBody = {
+        schedule_id: currentScheduleId,
+        shift_type_id: shiftTypeId,
+        shift_date: shiftDate,
+        user_ids: userIds,
+      }
+
+      const updateAttempts = [
+        () => $fetch<CreateShiftResponse>(
+          `${config.public.apiBase}/shifts/${shiftId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: requestBody,
+          }
+        ),
+        () => $fetch<CreateShiftResponse>(
+          `${config.public.apiBase}/shifts/${shiftId}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: requestBody,
+          }
+        ),
+        () => $fetch<CreateShiftResponse>(
+          `${config.public.apiBase}/schedules/${currentScheduleId}/shifts/${shiftId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: requestBody,
+          }
+        ),
+        () => $fetch<CreateShiftResponse>(
+          `${config.public.apiBase}/schedules/${currentScheduleId}/shifts/${shiftId}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: requestBody,
+          }
+        ),
+      ]
+
+      let response: CreateShiftResponse | null = null
+      let lastError: unknown = null
+
+      for (const attempt of updateAttempts) {
+        try {
+          response = await attempt()
+          break
+        } catch (error) {
+          lastError = error
+        }
+      }
+
+      if (!response) {
+        const apiError = lastError as { status?: number; statusCode?: number }
+        const statusCode = apiError?.status ?? apiError?.statusCode
+
+        if (statusCode === 404 || statusCode === 405) {
+          throw new Error('No backend endpoint is available to update existing shifts.')
+        }
+
+        throw lastError instanceof Error ? lastError : new Error('Failed to update shift')
+      }
+
+      const existingShiftIndex = shifts.value.findIndex((shift) => shift.id === shiftId)
+      if (existingShiftIndex >= 0) {
+        shifts.value[existingShiftIndex] = {
+          ...shifts.value[existingShiftIndex],
+          ...response.data,
+        }
+      }
+
+      persistShifts()
+      return response.data
+    } catch (error) {
+      errorShiftCreation.value = extractApiErrorMessage(error, 'Failed to update shift')
+      console.error('Error updating shift:', error)
       throw error
     } finally {
       loadingShiftCreation.value = false
@@ -875,7 +1030,9 @@ export const useSchedule = () => {
     fetchShiftTypes,
     fetchSchedule,
     createSchedule,
+    deleteSchedule,
     createShift,
+    updateShift,
     setSelectedPeriod,
     clearScheduleState,
   }

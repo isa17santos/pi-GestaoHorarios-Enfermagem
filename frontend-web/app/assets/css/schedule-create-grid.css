@@ -1,3 +1,4 @@
+/* ==================== Estrutura da Página ==================== */
 .schedule-grid-page {
   position: relative;
   align-content: start;
@@ -21,6 +22,7 @@
   font-size: 0.95rem;
 }
 
+/* ==================== Cabeçalho e Estado ==================== */
 .schedule-title-row {
   display: flex;
   align-items: center;
@@ -53,6 +55,7 @@
   color: #176c48;
 }
 
+/* ==================== Barra de Ações ==================== */
 .schedule-grid-top-actions {
   display: flex;
   align-items: center;
@@ -67,6 +70,57 @@
   gap: 8px;
 }
 
+.schedule-grid-card .schedule-secondary-button,
+.schedule-grid-card .login-button {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 67, 155, 0.15);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--primary-strong);
+  box-shadow: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.schedule-grid-card .schedule-secondary-button:hover:not(:disabled),
+.schedule-grid-card .login-button:hover:not(:disabled) {
+  background: rgba(144, 104, 222, 0.08);
+  transform: translateY(-2px);
+}
+
+.schedule-grid-card .schedule-secondary-button:disabled,
+.schedule-grid-card .login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.schedule-grid-card .schedule-primary-button {
+  border: 0;
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary), var(--pink));
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 18px 28px rgba(144, 104, 222, 0.28);
+}
+
+.schedule-grid-card .schedule-primary-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary), var(--pink));
+  box-shadow: 0 24px 34px rgba(144, 104, 222, 0.34);
+}
+
+.schedule-grid-card .schedule-danger-button {
+  border: 1px solid rgba(209, 77, 114, 0.28);
+  background: rgba(255, 241, 242, 0.92);
+  color: #9f1239;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.schedule-grid-card .schedule-danger-button:hover:not(:disabled) {
+  background: rgba(255, 228, 230, 0.98);
+  box-shadow: none;
+}
+
 .schedule-grid-action-button {
   height: 44px;
   padding: 0 14px;
@@ -79,10 +133,44 @@
   white-space: nowrap;
 }
 
+.schedule-grid-icon-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 67, 155, 0.15);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--primary-strong);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.schedule-grid-icon-button:hover:not(:disabled) {
+  background: rgba(144, 104, 222, 0.08);
+  transform: translateY(-2px);
+}
+
+.schedule-grid-icon-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.schedule-grid-icon-button--danger {
+  border-color: rgba(209, 77, 114, 0.2);
+  color: var(--danger);
+}
+
+.schedule-grid-icon-button--danger:hover:not(:disabled) {
+  background: rgba(209, 77, 114, 0.1);
+}
+
 .schedule-grid-top-actions__primary .login-button.schedule-grid-action-button {
   box-shadow: none;
 }
 
+/* ==================== Ajustes Mobile das Ações ==================== */
 @media (max-width: 760px) {
   .schedule-title-row {
     flex-wrap: wrap;
@@ -100,8 +188,14 @@
   .schedule-grid-top-actions__primary > button {
     flex: 1;
   }
+
+  .schedule-grid-top-actions__primary > .schedule-grid-icon-button {
+    flex: 0 0 auto;
+    width: 42px;
+  }
 }
 
+/* ==================== Navegação Mensal ==================== */
 .schedule-month-nav {
   display: flex;
   align-items: center;
@@ -116,6 +210,15 @@
   text-align: center;
 }
 
+.schedule-month-nav .schedule-secondary-button {
+  color: var(--muted);
+}
+
+.schedule-month-nav .schedule-secondary-button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+/* ==================== Legenda de Turnos ==================== */
 .schedule-legend {
   display: grid;
   gap: 8px;
@@ -134,13 +237,33 @@
 }
 
 .schedule-legend__item {
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
   font-size: 0.88rem;
   color: var(--text);
-  border: 1px solid var(--line);
+  border: 1px solid rgba(102, 67, 155, 0.15);
+  transition: all 0.2s ease;
 }
 
+.schedule-legend__item:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(102, 67, 155, 0.12);
+}
+
+.schedule-legend__item:focus {
+  outline: none;
+}
+
+.schedule-legend__item:focus-visible {
+  border-color: rgba(102, 67, 155, 0.38);
+  box-shadow: 0 0 0 3px rgba(102, 67, 155, 0.14);
+}
+
+.schedule-legend__item.is-selected {
+  color: var(--text);
+}
+
+/* ==================== Grelha de Escala ==================== */
 .schedule-grid-container {
   width: 100%;
   overflow-x: auto;
@@ -257,6 +380,45 @@
   padding: 18px;
 }
 
+/* ==================== Modal de Confirmação ==================== */
+.schedule-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.38);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.schedule-confirm-dialog {
+  width: min(100%, 460px);
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 46px rgba(15, 23, 42, 0.22);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.schedule-confirm-dialog h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.schedule-confirm-dialog p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.schedule-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ==================== Tooltips e Alertas ==================== */
 .schedule-tooltip {
   position: relative;
   display: inline-flex;
