@@ -8,6 +8,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/schedules', [ScheduleController::class, 'index']);
     Route::get('/schedules/{id}', [ScheduleController::class, 'show']);
     Route::post('/schedules', [ScheduleController::class, 'store']);
+    Route::delete('/schedules/{id}', [ScheduleController::class, 'destroy']);
     Route::patch('/schedules/{id}/publish', [ScheduleController::class, 'publish']);
     Route::get('/schedules/{id}/shifts', [ScheduleController::class, 'shifts']);
 });

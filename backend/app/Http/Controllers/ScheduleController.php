@@ -7,6 +7,7 @@ use App\Models\Schedule;
 use App\Models\Shift;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use OpenApi\Attributes as OA;
 
@@ -230,6 +231,71 @@ class ScheduleController extends Controller
                 'end_date' => $schedule->end_date?->toDateString(),
             ],
         ], 201);
+    }
+
+    #[OA\Delete(
+        path: '/api/schedules/{id}',
+        summary: 'Remove um horário em draft',
+        security: [['bearerAuth' => []]],
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Horário removido com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Horário removido com sucesso.'),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Não autenticado'),
+            new OA\Response(response: 403, description: 'Sem permissão'),
+            new OA\Response(response: 404, description: 'Horário não encontrado'),
+            new OA\Response(response: 422, description: 'Apenas horários em draft podem ser removidos'),
+        ]
+    )]
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        if ($role !== UserRole::HeadNurse->value) {
+            return response()->json([
+                'message' => 'Sem permissão para remover horários.',
+            ], 403);
+        }
+
+        $schedule = Schedule::find($id);
+
+        if (! $schedule) {
+            return response()->json([
+                'message' => 'Horário não encontrado.',
+            ], 404);
+        }
+
+        if ($schedule->status !== 'draft') {
+            return response()->json([
+                'message' => 'Apenas horários em draft podem ser removidos.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($schedule): void {
+            $schedule->shifts()->delete();
+            $schedule->delete();
+        });
+
+        return response()->json([
+            'message' => 'Horário removido com sucesso.',
+        ]);
     }
 
     #[OA\Patch(

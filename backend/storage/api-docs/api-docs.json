@@ -740,6 +740,59 @@
                         "bearerAuth": []
                     }
                 ]
+            },
+            "delete": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Remove um horário em draft",
+                "operationId": "0c464af4e687525872f4eb274eac5d7c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Horário removido com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Horário removido com sucesso."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão"
+                    },
+                    "404": {
+                        "description": "Horário não encontrado"
+                    },
+                    "422": {
+                        "description": "Apenas horários em draft podem ser removidos"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/schedules/{id}/publish": {
@@ -967,6 +1020,128 @@
                     },
                     "422": {
                         "description": "Payload inválido"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/shifts/{id}": {
+            "patch": {
+                "tags": [
+                    "Shifts"
+                ],
+                "summary": "Atualiza um turno existente",
+                "operationId": "a46601246f845978791913135af809fa",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "schedule_id",
+                                    "shift_type_id",
+                                    "shift_date",
+                                    "user_ids"
+                                ],
+                                "properties": {
+                                    "schedule_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "shift_type_id": {
+                                        "type": "integer",
+                                        "example": 2
+                                    },
+                                    "shift_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2026-04-07"
+                                    },
+                                    "user_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer",
+                                            "example": 4
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Turno atualizado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Turno atualizado com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "schedule_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "shift_type_id": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "shift_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-04-07"
+                                                },
+                                                "user_ids": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "integer",
+                                                        "example": 4
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para atualizar turnos"
+                    },
+                    "404": {
+                        "description": "Turno não encontrado"
+                    },
+                    "422": {
+                        "description": "Payload inválido, horário publicado, ou conflito de alocação"
                     }
                 },
                 "security": [
