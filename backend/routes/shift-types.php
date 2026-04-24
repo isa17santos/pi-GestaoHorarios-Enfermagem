@@ -5,5 +5,5 @@ use Illuminate\Support\Facades\Route;
 
 // Shift type endpoints used when building schedules.
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/shift-types', [ShiftTypeController::class, 'index']);
+    Route::apiResource('shift-types', ShiftTypeController::class)->only(['index', 'store', 'update', 'destroy']);
 });

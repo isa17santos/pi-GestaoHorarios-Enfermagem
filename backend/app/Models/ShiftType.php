@@ -13,6 +13,7 @@ class ShiftType extends Model
 
     protected $fillable = [
         'name',
+        'color',
         'start_time',
         'end_time',
         'min_nurses',
