@@ -17,19 +17,30 @@ const {
   selectedYear,
   loadingNurses,
   loadingShiftTypes,
+  loadingShifts,
   loadingShiftCreation,
   errorNurses,
   errorShiftTypes,
+  errorShifts,
+  errorScheduleCreation,
   errorShiftCreation,
   fetchNurses,
+  fetchScheduleShifts,
+  fetchShifts,
   fetchShiftTypes,
+  fetchSchedule,
+  deleteSchedule,
   createShift,
+  updateShift,
   setSelectedPeriod,
 } = useSchedule()
 
+const config = useRuntimeConfig()
+
 // Pull auth state to enforce role-based access.
-const { user, fetchMe } = useAuth()
+const { user, fetchMe, token } = useAuth()
 const route = useRoute()
+const router = useRouter()
 
 // Use shared schedule texts composable
 const { currentLocale, texts, toggleLanguage, localeLabel, localeFlag } = useScheduleTexts()
@@ -42,10 +53,17 @@ const canCreateSchedule = computed(() => {
   return normalizedRole === 'admin' || normalizedRole === 'head nurse' || normalizedRole === 'head_nurse'
 })
 
+const canDeleteDraft = computed(() => {
+  const normalizedRole = user.value?.role?.trim().toLowerCase() || ''
+  const isHeadNurse = normalizedRole === 'head nurse' || normalizedRole === 'head_nurse'
+  return isHeadNurse && schedule.value?.status === 'draft'
+})
+
 // ==================== Local UI State ====================
 
 // Local feedback messages shown to the user.
 const localError = ref('')
+const localWarning = ref('')
 const localSuccess = ref('')
 
 // True while the page is loading its initial data.
@@ -53,6 +71,15 @@ const isBootstrapping = ref(true)
 
 // True while the save operation is in progress.
 const isSaving = ref(false)
+
+// True while publish operation is in progress.
+const isPublishing = ref(false)
+
+// True while draft deletion is in progress.
+const isDeletingDraft = ref(false)
+
+// Controls the custom delete confirmation modal.
+const isDeleteDraftModalOpen = ref(false)
 
 // Currently selected shift type in the toolbar.
 const selectedShiftTypeId = ref<number | null>(null)
@@ -65,6 +92,9 @@ const draggingNurseId = ref<number | null>(null)
 
 // Cell currently hovered, used to show the clear button.
 const hoveredCellKey = ref<string | null>(null)
+
+// Cache flag to avoid repeating previous-month schedule lookups.
+const previousMonthAssignmentsLoaded = ref(false)
 
 // Floating tooltip state for preference and warning messages.
 const tooltipVisible = ref(false)
@@ -99,6 +129,92 @@ const monthLabel = computed(() => {
   const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-US'
   return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(date)
 })
+
+// Month boundaries for navigation and controlled historical view.
+
+const scheduleBaseMonthDate = computed(() => {
+  if (!schedule.value?.start_date) return null
+
+  const date = new Date(schedule.value.start_date)
+  if (Number.isNaN(date.getTime())) return null
+
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+})
+
+const canGoToPreviousMonth = computed(() => {
+  const baseMonthDate = scheduleBaseMonthDate.value
+  if (!baseMonthDate) return false
+
+  const visibleMonthDate = new Date(selectedYear.value, selectedMonth.value - 1, 1)
+  const minAllowedDate = new Date(baseMonthDate.getFullYear(), baseMonthDate.getMonth() - 1, 1)
+
+  return visibleMonthDate > minAllowedDate
+})
+
+const canGoToNextMonth = computed(() => {
+  const baseMonthDate = scheduleBaseMonthDate.value
+  if (!baseMonthDate) return false
+
+  const visibleMonthDate = new Date(selectedYear.value, selectedMonth.value - 1, 1)
+  return visibleMonthDate < baseMonthDate
+})
+
+const scheduleStatusLabel = computed(() => {
+  if (schedule.value?.status === 'published') {
+    return currentLocale.value === 'pt' ? 'Publicado' : 'Published'
+  }
+
+  return currentLocale.value === 'pt' ? 'Rascunho' : 'Draft'
+})
+
+const scheduleStatusClass = computed(() => {
+  return schedule.value?.status === 'published'
+    ? 'schedule-status-badge--published'
+    : 'schedule-status-badge--draft'
+})
+
+// Shared helpers for backend error normalization and user-friendly feedback.
+
+const getBackendErrorMessage = (error: unknown) => {
+  const backendError = (error as { data?: { message?: string }, message?: string })?.data?.message
+  if (typeof backendError === 'string' && backendError.trim().length > 0) {
+    return backendError.trim()
+  }
+
+  const runtimeError = (error as { message?: string })?.message
+  return typeof runtimeError === 'string' ? runtimeError.trim() : ''
+}
+
+const normalizeErrorMessage = (message: string) => {
+  return message
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+const isNetworkPublishError = (error: unknown) => {
+  const statusCode = (error as { statusCode?: number, status?: number })?.statusCode ?? (error as { status?: number })?.status
+  if (typeof statusCode === 'number') {
+    return false
+  }
+
+  const normalizedMessage = normalizeErrorMessage(getBackendErrorMessage(error))
+  return normalizedMessage.includes('failed to fetch')
+    || normalizedMessage.includes('networkerror')
+    || normalizedMessage.includes('network error')
+    || normalizedMessage.includes('load failed')
+}
+
+const shouldTryNextPublishEndpoint = (error: unknown) => {
+  const statusCode = (error as { statusCode?: number, status?: number })?.statusCode ?? (error as { status?: number })?.status
+  const normalizedMessage = normalizeErrorMessage(getBackendErrorMessage(error))
+
+  return statusCode === 404
+    || statusCode === 405
+    || normalizedMessage.includes('method not allowed')
+    || normalizedMessage.includes('not found')
+    || normalizedMessage.includes('unsupported method')
+ }
 
 // Returns an array of day objects for the current month, used to build the grid columns.
 const monthDays = computed(() => {
@@ -168,6 +284,7 @@ const isWeekendDateIso = (dateIso: string) => {
 const goesAgainstPreference = (nurseId: number, dateIso: string, shiftTypeId: number): boolean => {
   const preference = getNursePreference(nurseId)
   if (!preference) return false
+  if (blockingShiftTypeIds.value.has(shiftTypeId)) return false
 
   const shiftName = getShiftTypeNameById(shiftTypeId).trim().toLowerCase()
   if (shiftName === 'morning' && preference.prefers_morning === false) return true
@@ -452,6 +569,8 @@ const handleCellClick = (nurseId: number, dateIso: string) => {
 
 // Clears one cell assignment.
 const clearCellAssignment = (nurseId: number, dateIso: string) => {
+  if (!isDateWithinScheduleRange(dateIso)) return
+
   // Clearing is always allowed, including blocking shift types.
   setCellAssignment(nurseId, dateIso, null)
 }
@@ -465,6 +584,108 @@ const setHoveredCell = (nurseId: number, dateIso: string) => {
 const clearHoveredCell = () => {
   hoveredCellKey.value = null
 }
+
+// Helpers for month-key comparisons used in previous-month lookups.
+
+const formatMonthKeyFromDate = (date: Date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+const ensurePreviousMonthAssignmentsLoaded = async () => {
+  if (previousMonthAssignmentsLoaded.value) return
+  if (!scheduleBaseMonthDate.value) return
+  if (!token.value) return
+
+  const previousMonthDate = new Date(
+    scheduleBaseMonthDate.value.getFullYear(),
+    scheduleBaseMonthDate.value.getMonth() - 1,
+    1
+  )
+  const previousMonthKey = formatMonthKeyFromDate(previousMonthDate)
+
+  try {
+    const authHeaders = {
+      Authorization: `Bearer ${token.value}`,
+    }
+
+    const schedulesResponse = await $fetch<{ data?: Array<{ id: number; start_date: string; status?: string }> } | Array<{ id: number; start_date: string; status?: string }>>(
+      `${config.public.apiBase}/schedules`,
+      {
+        headers: authHeaders,
+      }
+    )
+
+    const schedulesList = Array.isArray(schedulesResponse)
+      ? schedulesResponse
+      : (schedulesResponse.data ?? [])
+
+    const previousMonthSchedules = schedulesList.filter((item) => {
+      const startDate = new Date(item.start_date)
+      if (Number.isNaN(startDate.getTime())) return false
+
+      return formatMonthKeyFromDate(startDate) === previousMonthKey
+    })
+
+    const previousMonthSchedule = previousMonthSchedules
+      .sort((a, b) => {
+        const statusWeight = (status?: string) => {
+          if (status === 'published') return 0
+          if (status === 'draft') return 1
+          return 2
+        }
+
+        const byStatus = statusWeight(a.status) - statusWeight(b.status)
+        if (byStatus !== 0) return byStatus
+
+        return Number(b.id) - Number(a.id)
+      })[0]
+
+    if (!previousMonthSchedule) {
+      previousMonthAssignmentsLoaded.value = true
+      localWarning.value = currentLocale.value === 'pt'
+        ? 'Não existe horário no mês anterior.'
+        : 'No schedule was found for the previous month.'
+      return
+    }
+
+    const shiftsResponse = await $fetch<{ data?: Array<{ shift_type_id: number; shift_date: string; user_ids: unknown }> }>(
+      `${config.public.apiBase}/schedules/${previousMonthSchedule.id}/shifts`,
+      {
+        headers: authHeaders,
+      }
+    )
+
+    const previousMonthAssignments: Record<string, number | null> = {}
+
+    for (const shift of shiftsResponse.data ?? []) {
+      const shiftDate = String(shift.shift_date).slice(0, 10)
+      if (!shiftDate.startsWith(previousMonthKey)) continue
+
+      const normalizedUserIds = Array.isArray(shift.user_ids)
+        ? shift.user_ids.map((userId) => Number(userId)).filter((userId) => Number.isFinite(userId))
+        : Number.isFinite(Number(shift.user_ids))
+          ? [Number(shift.user_ids)]
+          : []
+
+      for (const nurseId of normalizedUserIds) {
+        previousMonthAssignments[getCellKey(nurseId, shiftDate)] = Number(shift.shift_type_id)
+      }
+    }
+
+    cellAssignments.value = {
+      ...cellAssignments.value,
+      ...previousMonthAssignments,
+    }
+
+    previousMonthAssignmentsLoaded.value = true
+  } catch {
+    localWarning.value = currentLocale.value === 'pt'
+      ? 'Não foi possível carregar os turnos do mês anterior.'
+      : 'Could not load previous month shifts.'
+  }
+}
+
+// ==================== Text and Tooltip Helpers ====================
 
 const getLocalizedShiftTypeName = (name: string) => {
   const normalizedName = name.trim().toLowerCase()
@@ -494,15 +715,34 @@ const hideFloatingTooltip = () => {
 // ==================== Month Navigation ====================
 
 // Navigates to the previous month, wrapping from January to December of the previous year.
-const goToPreviousMonth = () => {
+const goToPreviousMonth = async () => {
+  if (!canGoToPreviousMonth.value) return
+
+  localWarning.value = ''
   const month = selectedMonth.value === 1 ? 12 : selectedMonth.value - 1
   const year = selectedMonth.value === 1 ? selectedYear.value - 1 : selectedYear.value
+
+  if (scheduleBaseMonthDate.value) {
+    const targetMonthDate = new Date(year, month - 1, 1)
+    const previousMonthDate = new Date(
+      scheduleBaseMonthDate.value.getFullYear(),
+      scheduleBaseMonthDate.value.getMonth() - 1,
+      1
+    )
+
+    if (targetMonthDate.getTime() === previousMonthDate.getTime()) {
+      await ensurePreviousMonthAssignmentsLoaded()
+    }
+  }
+
   setSelectedPeriod(month, year)
   handleCellMouseUp()
 }
 
 // Navigates to the next month, wrapping from December to January of the next year.
 const goToNextMonth = () => {
+  if (!canGoToNextMonth.value) return
+
   const month = selectedMonth.value === 12 ? 1 : selectedMonth.value + 1
   const year = selectedMonth.value === 12 ? selectedYear.value + 1 : selectedYear.value
   setSelectedPeriod(month, year)
@@ -525,12 +765,24 @@ const applyScheduleMonthFromState = () => {
 const loadExistingAssignmentsFromState = () => {
   if (!scheduleId.value) return
 
+  const normalizeShiftUserIds = (userIds: unknown): number[] => {
+    if (Array.isArray(userIds)) {
+      return userIds.filter((id): id is number => Number.isFinite(Number(id))).map((id) => Number(id))
+    }
+
+    if (Number.isFinite(Number(userIds))) {
+      return [Number(userIds)]
+    }
+
+    return []
+  }
+
   const nextAssignments: Record<string, number | null> = {}
 
   for (const existingShift of shifts.value) {
     if (existingShift.schedule_id !== scheduleId.value) continue
 
-    for (const nurseId of existingShift.user_ids) {
+    for (const nurseId of normalizeShiftUserIds(existingShift.user_ids)) {
       nextAssignments[getCellKey(nurseId, existingShift.shift_date)] = existingShift.shift_type_id
     }
   }
@@ -538,11 +790,56 @@ const loadExistingAssignmentsFromState = () => {
   cellAssignments.value = nextAssignments
 }
 
+// Returns true when the current grid has assignments not yet persisted in shifts state.
+const hasUnsavedGridChanges = () => {
+  if (!scheduleId.value) return false
+
+  const persistedAssignments = new Map<string, number>()
+
+  for (const existingShift of shifts.value) {
+    if (existingShift.schedule_id !== scheduleId.value) continue
+
+    const normalizedUserIds = Array.isArray(existingShift.user_ids)
+      ? existingShift.user_ids.map((userId) => Number(userId)).filter((userId) => Number.isFinite(userId))
+      : Number.isFinite(Number(existingShift.user_ids))
+        ? [Number(existingShift.user_ids)]
+        : []
+
+    for (const nurseId of normalizedUserIds) {
+      persistedAssignments.set(`${nurseId}::${existingShift.shift_date}`, Number(existingShift.shift_type_id))
+    }
+  }
+
+  const desiredAssignments = new Map<string, number>()
+
+  for (const [key, shiftTypeId] of Object.entries(cellAssignments.value)) {
+    if (!shiftTypeId) continue
+
+    const [, shiftDate] = key.split('::') as [string, string]
+    if (!isDateWithinScheduleRange(shiftDate)) continue
+
+    desiredAssignments.set(key, Number(shiftTypeId))
+  }
+
+  if (persistedAssignments.size !== desiredAssignments.size) {
+    return true
+  }
+
+  for (const [key, desiredShiftTypeId] of desiredAssignments.entries()) {
+    if (persistedAssignments.get(key) !== desiredShiftTypeId) {
+      return true
+    }
+  }
+
+  return false
+}
+
 // ==================== Save Flow ====================
 
 // Saves all filled grid cells to the API, one request per assignment.
 const saveGridAssignments = async () => {
   localError.value = ''
+  localWarning.value = ''
   localSuccess.value = ''
 
   if (!scheduleId.value) {
@@ -555,18 +852,27 @@ const saveGridAssignments = async () => {
     return
   }
 
-  // Tracks assignments already persisted to avoid duplicate POST requests.
-  const existingAssignments = new Set<string>()
+  // Groups existing shift assignments by nurse/date to decide between create and update.
+  const existingAssignmentByNurseDate = new Map<string, { shiftId: number | null, shiftTypeId: number }>()
 
   for (const existingShift of shifts.value) {
     if (existingShift.schedule_id !== scheduleId.value) continue
 
-    for (const nurseId of existingShift.user_ids) {
-      existingAssignments.add(`${nurseId}::${existingShift.shift_date}::${existingShift.shift_type_id}`)
+    const normalizedUserIds = Array.isArray(existingShift.user_ids)
+      ? existingShift.user_ids.map((userId) => Number(userId)).filter((userId) => Number.isFinite(userId))
+      : Number.isFinite(Number(existingShift.user_ids))
+        ? [Number(existingShift.user_ids)]
+        : []
+
+    for (const nurseId of normalizedUserIds) {
+      existingAssignmentByNurseDate.set(`${nurseId}::${existingShift.shift_date}`, {
+        shiftId: Number.isFinite(Number(existingShift.id)) ? Number(existingShift.id) : null,
+        shiftTypeId: Number(existingShift.shift_type_id),
+      })
     }
   }
 
-  const assignmentsToSave = Object.entries(cellAssignments.value)
+  const desiredAssignments = Object.entries(cellAssignments.value)
     .filter(([, shiftTypeId]) => Boolean(shiftTypeId))
     .map(([key, shiftTypeId]) => {
       const [nurseIdRaw, shiftDate] = key.split('::') as [string, string]
@@ -577,12 +883,36 @@ const saveGridAssignments = async () => {
         shiftTypeId: Number(shiftTypeId),
       }
     })
-    // Sends only new assignments that are not already stored in shifts state.
-    .filter((assignment) => !existingAssignments.has(
-      `${assignment.nurseId}::${assignment.shiftDate}::${assignment.shiftTypeId}`
-    ))
+    // Keeps previous month cells read-only by saving only dates inside the schedule range.
+    .filter((assignment) => isDateWithinScheduleRange(assignment.shiftDate))
 
-  if (!assignmentsToSave.length) {
+  const assignmentsToCreate: Array<{ nurseId: number; shiftDate: string; shiftTypeId: number }> = []
+  const assignmentsToUpdate: Array<{ shiftId: number; nurseId: number; shiftDate: string; shiftTypeId: number }> = []
+
+  for (const assignment of desiredAssignments) {
+    const existingAssignment = existingAssignmentByNurseDate.get(`${assignment.nurseId}::${assignment.shiftDate}`)
+
+    if (!existingAssignment) {
+      assignmentsToCreate.push(assignment)
+      continue
+    }
+
+    if (existingAssignment.shiftTypeId === assignment.shiftTypeId) {
+      continue
+    }
+
+    if (existingAssignment.shiftId === null) {
+      localError.value = 'Nao foi possivel atualizar um turno existente sem identificador.'
+      return
+    }
+
+    assignmentsToUpdate.push({
+      shiftId: existingAssignment.shiftId,
+      ...assignment,
+    })
+  }
+
+  if (!assignmentsToCreate.length && !assignmentsToUpdate.length) {
     localError.value = 'Nao existem novas atribuicoes para guardar.'
     return
   }
@@ -590,7 +920,11 @@ const saveGridAssignments = async () => {
   isSaving.value = true
 
   try {
-    for (const assignment of assignmentsToSave) {
+    for (const assignment of assignmentsToUpdate) {
+      await updateShift(assignment.shiftId, assignment.shiftTypeId, assignment.shiftDate, [assignment.nurseId])
+    }
+
+    for (const assignment of assignmentsToCreate) {
       await createShift(assignment.shiftTypeId, assignment.shiftDate, [assignment.nurseId])
     }
 
@@ -599,15 +933,176 @@ const saveGridAssignments = async () => {
   } catch (error: unknown) {
     // Uses backend validation message when available.
     const backendError = (error as { data?: { message?: string } })?.data?.message
+    const runtimeErrorMessage = error instanceof Error ? error.message : ''
 
     localError.value =
       backendError
+      || runtimeErrorMessage
       ||
       errorShiftCreation.value
       || 'Nao foi possivel guardar as atribuicoes. Tenta novamente.'
   } finally {
     isSaving.value = false
   }
+}
+
+const publishSchedule = async () => {
+  localError.value = ''
+  localWarning.value = ''
+  localSuccess.value = ''
+
+  if (!scheduleId.value) {
+    localError.value = 'Nao foi possivel identificar o horario.'
+    return
+  }
+
+  if (!token.value) {
+    localError.value = 'Sessao expirada. Inicia sessao novamente.'
+    return
+  }
+
+  if (schedule.value?.status === 'published') {
+    localSuccess.value = currentLocale.value === 'pt' ? 'Horario ja publicado.' : 'Schedule already published.'
+    return
+  }
+
+  isPublishing.value = true
+
+  try {
+    if (hasUnsavedGridChanges()) {
+      await saveGridAssignments()
+
+      if (localError.value) {
+        return
+      }
+    }
+
+    const authHeaders = {
+      Authorization: `Bearer ${token.value}`,
+    }
+
+    const publishAttempts = [
+      () => $fetch(`${config.public.apiBase}/schedules/${scheduleId.value}/publish`, {
+        method: 'POST',
+        headers: authHeaders,
+      }),
+      () => $fetch(`${config.public.apiBase}/schedules/${scheduleId.value}/publish`, {
+        method: 'PATCH',
+        headers: authHeaders,
+      }),
+      () => $fetch(`${config.public.apiBase}/schedules/${scheduleId.value}`, {
+        method: 'PATCH',
+        headers: authHeaders,
+        body: { status: 'published' },
+      }),
+    ]
+
+    let publishSucceeded = false
+    let lastPublishError: unknown = null
+    for (const attempt of publishAttempts) {
+      try {
+        await attempt()
+        publishSucceeded = true
+        break
+      } catch (error: unknown) {
+        lastPublishError = error
+        if (!shouldTryNextPublishEndpoint(error)) {
+          throw error
+        }
+      }
+    }
+
+    if (!publishSucceeded) {
+      throw lastPublishError || new Error('Nao foi possivel publicar o horario.')
+    }
+
+    await fetchSchedule(scheduleId.value)
+    localSuccess.value = currentLocale.value === 'pt'
+      ? 'Horário publicado com sucesso. Email enviado à equipa de enfermagem.'
+      : 'Schedule published successfully. Email sent to the nursing team.'
+  } catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number, status?: number })?.statusCode ?? (error as { status?: number })?.status
+    const backendError = getBackendErrorMessage(error)
+
+    if (statusCode === 422 && backendError) {
+      localWarning.value = backendError
+      return
+    }
+
+    if (backendError) {
+      localError.value = backendError
+      return
+    }
+
+    localError.value = isNetworkPublishError(error)
+      ? (currentLocale.value === 'pt' ? 'Erro de rede ao publicar o horario. Verifica a ligacao e tenta novamente.' : 'Network error while publishing schedule. Check your connection and try again.')
+      : (currentLocale.value === 'pt' ? 'Ocorreu um erro inesperado ao publicar o horario.' : 'An unexpected error occurred while publishing schedule.')
+  } finally {
+    isPublishing.value = false
+  }
+}
+
+const deleteDraftSchedule = async () => {
+  localError.value = ''
+  localWarning.value = ''
+  localSuccess.value = ''
+
+  if (!scheduleId.value) {
+    localError.value = 'Nao foi possivel identificar o horario.'
+    return
+  }
+
+  if (schedule.value?.status === 'published') {
+    localError.value = currentLocale.value === 'pt'
+      ? 'Um horario publicado nao pode ser apagado.'
+      : 'A published schedule cannot be deleted.'
+    return
+  }
+
+  if (!canDeleteDraft.value) {
+    localError.value = currentLocale.value === 'pt'
+      ? 'Apenas o head nurse pode apagar rascunhos.'
+      : 'Only the head nurse can delete drafts.'
+    return
+  }
+
+  isDeleteDraftModalOpen.value = true
+}
+
+// Generic confirmation modal control for draft deletion.
+
+const closeDeleteDraftModal = () => {
+  if (isDeletingDraft.value) return
+  isDeleteDraftModalOpen.value = false
+}
+
+const confirmDeleteDraftSchedule = async () => {
+  if (!scheduleId.value) {
+    isDeleteDraftModalOpen.value = false
+    return
+  }
+
+  isDeletingDraft.value = true
+
+  try {
+    await deleteSchedule(scheduleId.value)
+    isDeleteDraftModalOpen.value = false
+    localSuccess.value = texts.value.edit.deleteDraftSuccess
+    await navigateTo('/schedule-create')
+  } catch (error: unknown) {
+    const backendError = getBackendErrorMessage(error)
+    localError.value = backendError || (currentLocale.value === 'pt'
+      ? 'Nao foi possivel apagar o rascunho.'
+      : 'Could not delete draft.')
+  } finally {
+    isDeletingDraft.value = false
+  }
+}
+
+// Fecha o modal de confirmação com a tecla Escape.
+const handleDeleteDraftModalEscape = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape') return
+  closeDeleteDraftModal()
 }
 
 // ==================== Persistence Helpers ====================
@@ -617,36 +1112,17 @@ const handleGlobalMouseUp = () => {
   handleCellMouseUp()
 }
 
-// Restores the current schedule from localStorage when it is missing or stale in memory.
-const tryRestoreScheduleFromStorage = (expectedScheduleId: number): boolean => {
-  if (!process.client) return false
-
-  const rawSchedule = localStorage.getItem('schedule.current')
-  if (!rawSchedule) return false
-
-  try {
-    const parsedSchedule = JSON.parse(rawSchedule) as { id?: number }
-
-    if (parsedSchedule.id !== expectedScheduleId) {
-      return false
-    }
-
-    schedule.value = parsedSchedule as typeof schedule.value
-    return true
-  } catch {
-    return false
-  }
-}
-
 // ==================== Lifecycle ====================
 
 onMounted(async () => {
   if (process.client) {
     window.addEventListener('mouseup', handleGlobalMouseUp)
+    window.addEventListener('keydown', handleDeleteDraftModalEscape)
   }
 
   isBootstrapping.value = true
   localError.value = ''
+  localWarning.value = ''
 
   try {
     // Ensure user profile is available after refresh before role validation.
@@ -665,25 +1141,28 @@ onMounted(async () => {
       return
     }
 
-    if (!schedule.value || schedule.value.id !== scheduleId.value) {
-      const restored = tryRestoreScheduleFromStorage(scheduleId.value)
-
-      if (!restored || !schedule.value || schedule.value.id !== scheduleId.value) {
-        localError.value = 'Sessao do horario indisponivel. Volta a criar o periodo antes de editar a grelha.'
-        await navigateTo('/dashboard?error=schedule_unavailable')
-        return
-      }
+    try {
+      await fetchSchedule(scheduleId.value)
+    } catch {
+      await navigateTo('/dashboard')
+      return
     }
 
     applyScheduleMonthFromState()
 
     await Promise.all([fetchNurses(), fetchShiftTypes()])
+    await fetchScheduleShifts(scheduleId.value)
 
     loadExistingAssignmentsFromState()
-  } catch {
+  } catch (error: unknown) {
+    const runtimeErrorMessage = error instanceof Error ? error.message : ''
+
     localError.value =
       errorNurses.value
       || errorShiftTypes.value
+      || errorShifts.value
+      || errorScheduleCreation.value
+      || runtimeErrorMessage
       || 'Nao foi possivel carregar os dados iniciais da grelha.'
   } finally {
     isBootstrapping.value = false
@@ -693,6 +1172,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (process.client) {
     window.removeEventListener('mouseup', handleGlobalMouseUp)
+    window.removeEventListener('keydown', handleDeleteDraftModalEscape)
   }
 })
 </script>
@@ -707,23 +1187,55 @@ onBeforeUnmount(() => {
       </button>
 
       <p class="eyebrow">{{ texts.edit.pageEyebrow }}</p>
-      <h1>{{ texts.edit.pageTitle }}</h1>
+      <div class="schedule-title-row">
+        <h1>{{ texts.edit.pageTitle }}</h1>
+        <span class="schedule-status-badge" :class="scheduleStatusClass">
+          {{ scheduleStatusLabel }}
+        </span>
+      </div>
 
       <!-- ==================== Header Actions ==================== -->
 
       <div class="schedule-grid-top-actions">
-        <button type="button" class="schedule-secondary-button" @click="navigateTo('/dashboard')">
+        <button type="button" class="schedule-secondary-button" @click="() => router.back()">
           {{ texts.backButton }}
         </button>
 
-        <button
-          type="button"
-          class="login-button"
-          :disabled="isBootstrapping || loadingShiftCreation || isSaving"
-          @click="saveGridAssignments"
-        >
-          {{ isSaving ? texts.edit.savingAssignments : texts.edit.saveAssignments }}
-        </button>
+        <div class="schedule-grid-top-actions__primary">
+          <button
+            v-if="canDeleteDraft"
+            type="button"
+            class="schedule-grid-icon-button schedule-grid-icon-button--danger"
+            :disabled="isBootstrapping || loadingShiftCreation || isSaving || isPublishing || isDeletingDraft"
+            :title="texts.edit.deleteDraft"
+            :aria-label="texts.edit.deleteDraft"
+            @click="deleteDraftSchedule"
+          >
+            <svg v-if="!isDeletingDraft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="M6 6 18 18" />
+            </svg>
+            <span v-else aria-hidden="true">…</span>
+          </button>
+
+          <button
+            type="button"
+            class="schedule-secondary-button schedule-grid-action-button"
+            :disabled="isBootstrapping || loadingShiftCreation || isSaving || isPublishing || isDeletingDraft"
+            @click="saveGridAssignments"
+          >
+            {{ isSaving ? texts.edit.savingAssignments : texts.edit.saveAssignments }}
+          </button>
+
+          <button
+            type="button"
+            class="login-button schedule-grid-action-button schedule-primary-button"
+            :disabled="isBootstrapping || isSaving || isPublishing || isDeletingDraft || schedule?.status === 'published'"
+            @click="publishSchedule"
+          >
+            {{ isPublishing ? (currentLocale === 'pt' ? 'A publicar...' : 'Publishing...') : (currentLocale === 'pt' ? 'Publicar' : 'Publish') }}
+          </button>
+        </div>
       </div>
 
       <p class="schedule-intro">
@@ -740,9 +1252,10 @@ onBeforeUnmount(() => {
             :key="`toolbar-${shiftType.id}`"
             type="button"
             class="schedule-legend__item"
+            :class="{ 'is-selected': selectedShiftTypeId === shiftType.id }"
             :style="{
               backgroundColor: getShiftTypeBackgroundColor(shiftType.id) || '#f5f5f7',
-              borderColor: selectedShiftTypeId === shiftType.id ? '#0f172a' : 'var(--line)',
+              borderColor: selectedShiftTypeId === shiftType.id ? 'rgba(102, 67, 155, 0.45)' : 'var(--line)',
               borderWidth: selectedShiftTypeId === shiftType.id ? '2px' : '1px'
             }"
             @click="selectShiftType(shiftType.id)"
@@ -753,18 +1266,32 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="schedule-month-nav">
-        <button type="button" class="schedule-secondary-button" @click="goToPreviousMonth">
+        <button
+          type="button"
+          class="schedule-secondary-button"
+          :disabled="!canGoToPreviousMonth"
+          @click="goToPreviousMonth"
+        >
           {{ texts.edit.previousMonth }}
         </button>
 
         <strong class="schedule-month-label">{{ monthLabel }}</strong>
 
-        <button type="button" class="schedule-secondary-button" @click="goToNextMonth">
+        <button
+          type="button"
+          class="schedule-secondary-button"
+          :disabled="!canGoToNextMonth"
+          @click="goToNextMonth"
+        >
           {{ texts.edit.nextMonth }}
         </button>
       </div>
 
       <!-- ==================== Feedback Messages ==================== -->
+
+      <p v-if="localWarning" class="form-warning">
+        {{ localWarning }}
+      </p>
 
       <p v-if="localError" class="form-error">
         {{ localError }}
@@ -774,9 +1301,45 @@ onBeforeUnmount(() => {
         {{ localSuccess }}
       </p>
 
-      <p v-if="errorNurses || errorShiftTypes" class="form-error">
-        {{ errorNurses || errorShiftTypes }}
+      <p v-if="errorNurses || errorShiftTypes || errorShifts" class="form-error">
+        {{ errorNurses || errorShiftTypes || errorShifts }}
       </p>
+
+      <div
+        v-if="isDeleteDraftModalOpen"
+        class="schedule-confirm-overlay"
+        role="presentation"
+        @click.self="closeDeleteDraftModal"
+      >
+        <!-- Generic confirmation modal used for destructive draft actions. -->
+        <div class="schedule-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-draft-grid-title">
+          <h3 id="delete-draft-grid-title">
+            {{ texts.edit.deleteDraft }}
+          </h3>
+
+          <p>{{ texts.edit.deleteDraftConfirmation }}</p>
+
+          <div class="schedule-confirm-actions">
+            <button
+              type="button"
+              class="schedule-secondary-button"
+              :disabled="isDeletingDraft"
+              @click="closeDeleteDraftModal"
+            >
+              {{ currentLocale === 'pt' ? 'Cancelar' : 'Cancel' }}
+            </button>
+
+            <button
+              type="button"
+              class="login-button schedule-danger-button"
+              :disabled="isDeletingDraft"
+              @click="confirmDeleteDraftSchedule"
+            >
+              {{ isDeletingDraft ? texts.edit.deletingDraft : texts.edit.deleteDraft }}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- ==================== Schedule Grid ==================== -->
 
@@ -797,7 +1360,7 @@ onBeforeUnmount(() => {
           </thead>
 
           <tbody>
-            <tr v-if="isBootstrapping || loadingNurses || loadingShiftTypes">
+            <tr v-if="isBootstrapping || loadingNurses || loadingShiftTypes || loadingShifts">
               <td :colspan="monthDays.length + 1" class="schedule-grid__feedback">
                 {{ texts.edit.loadingGrid }}
               </td>
@@ -849,7 +1412,7 @@ onBeforeUnmount(() => {
                 @mouseleave="clearHoveredCell"
               >
                 <button
-                  v-if="hoveredCellKey === getCellKey(nurse.id, day.dateIso) && getCellShiftTypeId(nurse.id, day.dateIso)"
+                  v-if="hoveredCellKey === getCellKey(nurse.id, day.dateIso) && getCellShiftTypeId(nurse.id, day.dateIso) && isDateWithinScheduleRange(day.dateIso)"
                   type="button"
                   class="schedule-secondary-button"
                   :style="{
@@ -901,4 +1464,3 @@ onBeforeUnmount(() => {
     </section>
   </main>
 </template>
-

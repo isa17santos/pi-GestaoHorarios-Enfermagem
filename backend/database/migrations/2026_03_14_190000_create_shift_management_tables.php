@@ -16,6 +16,7 @@ return new class extends Migration
             $table->enum('name', ['morning', 'afternoon', 'night', 'dayOff', 'holidays', 'sick leave', 'parental leave']);
             $table->time('start_time');
             $table->time('end_time');
+            $table->integer('min_nurses')->after('end_time');
             $table->timestamps();
             $table->softDeletes();
         });
@@ -25,6 +26,7 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->date('start_date');
             $table->date('end_date');
+            $table->enum('status', ['draft', 'published'])->default('draft')->after('end_date');
             $table->timestamps();
             $table->softDeletes();
         });

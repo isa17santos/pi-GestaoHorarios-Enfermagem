@@ -6,4 +6,5 @@ use Illuminate\Support\Facades\Route;
 // Individual shift creation endpoint.
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shifts', [ShiftController::class, 'store']);
+    Route::patch('/shifts/{id}', [ShiftController::class, 'update']);
 });

@@ -1,9 +1,140 @@
+/* ==================== Layout Base ==================== */
 .schedule-period {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
+/* ==================== Seletor de Mês Custom ==================== */
+.schedule-month-picker {
+  position: relative;
+}
+
+.schedule-month-picker__trigger {
+  width: 100%;
+  height: 60px;
+  padding: 0 16px;
+  border: 1px solid rgba(102, 67, 155, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 245, 255, 0.92));
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.schedule-month-picker__trigger:hover {
+  border-color: rgba(102, 67, 155, 0.32);
+}
+
+.schedule-month-picker__trigger:focus-visible {
+  outline: none;
+  border-color: rgba(144, 104, 222, 0.55);
+  box-shadow: 0 0 0 4px rgba(144, 104, 222, 0.12);
+  transform: translateY(-1px);
+}
+
+.schedule-month-picker__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 46px rgba(15, 23, 42, 0.2);
+  padding: 12px;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+}
+
+.schedule-month-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.schedule-month-picker__header strong {
+  color: var(--text);
+}
+
+.schedule-month-picker__header .schedule-secondary-button {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+}
+
+.schedule-month-picker__months {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.schedule-month-picker__month {
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(102, 67, 155, 0.15);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--primary-strong);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.schedule-month-picker__month:hover:not(:disabled) {
+  background: rgba(144, 104, 222, 0.08);
+  transform: translateY(-1px);
+}
+
+.schedule-month-picker__month.is-selected {
+  border-color: rgba(102, 67, 155, 0.45);
+  background: rgba(144, 104, 222, 0.14);
+  color: var(--text);
+}
+
+.schedule-month-picker__month:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.schedule-period .field input[type="month"] {
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 16px;
+  border: 1px solid rgba(102, 67, 155, 0.2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 245, 255, 0.92));
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-right: 46px;
+  cursor: pointer;
+}
+
+.schedule-period .field input[type="month"]:hover {
+  border-color: rgba(102, 67, 155, 0.32);
+}
+
+.schedule-period .field input[type="month"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.72;
+  filter: saturate(0.75) hue-rotate(-12deg);
+  margin-right: 4px;
+}
+
+.schedule-period .field input[type="month"]:focus {
+  border-color: rgba(144, 104, 222, 0.55);
+  box-shadow: 0 0 0 4px rgba(144, 104, 222, 0.12);
+  transform: translateY(-1px);
+}
+
+/* ==================== Ações e Botões ==================== */
 .schedule-actions-row {
   display: flex;
   align-items: center;
@@ -11,6 +142,177 @@
   gap: 14px;
 }
 
+.schedule-card .schedule-secondary-button,
+.schedule-card .login-button {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 67, 155, 0.15);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--primary-strong);
+  box-shadow: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.schedule-card .schedule-secondary-button:hover:not(:disabled),
+.schedule-card .login-button:hover:not(:disabled) {
+  background: rgba(144, 104, 222, 0.08);
+  transform: translateY(-2px);
+}
+
+.schedule-card .schedule-secondary-button:disabled,
+.schedule-card .login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.schedule-card .schedule-primary-button {
+  border: 0;
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary), var(--pink));
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 18px 28px rgba(144, 104, 222, 0.28);
+}
+
+.schedule-card .schedule-primary-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary), var(--pink));
+  box-shadow: 0 24px 34px rgba(144, 104, 222, 0.34);
+}
+
+.schedule-card .schedule-danger-button {
+  border: 1px solid rgba(209, 77, 114, 0.28);
+  background: rgba(255, 241, 242, 0.92);
+  color: #9f1239;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.schedule-card .schedule-danger-button:hover:not(:disabled) {
+  background: rgba(255, 228, 230, 0.98);
+  box-shadow: none;
+}
+
+/* ==================== Lista de Rascunhos ==================== */
+.schedule-drafts {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.schedule-drafts h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.schedule-drafts__list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.schedule-drafts__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.schedule-drafts__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-drafts__meta {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.schedule-drafts__meta strong {
+  color: var(--text);
+}
+
+.schedule-drafts__icon-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 67, 155, 0.15);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--primary-strong);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.schedule-drafts__icon-button:hover:not(:disabled) {
+  background: rgba(144, 104, 222, 0.08);
+  transform: translateY(-2px);
+}
+
+.schedule-drafts__icon-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.schedule-drafts__icon-button--danger {
+  border-color: rgba(209, 77, 114, 0.2);
+  color: var(--danger);
+}
+
+.schedule-drafts__icon-button--danger:hover:not(:disabled) {
+  background: rgba(209, 77, 114, 0.1);
+}
+
+/* ==================== Modal de Confirmação ==================== */
+.schedule-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.38);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.schedule-confirm-dialog {
+  width: min(100%, 460px);
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 46px rgba(15, 23, 42, 0.22);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.schedule-confirm-dialog h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.schedule-confirm-dialog p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.schedule-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ==================== Blocos de Formulário ==================== */
 .schedule-shift-block {
   padding: 18px;
   border-radius: 18px;
@@ -86,6 +388,7 @@
   color: var(--text);
 }
 
+/* ==================== Ajustes Responsivos ==================== */
 @media (max-width: 960px) {
   .schedule-period,
   .schedule-shift-fields,
@@ -98,8 +401,28 @@
     align-items: stretch;
   }
 
+  .schedule-drafts__item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .schedule-drafts__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .schedule-secondary-button,
-  .schedule-actions-row .login-button {
+  .schedule-actions-row .login-button,
+  .schedule-drafts__item .login-button,
+  .schedule-drafts__actions .schedule-secondary-button {
     width: 100%;
+  }
+
+  .schedule-drafts__actions .schedule-drafts__icon-button {
+    width: 42px;
+  }
+
+  .schedule-month-picker__months {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

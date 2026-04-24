@@ -20,4 +20,15 @@ class StoreScheduleRequest extends FormRequest
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'start_date.required' => 'O campo start_date é obrigatório.',
+            'start_date.date' => 'O campo start_date deve ser uma data válida.',
+            'end_date.required' => 'O campo end_date é obrigatório.',
+            'end_date.date' => 'O campo end_date deve ser uma data válida.',
+            'end_date.after_or_equal' => 'O campo end_date deve ser uma data posterior ou igual a start_date.',
+        ];
+    }
 }

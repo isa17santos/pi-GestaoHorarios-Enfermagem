@@ -14,6 +14,21 @@ export const useScheduleTexts = () => {
       intro: currentLocale.value === 'pt'
         ? 'Define o período do horário. A atribuição de turnos será feita na página seguinte.'
         : 'Define the schedule period. Shift assignments will be done on the next page.',
+      draftsTitle: currentLocale.value === 'pt' ? 'Rascunhos existentes' : 'Existing drafts',
+      draftsIntro: currentLocale.value === 'pt'
+        ? 'Escolhe um horário em rascunho para continuares as alterações.'
+        : 'Choose a draft schedule to continue editing.',
+      continueDraft: currentLocale.value === 'pt' ? 'Continuar edição' : 'Continue editing',
+      deleteDraft: currentLocale.value === 'pt' ? 'Apagar rascunho' : 'Delete draft',
+      deletingDraft: currentLocale.value === 'pt' ? 'A apagar...' : 'Deleting...',
+      deleteDraftConfirmation: currentLocale.value === 'pt'
+        ? 'Tens a certeza de que queres apagar este rascunho? Esta ação não pode ser anulada.'
+        : 'Are you sure you want to delete this draft? This action cannot be undone.',
+      loadingDrafts: currentLocale.value === 'pt' ? 'A carregar rascunhos...' : 'Loading drafts...',
+      noDrafts: currentLocale.value === 'pt'
+        ? 'Não existem horários em rascunho para continuar.'
+        : 'There are no draft schedules to continue.',
+      periodLabel: currentLocale.value === 'pt' ? 'Período' : 'Period',
       month: currentLocale.value === 'pt' ? 'Mês' : 'Month',
       submitting: currentLocale.value === 'pt' ? 'A criar...' : 'Creating...',
       submit: currentLocale.value === 'pt' ? 'Continuar para a grelha' : 'Continue to grid',
@@ -21,12 +36,27 @@ export const useScheduleTexts = () => {
         required: currentLocale.value === 'pt'
           ? 'Seleciona o mês do horário.'
           : 'Please select the schedule month.',
+        pastMonth: currentLocale.value === 'pt'
+          ? 'Não podes selecionar um mês anterior ao atual.'
+          : 'You cannot select a month earlier than the current month.',
         createFailed: currentLocale.value === 'pt'
           ? 'Não foi possível criar o horário. Tenta novamente.'
           : 'Could not create the schedule. Please try again.',
         initialData: currentLocale.value === 'pt'
           ? 'Não foi possível carregar os dados iniciais.'
           : 'Could not load initial data.',
+        loadDrafts: currentLocale.value === 'pt'
+          ? 'Não foi possível carregar os horários em rascunho.'
+          : 'Could not load draft schedules.',
+        deleteDraft: currentLocale.value === 'pt'
+          ? 'Não foi possível apagar o rascunho.'
+          : 'Could not delete draft.',
+        deleteDraftPublished: currentLocale.value === 'pt'
+          ? 'Um horário publicado não pode ser apagado.'
+          : 'A published schedule cannot be deleted.',
+        deleteDraftUnauthorized: currentLocale.value === 'pt'
+          ? 'Apenas o head nurse pode apagar rascunhos.'
+          : 'Only the head nurse can delete drafts.',
       },
     },
 
@@ -41,12 +71,28 @@ export const useScheduleTexts = () => {
       nurseHeader: currentLocale.value === 'pt' ? 'Enfermeiro' : 'Nurse',
       previousMonth: currentLocale.value === 'pt' ? 'Mês anterior' : 'Previous month',
       nextMonth: currentLocale.value === 'pt' ? 'Mês seguinte' : 'Next month',
+      deleteDraft: currentLocale.value === 'pt' ? 'Apagar rascunho' : 'Delete draft',
+      deletingDraft: currentLocale.value === 'pt' ? 'A apagar...' : 'Deleting...',
+      deleteDraftConfirmation: currentLocale.value === 'pt'
+        ? 'Tens a certeza de que queres apagar este rascunho? Esta ação não pode ser anulada.'
+        : 'Are you sure you want to delete this draft? This action cannot be undone.',
+      deleteDraftSuccess: currentLocale.value === 'pt'
+        ? 'Rascunho apagado com sucesso.'
+        : 'Draft deleted successfully.',
       saveAssignments: currentLocale.value === 'pt' ? 'Guardar atribuições' : 'Save assignments',
       savingAssignments: currentLocale.value === 'pt' ? 'A guardar...' : 'Saving...',
       loadingGrid: currentLocale.value === 'pt' ? 'A carregar grelha...' : 'Loading schedule...',
       noNurses: currentLocale.value === 'pt'
         ? 'Não existem enfermeiros para mostrar.'
         : 'No nurses available to display.',
+      publishWarnings: {
+        noAssignedShifts: currentLocale.value === 'pt'
+          ? 'O horário não tem turnos atribuídos. Preenche a grelha antes de publicar.'
+          : 'The schedule has no assigned shifts. Fill in the grid before publishing.',
+        insufficientNurses: (count: number) => currentLocale.value === 'pt'
+          ? `Um ou mais turnos têm enfermeiros insuficientes. Cada turno precisa de pelo menos ${count} enfermeiros.`
+          : `One or more shifts have insufficient nurses. Each shift needs at least ${count} nurses.`,
+      },
       noPreferences: currentLocale.value === 'pt'
         ? 'Sem preferências definidas'
         : 'No preferences defined',
