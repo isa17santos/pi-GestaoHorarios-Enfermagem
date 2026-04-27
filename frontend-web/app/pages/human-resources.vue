@@ -66,7 +66,7 @@ const fetchUsers = async () => {
   loading.value = true
   error.value = null
   try {
-    const response = await $fetch<{ data: any[] }>(`${config.public.apiBase}/users`, {
+    const response = await $fetch<{ data: any[] }>(`${config.public.apiBase}/users?t=${Date.now()}`, {
       headers: { Authorization: `Bearer ${token.value}` },
     })
 

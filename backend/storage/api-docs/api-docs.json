@@ -826,7 +826,8 @@
                                     "name",
                                     "email",
                                     "password",
-                                    "role"
+                                    "role",
+                                    "active"
                                 ],
                                 "properties": {
                                     "name": {
@@ -851,6 +852,10 @@
                                             "nurse",
                                             "head_nurse"
                                         ]
+                                    },
+                                    "active": {
+                                        "type": "boolean",
+                                        "example": "true"
                                     }
                                 },
                                 "type": "object"

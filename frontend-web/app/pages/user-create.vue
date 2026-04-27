@@ -134,6 +134,7 @@ const handleSubmit = async () => {
         password: form.value.password,
         password_confirmation: form.value.password_confirmation,
         role: form.value.role,
+        active: form.value.active,
       }
     })
 

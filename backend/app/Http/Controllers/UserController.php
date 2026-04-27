@@ -65,12 +65,13 @@ class UserController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['name', 'email', 'password', 'role'],
+                required: ['name', 'email', 'password', 'role', 'active'],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', example: 'Marco Varela'),
                     new OA\Property(property: 'email', type: 'string', format: 'email', example: 'marco.varela@example.pt'),
                     new OA\Property(property: 'password', type: 'string', format: 'password', example: 'Password@123'),
                     new OA\Property(property: 'role', type: 'string', enum: ['admin', 'nurse', 'head_nurse'], example: 'nurse'),
+                    new OA\Property(property:'active', type: 'boolean', example: 'true')
                 ]
             )
         ),
@@ -114,7 +115,7 @@ class UserController extends Controller
             'email' => $validated['email'],
             'password' => $validated['password'],
             'role' => $validated['role'],
-            'active' => true,
+            'active' => $validated['active'],
             'must_change_password' => true,
         ]);
 
