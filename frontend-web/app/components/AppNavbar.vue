@@ -21,6 +21,26 @@ const goToDashboard = () => {
   navigateTo('/dashboard')
 }
 
+const translatedRole = computed(() => {
+  if (!user.value?.role) return ''
+  
+  const role = user.value.role.trim().toLowerCase()
+  const isPt = currentLocale.value === 'pt'
+  
+  if (role === 'admin') {
+    return isPt ? 'Administrador' : 'Admin'
+  }
+  if (role === 'head nurse' || role === 'head_nurse') {
+    return isPt ? 'Enfermeiro Chefe' : 'Head Nurse'
+  }
+  if (role === 'nurse') {
+    return isPt ? 'Enfermeiro' : 'Nurse'
+  }
+  
+  return user.value.role 
+})
+
+
 const texts = computed(() => ({
   logout: currentLocale.value === 'pt' ? 'Terminar sessão' : 'Sign out',
   myProfile: currentLocale.value === 'pt' ? 'Meu Perfil' : 'My Profile',
@@ -40,7 +60,7 @@ const texts = computed(() => ({
         <div class="header-right">
           <div class="header-user" v-if="user">
             <span class="user-name">{{ user.name }}</span>
-            <span class="user-role">{{ user.role }}</span>
+            <span class="user-role">{{ translatedRole }}</span>
           </div>
 
           <NuxtLink to="/profile" class="header-action-btn" :title="texts.myProfile">
