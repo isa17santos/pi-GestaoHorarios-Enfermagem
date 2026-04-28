@@ -1177,6 +1177,10 @@
                                                         "type": "string",
                                                         "example": "morning"
                                                     },
+                                                    "color": {
+                                                        "type": "string",
+                                                        "example": "#3B82F6"
+                                                    },
                                                     "start_time": {
                                                         "type": "string",
                                                         "example": "08:00:00"
@@ -1201,6 +1205,358 @@
                     },
                     "401": {
                         "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Cria um novo tipo de turno",
+                "operationId": "3235d1cdbb0c0fb06be868cf64f15692",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "color",
+                                    "start_time",
+                                    "end_time",
+                                    "min_nurses"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "morning"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "example": "#3B82F6"
+                                    },
+                                    "start_time": {
+                                        "type": "string",
+                                        "example": "08:00:00"
+                                    },
+                                    "end_time": {
+                                        "type": "string",
+                                        "example": "16:00:00"
+                                    },
+                                    "min_nurses": {
+                                        "type": "integer",
+                                        "example": 3
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tipo de turno criado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Tipo de turno criado com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "morning"
+                                                },
+                                                "color": {
+                                                    "type": "string",
+                                                    "example": "#3B82F6"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "08:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "16:00:00"
+                                                },
+                                                "min_nurses": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para criar tipos de turno"
+                    },
+                    "422": {
+                        "description": "Payload inválido"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/shift-types/{id}": {
+            "get": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Obtém os detalhes de um tipo de turno",
+                "operationId": "c24d7aaa9b84714843cfc3c89b52e206",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tipo de turno devolvido com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "morning"
+                                                },
+                                                "color": {
+                                                    "type": "string",
+                                                    "example": "#3B82F6"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "08:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "16:00:00"
+                                                },
+                                                "min_nurses": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "404": {
+                        "description": "Tipo de turno não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Elimina um tipo de turno (soft delete)",
+                "operationId": "23a4d32f11ad2dca2964290ea07c4340",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tipo de turno eliminado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Tipo de turno eliminado com sucesso."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para eliminar tipos de turno"
+                    },
+                    "404": {
+                        "description": "Tipo de turno não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Atualiza um tipo de turno existente",
+                "operationId": "4c9edffd1dde0f7bfb7feb6e0d45c47c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "color",
+                                    "start_time",
+                                    "end_time",
+                                    "min_nurses"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "afternoon"
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "example": "#F59E0B"
+                                    },
+                                    "start_time": {
+                                        "type": "string",
+                                        "example": "16:00:00"
+                                    },
+                                    "end_time": {
+                                        "type": "string",
+                                        "example": "00:00:00"
+                                    },
+                                    "min_nurses": {
+                                        "type": "integer",
+                                        "example": 2
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Tipo de turno atualizado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Tipo de turno atualizado com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "afternoon"
+                                                },
+                                                "color": {
+                                                    "type": "string",
+                                                    "example": "#F59E0B"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "16:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "00:00:00"
+                                                },
+                                                "min_nurses": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para atualizar tipos de turno"
+                    },
+                    "404": {
+                        "description": "Tipo de turno não encontrado"
+                    },
+                    "422": {
+                        "description": "Payload inválido"
                     }
                 },
                 "security": [

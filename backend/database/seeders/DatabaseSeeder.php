@@ -116,6 +116,7 @@ class DatabaseSeeder extends Seeder
         DB::table('shift_types')->insert([
             [
                 'name' => 'morning',
+                'color' => '#d9f3ff',
                 'start_time' => '08:00:00',
                 'end_time' => '16:00:00',
                 'min_nurses' => 3,
@@ -124,6 +125,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'name' => 'afternoon',
+                'color' => '#dff7e8',
                 'start_time' => '16:00:00',
                 'end_time' => '00:00:00',
                 'min_nurses' => 3,
@@ -132,6 +134,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'name' => 'night',
+                'color' => '#fff3d6',
                 'start_time' => '23:00:00',
                 'end_time' => '08:00:00',
                 'min_nurses' => 3,
@@ -140,6 +143,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'name' => 'dayOff',
+                'color' => '#f4e6ff',
                 'start_time' => '00:00:00',
                 'end_time' => '00:00:00',
                 'min_nurses' => 0,
@@ -148,6 +152,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'name' => 'holidays',
+                'color' => '#ffdfe4',
                 'start_time' => '00:00:00',
                 'end_time' => '00:00:00',
                 'min_nurses' => 0,
@@ -156,6 +161,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'name' => 'sick leave',
+                'color' => '#e3efff',
                 'start_time' => '00:00:00',
                 'end_time' => '00:00:00',
                 'min_nurses' => 0,
@@ -164,6 +170,7 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'name' => 'parental leave',
+                'color' => '#fce7d8',
                 'start_time' => '00:00:00',
                 'end_time' => '00:00:00',
                 'min_nurses' => 0,

@@ -13,10 +13,11 @@ return new class extends Migration
     {
         Schema::create('shift_types', function (Blueprint $table) {
             $table->id();
-            $table->enum('name', ['morning', 'afternoon', 'night', 'dayOff', 'holidays', 'sick leave', 'parental leave']);
+            $table->string('name', 255);
+            $table->string('color', 7);
             $table->time('start_time');
             $table->time('end_time');
-            $table->integer('min_nurses')->after('end_time');
+            $table->integer('min_nurses')->default(0)->after('end_time');
             $table->timestamps();
             $table->softDeletes();
         });
