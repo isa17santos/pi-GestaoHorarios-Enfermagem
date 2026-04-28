@@ -1321,16 +1321,88 @@
                 ]
             }
         },
-        "/api/shift-types/{shift_type}": {
+        "/api/shift-types/{id}": {
+            "get": {
+                "tags": [
+                    "Shift Types"
+                ],
+                "summary": "Obtém os detalhes de um tipo de turno",
+                "operationId": "c24d7aaa9b84714843cfc3c89b52e206",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 1
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tipo de turno devolvido com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "morning"
+                                                },
+                                                "color": {
+                                                    "type": "string",
+                                                    "example": "#3B82F6"
+                                                },
+                                                "start_time": {
+                                                    "type": "string",
+                                                    "example": "08:00:00"
+                                                },
+                                                "end_time": {
+                                                    "type": "string",
+                                                    "example": "16:00:00"
+                                                },
+                                                "min_nurses": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "404": {
+                        "description": "Tipo de turno não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
             "delete": {
                 "tags": [
                     "Shift Types"
                 ],
                 "summary": "Elimina um tipo de turno (soft delete)",
-                "operationId": "e872ad01d9f09163d2a3502c64401e78",
+                "operationId": "23a4d32f11ad2dca2964290ea07c4340",
                 "parameters": [
                     {
-                        "name": "shift_type",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -1377,10 +1449,10 @@
                     "Shift Types"
                 ],
                 "summary": "Atualiza um tipo de turno existente",
-                "operationId": "c643bb7f308294361a6d8ae77bf544e3",
+                "operationId": "4c9edffd1dde0f7bfb7feb6e0d45c47c",
                 "parameters": [
                     {
-                        "name": "shift_type",
+                        "name": "id",
                         "in": "path",
                         "required": true,
                         "schema": {

@@ -57,6 +57,58 @@ class ShiftTypeController extends Controller
         return ShiftTypeResource::collection($shiftTypes)->response();
     }
 
+    #[OA\Get(
+        path: '/api/shift-types/{id}',
+        summary: 'Obtém os detalhes de um tipo de turno',
+        security: [['bearerAuth' => []]],
+        tags: ['Shift Types'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Tipo de turno devolvido com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer', example: 1),
+                                new OA\Property(property: 'name', type: 'string', example: 'morning'),
+                                new OA\Property(property: 'color', type: 'string', example: '#3B82F6'),
+                                new OA\Property(property: 'start_time', type: 'string', example: '08:00:00'),
+                                new OA\Property(property: 'end_time', type: 'string', example: '16:00:00'),
+                                new OA\Property(property: 'min_nurses', type: 'integer', example: 3),
+                            ]
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Não autenticado'),
+            new OA\Response(response: 404, description: 'Tipo de turno não encontrado'),
+        ]
+    )]
+    public function show(int $id): JsonResponse
+    {
+        $shiftType = ShiftType::query()->find($id, ['id', 'name', 'color', 'start_time', 'end_time', 'min_nurses']);
+
+        if (! $shiftType) {
+            return response()->json([
+                'message' => 'Tipo de turno não encontrado.',
+            ], 404);
+        }
+
+        return (new ShiftTypeResource($shiftType))->response();
+    }
+
     #[OA\Post(
         path: '/api/shift-types',
         summary: 'Cria um novo tipo de turno',
@@ -119,13 +171,13 @@ class ShiftTypeController extends Controller
     }
 
     #[OA\Patch(
-        path: '/api/shift-types/{shift_type}',
+        path: '/api/shift-types/{id}',
         summary: 'Atualiza um tipo de turno existente',
         security: [['bearerAuth' => []]],
         tags: ['Shift Types'],
         parameters: [
             new OA\Parameter(
-                name: 'shift_type',
+                name: 'id',
                 in: 'path',
                 required: true,
                 schema: new OA\Schema(type: 'integer'),
@@ -189,13 +241,13 @@ class ShiftTypeController extends Controller
     }
 
     #[OA\Delete(
-        path: '/api/shift-types/{shift_type}',
+        path: '/api/shift-types/{id}',
         summary: 'Elimina um tipo de turno (soft delete)',
         security: [['bearerAuth' => []]],
         tags: ['Shift Types'],
         parameters: [
             new OA\Parameter(
-                name: 'shift_type',
+                name: 'id',
                 in: 'path',
                 required: true,
                 schema: new OA\Schema(type: 'integer'),
