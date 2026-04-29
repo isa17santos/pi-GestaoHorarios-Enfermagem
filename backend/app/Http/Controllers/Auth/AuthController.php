@@ -348,17 +348,20 @@ class AuthController extends Controller
         $status = Password::reset(
             $request->validated(),
             function (User $user, string $password): void {
-                // Updates the user's password and clears the flag that forces a password change
+                // Verify if the new password is the same as the current one
+                    if (Hash::check($password, $user->password)) {
+                        throw ValidationException::withMessages([
+                            'password' => [__('auth.new_password_must_be_different')],
+                        ]);
+                    }
+                // If the new password is different, update the user's password
                 $user->forceFill([
                     'password' => $password,
                     'must_change_password' => false,
-                ])->save();
-
-                // Revokes all existing personal access tokens so the user must authenticate again with the new password
+                ])->save();    
                 $user->tokens()->delete();
-
                 event(new PasswordReset($user));
-            }
+            }  
         );
 
         // Throws a validation error if the password broker did not complete the reset successfully

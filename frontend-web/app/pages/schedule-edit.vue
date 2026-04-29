@@ -17,18 +17,3 @@ definePageMeta({
     </section>
   </main>
 </template>
-
-<style scoped>
-.dashboard-layout {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding: 24px 40px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.dashboard-content {
-  flex: 1;
-}
-</style>

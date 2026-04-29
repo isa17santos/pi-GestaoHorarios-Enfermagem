@@ -3,7 +3,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 24px 40px;
+  padding: 32px 40px; /* Increased top padding from 24px */
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -13,7 +13,13 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  margin-bottom: 48px;
+  margin-bottom: 64px; /* Space between navbar and content */
+}
+
+.dashboard-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .dashboard-logo-img {
@@ -94,9 +100,14 @@
   background: rgba(209, 77, 114, 0.1);
 }
 
-.dashboard-lang-override {
-  position: static;
-  margin: 0;
+/* Force the language switcher to be a regular flex item within the navbar, 
+   overriding the absolute positioning from main.css used in login pages */
+.dashboard-top-row .language-switch.dashboard-lang-override {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  margin: 0 !important;
+  flex-shrink: 0;
 }
 
 .dashboard-greeting {
@@ -202,16 +213,11 @@
   line-height: 1.5;
 }
 
-
-
-
-
-
 /* --------------------- MEDIA QUERIES --------------------- */
 
 @media (max-width: 1024px) {
   .dashboard-layout {
-    padding: 24px;
+    padding: 32px 24px;
   }
 }
 
@@ -223,7 +229,7 @@
     grid-template-columns: 1fr auto;
     align-items: center;
     gap: 16px;
-    margin-bottom: 32px;
+    margin-bottom: 48px;
   }
   
   .dashboard-logo-link { 

@@ -28,5 +28,6 @@ return [
     'password_reset_completed' => 'A password foi redefinida com sucesso.',
     'unauthenticated' => 'Utilizador não autenticado.',
     'unauthorized' => 'Não tem permissão para realizar esta ação.',
+    'new_password_must_be_different' => 'A nova password deve ser diferente da password atual.',
 
 ];

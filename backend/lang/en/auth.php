@@ -28,5 +28,6 @@ return [
     'password_reset_completed' => 'Your password has been reset.',
     'unauthenticated' => 'Unauthenticated user.',
     'unauthorized' => 'You do not have permission to perform this action.',
+    'new_password_must_be_different' => 'The new password must be different from the current password.',
 
 ];
