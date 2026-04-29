@@ -97,7 +97,7 @@ const texts = computed(() => ({
               </svg>
             </div>
             <h3>{{ texts.editSchedule }}</h3>
-            <p>{{ currentLocale === 'pt' ? 'Fazer alterações à escala atual' : 'Make changes to current roster' }}</p>
+            <p>{{ currentLocale === 'pt' ? 'Fazer alterações à escala atual' : 'Make changes to the current schedule' }}</p>
           </NuxtLink>
 
           <NuxtLink to="/schedule-view" class="bento-card bento-card--sick">
