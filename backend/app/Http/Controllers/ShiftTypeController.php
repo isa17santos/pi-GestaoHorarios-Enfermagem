@@ -6,6 +6,7 @@ use App\Http\Requests\ShiftType\StoreShiftTypeRequest;
 use App\Http\Requests\ShiftType\UpdateShiftTypeRequest;
 use App\Http\Resources\ShiftTypeResource;
 use App\Models\ShiftType;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 use OpenApi\Attributes as OA;
@@ -98,9 +99,9 @@ class ShiftTypeController extends Controller
     )]
     public function show(int $id): JsonResponse
     {
-        $shiftType = ShiftType::query()->find($id, ['id', 'name', 'color', 'start_time', 'end_time', 'min_nurses']);
-
-        if (! $shiftType) {
+        try {
+            $shiftType = ShiftType::query()->findOrFail($id, ['id', 'name', 'color', 'start_time', 'end_time', 'min_nurses']);
+        } catch (ModelNotFoundException) {
             return response()->json([
                 'message' => 'Tipo de turno não encontrado.',
             ], 404);
@@ -225,8 +226,16 @@ class ShiftTypeController extends Controller
             new OA\Response(response: 422, description: 'Payload inválido'),
         ]
     )]
-    public function update(UpdateShiftTypeRequest $request, ShiftType $shiftType): JsonResponse
+    public function update(UpdateShiftTypeRequest $request, int $id): JsonResponse
     {
+        try {
+            $shiftType = ShiftType::query()->findOrFail($id);
+        } catch (ModelNotFoundException) {
+            return response()->json([
+                'message' => 'Tipo de turno não encontrado.',
+            ], 404);
+        }
+
         Gate::authorize('update', $shiftType);
 
         $validated = $request->validated();
@@ -269,8 +278,16 @@ class ShiftTypeController extends Controller
             new OA\Response(response: 404, description: 'Tipo de turno não encontrado'),
         ]
     )]
-    public function destroy(ShiftType $shiftType): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
+        try {
+            $shiftType = ShiftType::query()->findOrFail($id);
+        } catch (ModelNotFoundException) {
+            return response()->json([
+                'message' => 'Tipo de turno não encontrado.',
+            ], 404);
+        }
+
         Gate::authorize('delete', $shiftType);
 
         $shiftType->delete();
