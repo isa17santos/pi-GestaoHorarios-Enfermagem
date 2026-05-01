@@ -52,7 +52,7 @@ class ShiftController extends Controller
             ),
             new OA\Response(response: 401, description: 'Não autenticado'),
             new OA\Response(response: 403, description: 'Sem permissão para criar turnos'),
-            new OA\Response(response: 422, description: 'Payload inválido'),
+            new OA\Response(response: 422, description: 'Payload inválido ou tentativa de adicionar turno a um horário já publicado'),
         ]
     )]
     public function store(StoreShiftRequest $request): JsonResponse
@@ -69,6 +69,10 @@ class ShiftController extends Controller
 
         $validated = $request->validated();
         $schedule = Schedule::query()->findOrFail($validated['schedule_id']);
+
+        if (!in_array($schedule->status, ['draft', 'revision'])) {
+            return response()->json(['message' => 'Não pode adicionar turnos a um horário já publicado. Crie uma edição primeiro.'], 422);
+        }
 
         // A shift must belong to a date inside the selected schedule window.
         if (
@@ -184,7 +188,7 @@ class ShiftController extends Controller
             ]);
         }
 
-        if ($schedule->status !== 'draft') {
+        if (!in_array($schedule->status, ['draft', 'revision'])) {
             return response()->json([
                 'message' => 'Não é possível atualizar turnos de um horário publicado.',
             ], 422);

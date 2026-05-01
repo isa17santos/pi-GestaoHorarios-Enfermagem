@@ -548,4 +548,324 @@ class ScheduleController extends Controller
             'data' => $shifts,
         ]);
     }
+
+    // ------------------- EDIT SCHEDULE--------------------
+
+        #[OA\Post(
+        path: '/api/schedules/{id}/edit',
+        summary: 'Inicia a edição de um horário publicado (Cria rascunho)',
+        security: [['bearerAuth' => []]],
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                description: 'ID do horário publicado original',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 201,
+                description: 'Rascunho de edição criado com sucesso.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Rascunho de edição criado com sucesso.'),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer', example: 5)
+                            ]
+                        )
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 200,
+                description: 'Já existe uma edição deste horário em curso.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Já existe uma edição em curso para este horário.'),
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer', example: 5)
+                            ]
+                        )
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Acesso proibido.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Sem permissão para editar horários.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'O horário não está publicado ou dados inválidos.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Apenas horários publicados podem ser editados.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Não autenticado.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Utilizador não autenticado.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'Horário não encontrado.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Horário não encontrado.')
+                    ]
+                )
+            ),
+
+
+        ]
+    )]
+     public function startEdit(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+        if ($role !== UserRole::HeadNurse->value) {
+            return response()->json([
+                'message' => 'Sem permissão para editar horários.',
+            ], 403);
+        }
+
+        return DB::transaction(function () use ($id) {
+            $original = Schedule::with('shifts.users')->find($id);
+
+            if (!$original) {
+                return response()->json(['message' => 'Horário não encontrado.'], 404);
+            }
+
+            if ($original->status !== 'published') {
+                return response()->json(['message' => 'Apenas horários publicados podem ser editados.'], 422);
+            }
+
+            // Verifies if there is already an editing in progress
+            $existingRevision = Schedule::where('parent_id', $id)->where('status', 'revision')->first();
+            if ($existingRevision) {
+                return response()->json(['message' => 'Já existe uma edição em curso para este horário.', 'data' => ['id' => $existingRevision->id]], 200);
+            }
+
+            // 1. Clone the Schedule
+            $revision = $original->replicate();
+            $revision->status = 'revision';
+            $revision->parent_id = $original->id;
+            $revision->save();
+
+            // 2. Clone shifts and assignments
+            foreach ($original->shifts as $shift) {
+                $newShift = $shift->replicate();
+                $newShift->schedule_id = $revision->id;
+                $newShift->save();
+
+                // Clone the many-to-many relationship of nurses
+                $newShift->users()->attach($shift->users->pluck('id'));
+            }
+
+            return response()->json([
+                'message' => 'Rascunho de edição criado com sucesso.',
+                'data' => ['id' => $revision->id]
+            ], 201);
+        });
+    }
+
+
+        #[OA\Post(
+        path: '/api/schedules/{id}/publish-edit',
+        summary: 'Publica as alterações feitas no rascunho de edição',
+        security: [['bearerAuth' => []]],
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                description: 'ID do rascunho',
+                required: true,
+                schema: new OA\Schema(type: 'integer')
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Alterações publicadas e fundidas com sucesso.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Alterações publicadas com sucesso.'),
+                        new OA\Property(property: 'changes_detected', type: 'integer', example: 3)
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Acesso proibido.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Sem permissão para publicar edições.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Erro de validação.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'O horário com erros de validação.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'Rascunho não encontrado.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Horário não encontrado.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Não autenticado.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Utilizador não autenticado.')
+                    ]
+                )
+            )
+        ]
+    )]
+    public function publishEdit(Request $request, int $revisionId): JsonResponse
+    {
+        $user = $request->user();
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+        if ($role !== UserRole::HeadNurse->value) {
+            return response()->json([
+                'message' => 'Sem permissão para publicar edições.',
+            ], 403);
+        }
+        return DB::transaction(function () use ($revisionId) {
+            $revision = Schedule::with('shifts.users')->find($revisionId);
+            
+            if (!$revision) {
+                return response()->json(['message' => 'Rascunho não encontrado.'], 404);
+            }
+
+            if ($revision->status !== 'revision' || $revision->parent_id === null) {
+                return response()->json([
+                    'message' => 'O ID fornecido não é um rascunho de edição válido.'
+                ], 422);
+            }
+
+            $original = Schedule::findOrFail($revision->parent_id);
+
+            $validationError = $this->validateScheduleIntegrity($revision);
+            if ($validationError) return $validationError;
+
+            // Calculate Statistics (compares number of shifts or differences)
+            $changesCount = $this->calculateChanges($original, $revision);
+
+            // Replace Shifts - Delete old ones, move new ones
+            $original->shifts()->each(fn($s) => $s->delete()); 
+
+            foreach ($revision->shifts as $shift) {
+                $shift->schedule_id = $original->id;
+                $shift->save();
+            }
+
+            // Update Original Schedule
+            $original->edit_count += $changesCount;
+            $original->save();
+
+            // Delete Draft
+            $revision->forceDelete(); 
+
+            // Notifies all nurses associated with the schedule
+            $nurseIds = Shift::where('schedule_id', $original->id)
+                ->join('user_shifts', 'shifts.id', '=', 'user_shifts.shift_id')
+                ->pluck('user_shifts.user_id')->unique();
+            
+            $nurses = User::whereIn('id', $nurseIds)->get();
+
+            Notification::send($nurses, new \App\Notifications\ScheduleUpdatedNotification($original));
+
+            return response()->json([
+                'message' => 'Alterações publicadas com sucesso.',
+                'changes_detected' => $changesCount
+            ]);
+        });
+    }
+
+    private function calculateChanges($original, $revision): int
+    {
+        // count how many shifts in the revision are different from the original
+        return abs($revision->shifts()->count() - $original->shifts()->count()) + 1;
+    }
+
+    private function validateScheduleIntegrity(Schedule $schedule): ?JsonResponse
+    {
+        \Carbon\Carbon::setLocale('pt');
+        if (!Shift::where('schedule_id', $schedule->id)->exists()) {
+            return response()->json(['message' => 'O horário não pode ser publicado sem turnos atribuídos.'], 422);
+        }
+        $scheduleShifts = Shift::with('users:id,name')->where('schedule_id', $schedule->id)->get();
+        $nurseNames = User::where('role', UserRole::Nurse->value)->pluck('name', 'id');
+        $nurseIds = $nurseNames->keys();
+        $assignedByDateAndNurse = $scheduleShifts->flatMap(function ($shift) {
+            $date = $shift->shift_date->toDateString();
+            return $shift->users->map(fn($nurse) => $date . '_' . $nurse->id);
+        })->unique()->flip();
+        $startDate = $schedule->start_date->startOfDay();
+        $endDate = $schedule->end_date->startOfDay();
+        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+            $dateString = $date->toDateString();
+            foreach ($nurseIds as $nurseId) {
+                if (!$assignedByDateAndNurse->has($dateString . '_' . $nurseId)) {
+                    $formatted = $date->translatedFormat('d \\d\\e F \\d\\e Y');
+                    return response()->json([
+                        'message' => "O enfermeiro {$nurseNames[$nurseId]} não tem turno no dia {$formatted}."
+                    ], 422);
+                }
+            }
+        }
+
+        // Validates the minimum number of nurses per shift
+        $blockingTypeIds = ShiftType::whereIn('name', ['dayOff', 'holidays', 'sick leave', 'parental leave'])->pluck('id')->all();
+        $shifts = Shift::with('shiftType')->where('schedule_id', $schedule->id)
+            ->whereNotIn('shift_type_id', $blockingTypeIds)->get()
+            ->groupBy(fn($s) => $s->shift_date->toDateString() . '_' . $s->shift_type_id);
+        foreach ($shifts as $group) {
+            $shiftType = $group->first()->shiftType;
+            if ($group->count() < ($shiftType->min_nurses ?? 0)) {
+                $date = $group->first()->shift_date->translatedFormat('d \d\e F \d\e Y');
+                return response()->json([
+                    'message' => "O dia {$date} ({$shiftType->name}) tem enfermeiros insuficientes."
+                ], 422);
+            }
+        }
+        
+        return null; // Everything is ok
+    }
+
+
 }
+
+
+
