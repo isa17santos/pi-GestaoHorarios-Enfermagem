@@ -16,6 +16,9 @@ class Schedule extends Model
         'start_date',
         'end_date',
         'status',
+        'parent_id',
+        'edit_count',
+        'created_by',
     ];
 
     protected function casts(): array
@@ -24,7 +27,17 @@ class Schedule extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'status' => 'string',
+            'edit_count' => 'integer',
         ];
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Schedule::class, 'parent_id');
+    }
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(Schedule::class, 'parent_id');
     }
 
     // Returns the user who created this schedule.

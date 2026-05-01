@@ -25,11 +25,14 @@ return new class extends Migration
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('parent_id')->nullable()->constrained('schedules')->onDelete('cascade');
             $table->date('start_date');
             $table->date('end_date');
-            $table->enum('status', ['draft', 'published'])->default('draft')->after('end_date');
+            $table->enum('status', ['draft', 'published', 'revision'])->default('draft')->after('end_date');
+            $table->integer('edit_count')->default(0);
             $table->timestamps();
             $table->softDeletes();
+            $table->unique(['parent_id', 'status']);
         });
 
         Schema::create('nurse_preferences', function (Blueprint $table) {
