@@ -286,11 +286,12 @@ class ScheduleController extends Controller
             ], 404);
         }
 
-        if ($schedule->status !== 'draft') {
+        if (!in_array($schedule->status, ['draft', 'revision'])) {
             return response()->json([
-                'message' => 'Apenas horários em draft podem ser removidos.',
+                'message' => 'Apenas rascunhos ou revisões podem ser removidos.',
             ], 422);
         }
+
 
         DB::transaction(function () use ($schedule): void {
             $schedule->shifts()->delete();
@@ -660,10 +661,21 @@ class ScheduleController extends Controller
             }
 
             // Verifies if there is already an editing in progress
-            $existingRevision = Schedule::where('parent_id', $id)->where('status', 'revision')->first();
+            $existingRevision = Schedule::withTrashed()
+                ->where('parent_id', $id)
+                ->where('status', 'revision')
+                ->first();
             if ($existingRevision) {
-                return response()->json(['message' => 'Já existe uma edição em curso para este horário.', 'data' => ['id' => $existingRevision->id]], 200);
+                if (!$existingRevision->trashed()) {
+                    return response()->json(['message' => 'Já existe uma edição em curso para este horário.', 'data' => ['id' => $existingRevision->id]], 200);
+                }
+                
+                //if it is an old edit (soft-deleted), we permanently delete it 
+                // to not conflict with the "unique" rule of the database and allow us to create a new one
+                $existingRevision->shifts()->forceDelete();
+                $existingRevision->forceDelete();
             }
+
 
             // 1. Clone the Schedule
             $revision = $original->replicate();

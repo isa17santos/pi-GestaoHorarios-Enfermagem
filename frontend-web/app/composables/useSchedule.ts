@@ -4,7 +4,7 @@ type Schedule = {
   start_date: string
   end_date: string
   created_by: number
-  status: 'draft' | 'published'
+  status: 'draft' | 'published' | 'revision'
 }
 
 // Represents a single shift within a schedule
@@ -975,15 +975,9 @@ export const useSchedule = () => {
   /**
    * Clear all schedule state (useful when navigating away)
    */
-  const clearScheduleState = () => {
+    const clearScheduleState = () => {
     schedule.value = null
     shifts.value = []
-    nurses.value = []
-    shiftTypes.value = []
-    schedules.value = []
-    errorNurses.value = null
-    errorShiftTypes.value = null
-    errorSchedules.value = null
     errorShifts.value = null
     errorScheduleCreation.value = null
     errorShiftCreation.value = null
@@ -993,6 +987,7 @@ export const useSchedule = () => {
       localStorage.removeItem('schedule.shifts')
     }
   }
+
 
   return {
     // State
