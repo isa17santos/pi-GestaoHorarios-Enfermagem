@@ -4,6 +4,7 @@
 return [
     'email_required' => 'O email é obrigatório.',
     'email_invalid' => 'O email deve ter um formato válido.',
+    'email_already_in_use' => 'O email já está em uso.',
     'password_required' => 'A password é obrigatória.',
     'invalid_credentials' => 'As credenciais fornecidas sao invalidas.',
     'inactive_user' => 'Este utilizador está inativo.',
@@ -29,5 +30,7 @@ return [
     'unauthenticated' => 'Utilizador não autenticado.',
     'unauthorized' => 'Não tem permissão para realizar esta ação.',
     'new_password_must_be_different' => 'A nova password deve ser diferente da password atual.',
+    'profile_updated_success' => 'Perfil atualizado com sucesso.',
+    'profile_preferences_updated_success' => 'Preferencias atualizadas com sucesso.',
 
 ];

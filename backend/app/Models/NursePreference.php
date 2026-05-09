@@ -11,6 +11,8 @@ class NursePreference extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'user_id',
+        'schedule_id',
         'prefers_morning',
         'prefers_afternoon',
         'prefers_night',

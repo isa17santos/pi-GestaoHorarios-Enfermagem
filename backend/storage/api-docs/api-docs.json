@@ -518,6 +518,346 @@
                 ]
             }
         },
+        "/api/profile": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Obter perfil do utilizador autenticado",
+                "operationId": "ede45b19680d6fb1319013a741a05734",
+                "responses": {
+                    "200": {
+                        "description": "Perfil obtido com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Ana Antunes"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "ana.antunes@example.pt"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "head_nurse"
+                                                },
+                                                "active": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Atualizar perfil do utilizador autenticado",
+                "operationId": "8c7c4b4d5535c9b83b589c0dc1360ef9",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Ana Antunes"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "ana.antunes@example.pt"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "Password@123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "Password@123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Perfil atualizado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Perfil atualizado com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Ana Antunes"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "ana.antunes@example.pt"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "head_nurse"
+                                                },
+                                                "active": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "422": {
+                        "description": "Dados inválidos ou em falta"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/profile/preferences": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Lista as preferencias do utilizador autenticado",
+                "operationId": "6f886175fcb044178b98855ff0f4b530",
+                "responses": {
+                    "200": {
+                        "description": "Preferencias devolvidas com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "schedule_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "prefers_morning": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    },
+                                                    "prefers_afternoon": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    },
+                                                    "prefers_night": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    },
+                                                    "avoid_weekends": {
+                                                        "type": "boolean",
+                                                        "example": true
+                                                    },
+                                                    "prefers_weekends": {
+                                                        "type": "boolean",
+                                                        "example": false
+                                                    },
+                                                    "notes": {
+                                                        "type": "string",
+                                                        "example": "Prefere turnos de manha durante a semana.",
+                                                        "nullable": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Atualizar preferencias do utilizador autenticado",
+                "operationId": "9210019e975c4b1a3bbc22b1548300db",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "schedule_id",
+                                    "prefers_morning",
+                                    "prefers_afternoon",
+                                    "prefers_night",
+                                    "avoid_weekends",
+                                    "prefers_weekends"
+                                ],
+                                "properties": {
+                                    "schedule_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "prefers_morning": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "prefers_afternoon": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "prefers_night": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "avoid_weekends": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "prefers_weekends": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Prefere turnos de manha durante a semana.",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Preferencias atualizadas com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Preferencias atualizadas com sucesso."
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "schedule_id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "prefers_morning": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "prefers_afternoon": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "prefers_night": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "avoid_weekends": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "prefers_weekends": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "notes": {
+                                                    "type": "string",
+                                                    "example": "Prefere turnos de manha durante a semana.",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "422": {
+                        "description": "Dados inválidos ou em falta"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/schedules": {
             "get": {
                 "tags": [
@@ -2278,6 +2618,10 @@
         {
             "name": "Shifts",
             "description": "Operacoes relacionadas com turnos."
+        },
+        {
+            "name": "Profile",
+            "description": "Profile"
         }
     ]
 }
