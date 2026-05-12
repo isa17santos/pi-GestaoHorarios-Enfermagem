@@ -12,7 +12,8 @@ class NursePreference extends Model
 
     protected $fillable = [
         'user_id',
-        'schedule_id',
+        'month',
+        'year',
         'prefers_morning',
         'prefers_afternoon',
         'prefers_night',

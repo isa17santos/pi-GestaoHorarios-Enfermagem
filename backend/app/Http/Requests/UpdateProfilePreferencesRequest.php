@@ -16,7 +16,8 @@ class UpdateProfilePreferencesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'schedule_id' => ['required', 'integer', 'exists:schedules,id'],
+            'month' => ['required', 'integer', 'between:1,12'],
+            'year' => ['required', 'integer', 'min:2024'],
             'prefers_morning' => ['required', 'boolean'],
             'prefers_afternoon' => ['required', 'boolean'],
             'prefers_night' => ['required', 'boolean'],
@@ -29,9 +30,12 @@ class UpdateProfilePreferencesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'schedule_id.required' => 'O campo schedule_id é obrigatório.',
-            'schedule_id.integer' => 'O campo schedule_id deve ser um número inteiro.',
-            'schedule_id.exists' => 'O schedule_id selecionado é inválido.',
+            'month.required' => 'O campo month é obrigatório.',
+            'month.integer' => 'O campo month deve ser um número inteiro.',
+            'month.between' => 'O campo month deve estar entre 1 e 12.',
+            'year.required' => 'O campo year é obrigatório.',
+            'year.integer' => 'O campo year deve ser um número inteiro.',
+            'year.min' => 'O campo year deve ser maior ou igual a 2024.',
             'prefers_morning.required' => 'O campo prefers_morning é obrigatório.',
             'prefers_morning.boolean' => 'O campo prefers_morning deve ser verdadeiro ou falso.',
             'prefers_afternoon.required' => 'O campo prefers_afternoon é obrigatório.',

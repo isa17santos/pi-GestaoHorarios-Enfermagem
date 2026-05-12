@@ -38,7 +38,8 @@ return new class extends Migration
         Schema::create('nurse_preferences', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
+            $table->unsignedTinyInteger('month');
+            $table->unsignedSmallInteger('year');
             $table->boolean('prefers_morning')->default(false);
             $table->boolean('prefers_afternoon')->default(false);
             $table->boolean('prefers_night')->default(false);
@@ -47,6 +48,8 @@ return new class extends Migration
             $table->string('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['user_id', 'month', 'year']);
         });
 
         Schema::create('notifications', function (Blueprint $table) {

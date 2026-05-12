@@ -685,9 +685,13 @@
                                                         "type": "integer",
                                                         "example": 1
                                                     },
-                                                    "schedule_id": {
+                                                    "month": {
                                                         "type": "integer",
-                                                        "example": 1
+                                                        "example": 3
+                                                    },
+                                                    "year": {
+                                                        "type": "integer",
+                                                        "example": 2026
                                                     },
                                                     "prefers_morning": {
                                                         "type": "boolean",
@@ -746,7 +750,8 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "schedule_id",
+                                    "month",
+                                    "year",
                                     "prefers_morning",
                                     "prefers_afternoon",
                                     "prefers_night",
@@ -754,9 +759,13 @@
                                     "prefers_weekends"
                                 ],
                                 "properties": {
-                                    "schedule_id": {
+                                    "month": {
                                         "type": "integer",
-                                        "example": 1
+                                        "example": 3
+                                    },
+                                    "year": {
+                                        "type": "integer",
+                                        "example": 2026
                                     },
                                     "prefers_morning": {
                                         "type": "boolean",
@@ -806,9 +815,13 @@
                                                     "type": "integer",
                                                     "example": 1
                                                 },
-                                                "schedule_id": {
+                                                "month": {
                                                     "type": "integer",
-                                                    "example": 1
+                                                    "example": 3
+                                                },
+                                                "year": {
+                                                    "type": "integer",
+                                                    "example": 2026
                                                 },
                                                 "prefers_morning": {
                                                     "type": "boolean",

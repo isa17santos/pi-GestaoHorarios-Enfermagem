@@ -66,7 +66,8 @@ class ProfileController extends Controller
                                 type: 'object',
                                 properties: [
                                     new OA\Property(property: 'id', type: 'integer', example: 1),
-                                    new OA\Property(property: 'schedule_id', type: 'integer', example: 1),
+                                    new OA\Property(property: 'month', type: 'integer', example: 3),
+                                    new OA\Property(property: 'year', type: 'integer', example: 2026),
                                     new OA\Property(property: 'prefers_morning', type: 'boolean', example: true),
                                     new OA\Property(property: 'prefers_afternoon', type: 'boolean', example: false),
                                     new OA\Property(property: 'prefers_night', type: 'boolean', example: false),
@@ -88,10 +89,12 @@ class ProfileController extends Controller
 
         $preferences = NursePreference::query()
             ->where('user_id', $user->id)
-            ->orderBy('schedule_id')
+            ->orderBy('year')
+            ->orderBy('month')
             ->get([
                 'id',
-                'schedule_id',
+                'month',
+                'year',
                 'prefers_morning',
                 'prefers_afternoon',
                 'prefers_night',
@@ -113,9 +116,10 @@ class ProfileController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['schedule_id', 'prefers_morning', 'prefers_afternoon', 'prefers_night', 'avoid_weekends', 'prefers_weekends'],
+                required: ['month', 'year', 'prefers_morning', 'prefers_afternoon', 'prefers_night', 'avoid_weekends', 'prefers_weekends'],
                 properties: [
-                    new OA\Property(property: 'schedule_id', type: 'integer', example: 1),
+                    new OA\Property(property: 'month', type: 'integer', example: 3),
+                    new OA\Property(property: 'year', type: 'integer', example: 2026),
                     new OA\Property(property: 'prefers_morning', type: 'boolean', example: true),
                     new OA\Property(property: 'prefers_afternoon', type: 'boolean', example: false),
                     new OA\Property(property: 'prefers_night', type: 'boolean', example: false),
@@ -137,7 +141,8 @@ class ProfileController extends Controller
                             type: 'object',
                             properties: [
                                 new OA\Property(property: 'id', type: 'integer', example: 1),
-                                new OA\Property(property: 'schedule_id', type: 'integer', example: 1),
+                                new OA\Property(property: 'month', type: 'integer', example: 3),
+                                new OA\Property(property: 'year', type: 'integer', example: 2026),
                                 new OA\Property(property: 'prefers_morning', type: 'boolean', example: true),
                                 new OA\Property(property: 'prefers_afternoon', type: 'boolean', example: false),
                                 new OA\Property(property: 'prefers_night', type: 'boolean', example: false),
@@ -161,7 +166,8 @@ class ProfileController extends Controller
         $preference = NursePreference::query()->updateOrCreate(
             [
                 'user_id' => $user->id,
-                'schedule_id' => $validated['schedule_id'],
+                'month' => $validated['month'],
+                'year' => $validated['year'],
             ],
             [
                 'prefers_morning' => $validated['prefers_morning'],
@@ -177,7 +183,8 @@ class ProfileController extends Controller
             'message' => __('auth.profile_preferences_updated_success'),
             'data' => $preference->only([
                 'id',
-                'schedule_id',
+                'month',
+                'year',
                 'prefers_morning',
                 'prefers_afternoon',
                 'prefers_night',
