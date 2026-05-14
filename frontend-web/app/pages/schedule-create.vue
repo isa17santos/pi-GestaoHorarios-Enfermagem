@@ -45,9 +45,62 @@ const form = reactive({
   month: '',
 })
 
+const getTranslatedError = (msg: string) => {
+  if (!msg) return ''
+  
+  const isEn = currentLocale.value === 'en'
+  
+  // Dicionário de traduções (PT <-> EN)
+  const translations: Record<string, string> = {
+    'Já existe um horário para este mês.': 'A schedule already exists for this month.',
+    'Já existe uma edição em curso para este horário.': 'An edit is already in progress for this schedule.',
+    'Sem permissão para editar horários.': 'No permission to edit schedules.',
+    'Horário não encontrado.': 'Schedule not found.',
+    'Ocorreu um erro interno no servidor.': 'An internal server error occurred.',
+    'Seleciona o mês do horário.': 'Please select the schedule month.',
+    'Não podes selecionar um mês anterior ao atual.': 'You cannot select a month earlier than the current month.',
+    'Não foi possível criar o horário. Tenta novamente.': 'Could not create the schedule. Please try again.',
+    'Não foi possível carregar os dados iniciais.': 'Could not load initial data.',
+    'Não foi possível carregar os horários em rascunho.': 'Could not load draft schedules.',
+    'Não foi possível apagar o rascunho.': 'Could not delete draft.',
+    'Um horário publicado não pode ser apagado.': 'A published schedule cannot be deleted.',
+    'Apenas o head nurse pode apagar rascunhos.': 'Only the head nurse can delete drafts.'
+  }
+
+  if (isEn) {
+    // Se estivermos em EN, procuramos o valor correspondente à chave PT
+    return translations[msg] || msg
+  } else {
+    // Se estivermos em PT, procuramos qual é a chave PT que tem este valor EN
+    const ptKey = Object.keys(translations).find(key => translations[key] === msg)
+    return ptKey || msg
+  }
+}
+
+
 // ==================== Local UI State ====================
 
 const localError = ref('')
+watch(localError, (newValue) => {
+  if (newValue) {
+    const translated = getTranslatedError(newValue)
+    if (translated !== newValue) {
+      localError.value = translated
+      return
+    }
+    // Timer 
+    setTimeout(() => {
+      localError.value = ''
+    }, 5000)
+  }
+})
+
+watch(currentLocale, () => {
+  if (localError.value) {
+    localError.value = getTranslatedError(localError.value)
+  }
+})
+
 const isBootstrapping = ref(true)
 const isSubmitting = ref(false)
 const continuingDraftId = ref<number | null>(null)
@@ -423,41 +476,58 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="dashboard-page schedule-page">
-    <section class="dashboard-card schedule-card" style="position: relative;">
-      <button class="language-switch" type="button" @click="toggleLanguage">
-        <span class="language-switch__flag">{{ localeFlag }}</span>
-        <span>{{ localeLabel }}</span>
-      </button>
+  <main class="dashboard-layout hr-page">
+    <AppNavbar />
 
-      <p class="eyebrow">{{ texts.create.pageEyebrow }}</p>
-      <h1>{{ texts.create.pageTitle }}</h1>
+    <!-- AVISO ESTILO TOAST SUSPENSO -->
+    <transition name="slide-down">
+      <div v-if="localError" class="global-toast error">
+        <div class="toast-content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ localError }}</span>
+        </div>
+      </div>
+    </transition>
 
-      <button type="button" class="schedule-secondary-button" @click="navigateTo('/dashboard')">
-        {{ texts.backButton }}
-      </button>
+    <section class="hr-content">
+      <!-- Section header -->
+      <div class="uc-top-bar">
+        <div class="uc-title-group">
+          <NuxtLink to="/dashboard" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            {{ texts.backButton }}
+          </NuxtLink>
+          <h1>{{ texts.create.pageTitle }}</h1>
+          <p class="uc-subtitle">{{ texts.create.intro }}</p>
+        </div>
+      </div>
 
-      <p class="schedule-intro">
-        {{ texts.create.intro }}
-      </p>
+      <!-- Create Schedule Card -->
+      <div class="hr-toolbar" style="margin-bottom: 20px;">
+        <div class="hr-title-group">
+          <h2 style="font-size: 1.5rem; color: var(--text); margin: 0;">{{ texts.create.month }}</h2>
+        </div>
+      </div>
 
-      <p v-if="localError" class="form-error">
-        {{ localError }}
-      </p>
-
-      <form class="login-form" novalidate @submit.prevent="handleSubmit">
-        <div class="schedule-period">
-          <label class="field">
-            <span>{{ texts.create.month }}</span>
-
-            <!-- Custom month picker to keep a consistent visual style across browsers. -->
-            <div ref="monthPickerRef" class="schedule-month-picker">
+      <div class="hr-card" style="padding: 30px; margin-bottom: 40px; overflow: visible !important; position: relative; z-index: 10;">
+        <form class="login-form" novalidate @submit.prevent="handleSubmit" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+          <div class="schedule-period" style="flex: 1; min-width: 280px; margin: 0;">
+            <!-- Custom month picker -->
+            <div ref="monthPickerRef" class="schedule-month-picker" style="max-width: 100%;">
               <button
                 type="button"
                 class="schedule-month-picker__trigger"
                 :aria-expanded="isMonthPickerOpen"
                 :aria-label="texts.create.month"
                 @click="toggleMonthPicker"
+                style="height: 48px; border-radius: 12px; border: 1px solid #e2e8f0; background: white; padding: 0 16px; display: flex; justify-content: space-between; align-items: center; width: 100%;"
               >
                 <span>{{ selectedMonthLabel }}</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
@@ -465,7 +535,7 @@ onBeforeUnmount(() => {
                 </svg>
               </button>
 
-              <div v-if="isMonthPickerOpen" class="schedule-month-picker__panel" role="dialog" :aria-label="texts.create.month">
+              <div v-if="isMonthPickerOpen" class="schedule-month-picker__panel" role="dialog" :aria-label="texts.create.month" style="top: 52px;">
                 <div class="schedule-month-picker__header">
                   <button
                     type="button"
@@ -502,115 +572,126 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </div>
-          </label>
-        </div>
+          </div>
 
-        <div class="schedule-actions-row">
           <button
             type="submit"
             class="login-button schedule-primary-button"
-            :disabled="
-              isBootstrapping
-              || loadingScheduleCreation
-              || isSubmitting
-            "
+            :disabled="isBootstrapping || loadingScheduleCreation || isSubmitting"
+            style="height: 48px; padding: 0 28px; border-radius: 12px; font-weight: 600; white-space: nowrap;"
           >
             {{ isSubmitting ? texts.create.submitting : texts.create.submit }}
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
 
-      <section class="schedule-drafts" aria-label="Draft schedules list">
-        <h2>{{ texts.create.draftsTitle }}</h2>
-        <p class="schedule-intro">{{ texts.create.draftsIntro }}</p>
-
-        <p v-if="loadingSchedules" class="form-success">
-          {{ texts.create.loadingDrafts }}
-        </p>
-
-        <p v-else-if="errorSchedules" class="form-error">
-          {{ errorSchedules || texts.create.errors.loadDrafts }}
-        </p>
-
-        <p v-else-if="!draftSchedules.length" class="form-success">
-          {{ texts.create.noDrafts }}
-        </p>
-
-        <ul v-else class="schedule-drafts__list">
-          <li v-for="draft in draftSchedules" :key="draft.id" class="schedule-drafts__item">
-            <div class="schedule-drafts__meta">
-              <strong>{{ formatScheduleMonth(draft.start_date) }}</strong>
-              <span>
-                {{ texts.create.periodLabel }}:
-                {{ formatSchedulePeriod(draft.start_date, draft.end_date) }}
-              </span>
-            </div>
-
-            <div class="schedule-drafts__actions">
-              <button
-                v-if="canDeleteDrafts"
-                type="button"
-                class="schedule-drafts__icon-button schedule-drafts__icon-button--danger"
-                :disabled="isBootstrapping || loadingScheduleCreation || continuingDraftId !== null || deletingDraftId !== null"
-                :title="texts.create.deleteDraft"
-                :aria-label="texts.create.deleteDraft"
-                @click="deleteDraftFromList(draft.id)"
-              >
-                <svg v-if="deletingDraftId !== draft.id" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="M6 6 18 18" />
-                </svg>
-                <span v-else aria-hidden="true">…</span>
-              </button>
-
-              <button
-                type="button"
-                class="login-button schedule-primary-button"
-                :disabled="isBootstrapping || loadingScheduleCreation || continuingDraftId !== null || deletingDraftId !== null"
-                @click="continueDraftSchedule(draft.id)"
-              >
-                {{ continuingDraftId === draft.id ? texts.loading : texts.create.continueDraft }}
-              </button>
-            </div>
-          </li>
-        </ul>
-      </section>
-
-      <div
-        v-if="isDeleteDraftModalOpen"
-        class="schedule-confirm-overlay"
-        role="presentation"
-        @click.self="closeDeleteDraftModal"
-      >
-        <!-- Generic confirmation modal used for destructive draft actions. -->
-        <div class="schedule-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-draft-title">
-          <h3 id="delete-draft-title">
-            {{ texts.create.deleteDraft }}
-          </h3>
-
-          <p>{{ texts.create.deleteDraftConfirmation }}</p>
-
-          <div class="schedule-confirm-actions">
-            <button
-              type="button"
-              class="schedule-secondary-button"
-              :disabled="deletingDraftId !== null"
-              @click="closeDeleteDraftModal"
-            >
-              {{ currentLocale === 'pt' ? 'Cancelar' : 'Cancel' }}
-            </button>
-
-            <button
-              type="button"
-              class="login-button schedule-danger-button"
-              :disabled="deletingDraftId !== null"
-              @click="confirmDeleteDraftFromList"
-            >
-              {{ deletingDraftId !== null ? texts.create.deletingDraft : texts.create.deleteDraft }}
-            </button>
-          </div>
+      <!-- Drafts Toolbar/Card -->
+      <div class="hr-toolbar" style="margin-bottom: 20px;">
+        <div class="hr-title-group">
+          <h2 style="font-size: 1.5rem; color: var(--text); margin: 0 0 8px;">{{ texts.create.draftsTitle }}</h2>
+          <p class="uc-subtitle">{{ texts.create.draftsIntro }}</p>
         </div>
       </div>
+
+      <div class="hr-card">
+        <div v-if="loadingSchedules" class="hr-state-msg">
+          <div class="spinner"></div>
+          <p>{{ texts.create.loadingDrafts }}</p>
+        </div>
+        <div v-else-if="errorSchedules" class="hr-state-msg error">
+          <p>{{ errorSchedules || texts.create.errors.loadDrafts }}</p>
+        </div>
+        <div v-else-if="!draftSchedules.length" class="hr-state-msg">
+          <p>{{ texts.create.noDrafts }}</p>
+        </div>
+        <div v-else class="table-responsive">
+          <table class="hr-table">
+            <thead>
+              <tr>
+                <th class="col-left">{{ texts.create.month }}</th>
+                <th class="col-left">{{ texts.create.periodLabel }}</th>
+                <th class="col-right">{{ currentLocale === 'pt' ? 'Ações' : 'Actions' }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="draft in draftSchedules" :key="draft.id">
+                <td class="col-left">
+                  <div class="user-cell">
+                    <span class="user-name-text">{{ formatScheduleMonth(draft.start_date) }}</span>
+                  </div>
+                </td>
+                <td class="col-left">
+                  <span style="color: var(--muted); font-size: 0.95rem;">
+                    {{ formatSchedulePeriod(draft.start_date, draft.end_date) }}
+                  </span>
+                </td>
+                <td class="actions-cell col-right">
+                  <button
+                    type="button"
+                    class="action-btn edit"
+                    :disabled="isBootstrapping || loadingScheduleCreation || continuingDraftId !== null || deletingDraftId !== null"
+                    :title="texts.create.continueDraft"
+                    @click="continueDraftSchedule(draft.id)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+                  <button
+                    v-if="canDeleteDrafts"
+                    type="button"
+                    class="action-btn delete"
+                    :disabled="isBootstrapping || loadingScheduleCreation || continuingDraftId !== null || deletingDraftId !== null"
+                    :title="texts.create.deleteDraft"
+                    @click="deleteDraftFromList(draft.id)"
+                  >
+                    <svg v-if="deletingDraftId !== draft.id" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                    <span v-else style="font-size: 0.8rem;">…</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal de Eliminação -->
+      <transition name="fade">
+        <div v-if="isDeleteDraftModalOpen" class="modal-overlay" @click.self="closeDeleteDraftModal">
+          <div class="modal-card">
+            <div class="modal-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </div>
+            <h2>{{ texts.create.deleteDraft }}</h2>
+            <p>{{ texts.create.deleteDraftConfirmation }}</p>
+            <div class="modal-actions">
+              <button 
+                class="modal-btn cancel" 
+                :disabled="deletingDraftId !== null" 
+                @click="closeDeleteDraftModal"
+              >
+                {{ currentLocale === 'pt' ? 'Cancelar' : 'Cancel' }}
+              </button>
+              <button 
+                class="modal-btn confirm" 
+                :disabled="deletingDraftId !== null" 
+                @click="confirmDeleteDraftFromList"
+              >
+                {{ deletingDraftId !== null ? texts.create.deletingDraft : texts.create.deleteDraft }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
     </section>
   </main>
 </template>
+

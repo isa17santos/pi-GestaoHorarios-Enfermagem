@@ -22,6 +22,7 @@ type Nurse = {
   name: string
   email: string
   role: string
+  active: boolean
   preferences?: NursePreference[]
 }
 
@@ -44,6 +45,7 @@ type ShiftType = {
   name: string
   start_time: string
   end_time: string
+  min_nurses?: number
 }
 
 // Response shape for fetching multiple nurses
@@ -254,9 +256,15 @@ export const useSchedule = () => {
         }
       )
 
+      const filteredNurses = (nursesResponse.data || []).filter((user) => {
+        const role = user.role?.trim().toLowerCase()
+        const isNursingStaff = role === 'nurse' || role === 'head_nurse' || role === 'head nurse'
+        return isNursingStaff && user.active === true
+      })
+
       // Fetch preferences for each nurse
       const nursesWithPreferences = await Promise.all(
-        nursesResponse.data.map(async (nurse) => {
+        filteredNurses.map(async (nurse) => {
           try {
             const preferencesResponse = await $fetch<NursePreferencesResponse>(
               `${config.public.apiBase}/users/${nurse.id}/preferences`,

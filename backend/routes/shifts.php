@@ -7,4 +7,5 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shifts', [ShiftController::class, 'store']);
     Route::patch('/shifts/{id}', [ShiftController::class, 'update']);
+    Route::delete('/shifts/{id}', [ShiftController::class, 'destroy']);
 });

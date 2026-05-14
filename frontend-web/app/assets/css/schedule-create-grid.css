@@ -56,6 +56,25 @@
 }
 
 /* ==================== Barra de Ações ==================== */
+.schedule-grid-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.schedule-grid-top-bar .uc-title-group {
+  display: flex;
+  align-items: center;
+}
+
+.schedule-grid-top-bar .schedule-grid-top-actions__primary {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .schedule-grid-top-actions {
   display: flex;
   align-items: center;
@@ -171,7 +190,35 @@
 }
 
 /* ==================== Ajustes Mobile das Ações ==================== */
-@media (max-width: 760px) {
+@media (max-width: 770px) {
+  .schedule-grid-top-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .schedule-grid-top-bar .uc-title-group {
+    width: 100%;
+  }
+
+  .schedule-grid-top-bar .back-link {
+    width: 100%;
+  }
+
+
+  .schedule-grid-top-bar .schedule-grid-top-actions__primary {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .schedule-grid-top-bar .schedule-grid-top-actions__primary > button {
+    flex: 1;
+    justify-content: center;
+  }
+  
+  .schedule-grid-top-bar .schedule-grid-top-actions__primary > .schedule-grid-icon-button {
+    flex: 0 0 auto;
+    width: 44px;
+  }
+
   .schedule-title-row {
     flex-wrap: wrap;
   }

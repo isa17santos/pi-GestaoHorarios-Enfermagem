@@ -61,7 +61,7 @@ class ShiftController extends Controller
         $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
 
         // Restrict shift creation to management roles.
-        if (! in_array($role, [UserRole::Admin->value, UserRole::HeadNurse->value], true)) {
+        if (!in_array($role, [UserRole::Admin->value, UserRole::HeadNurse->value], true)) {
             return response()->json([
                 'message' => 'Sem permissão para criar turnos.',
             ], 403);
@@ -165,7 +165,7 @@ class ShiftController extends Controller
         $user = $request->user();
         $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
 
-        if (! in_array($role, [UserRole::Admin->value, UserRole::HeadNurse->value], true)) {
+        if (!in_array($role, [UserRole::Admin->value, UserRole::HeadNurse->value], true)) {
             return response()->json([
                 'message' => 'Sem permissão para atualizar turnos.',
             ], 403);
@@ -173,7 +173,7 @@ class ShiftController extends Controller
 
         $shift = Shift::query()->with('users')->find($id);
 
-        if (! $shift) {
+        if (!$shift) {
             return response()->json([
                 'message' => 'Turno não encontrado.',
             ], 404);
@@ -241,4 +241,109 @@ class ShiftController extends Controller
             ],
         ]);
     }
+
+    #[OA\Delete(
+        path: '/api/shifts/{id}',
+        summary: 'Elimina um turno individual ou remove um enfermeiro do mesmo',
+        security: [['bearerAuth' => []]],
+        tags: ['Shifts'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer'),
+                example: 1
+            ),
+            new OA\Parameter(
+                name: 'nurse_id',
+                in: 'query',
+                required: false,
+                schema: new OA\Schema(type: 'integer'),
+                description: 'ID do enfermeiro a desassociar do turno',
+                example: 4
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Turno ou enfermeiro removido com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Operação concluída com sucesso.'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Não autenticado',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Utilizador não autenticado.'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Sem permissão para eliminar turnos',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Sem permissão para eliminar turnos.'),
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 404,
+                description: 'Turno não encontrado',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Turno não encontrado.'),
+                    ]
+                )
+            ),
+        ]
+    )]
+    public function destroy(int $id): JsonResponse
+    {
+        $user = request()->user();
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        if (!in_array($role, [UserRole::Admin->value, UserRole::HeadNurse->value], true)) {
+            return response()->json([
+                'message' => 'Sem permissão para eliminar turnos.',
+            ], 403);
+        }
+
+        $shift = Shift::find($id);
+
+        if (!$shift) {
+            return response()->json([
+                'message' => 'Turno não encontrado.',
+            ], 404);
+        }
+
+        // Verify if a nurse_id was passed to remove only that nurse
+        $nurseId = request()->query('nurse_id');
+
+        if ($nurseId) {
+            $shift->users()->detach($nurseId);
+
+            // If the shift no longer has anyone associated, delete the shift completely
+            if ($shift->users()->count() === 0) {
+                $shift->delete();
+            }
+
+            return response()->json([
+                'message' => 'Enfermeiro removido do turno com sucesso.',
+            ]);
+        }
+
+        // If nurse_id is not passed, delete the shift completely
+        $shift->delete();
+
+        return response()->json([
+            'message' => 'Turno removido com sucesso.',
+        ]);
+    }
+
 }

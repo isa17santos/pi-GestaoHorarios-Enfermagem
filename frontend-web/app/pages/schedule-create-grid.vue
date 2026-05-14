@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CSSProperties } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 
 definePageMeta({
   middleware: 'auth',
@@ -65,6 +66,72 @@ const canDeleteDraft = computed(() => {
 const localError = ref('')
 const localWarning = ref('')
 const localSuccess = ref('')
+
+watch(localWarning, (newVal) => {
+  if (newVal) {
+    setTimeout(() => {
+      localWarning.value = ''
+    }, 6000)
+  }
+})
+watch(localError, (newVal) => {
+  if (newVal) {
+    setTimeout(() => {
+      localError.value = ''
+    }, 6000)
+  }
+})
+watch(localSuccess, (newVal) => {
+  if (newVal) {
+    setTimeout(() => {
+      localSuccess.value = ''
+    }, 6000)
+  }
+})
+watch(currentLocale, (newLocale) => {
+  if (localError.value) {
+    localError.value = getBackendErrorMessage(localError.value)
+  }
+  if (localWarning.value) {
+    localWarning.value = getBackendErrorMessage(localWarning.value)
+  }
+  if (localSuccess.value) {
+    if (newLocale === 'en') {
+      if (localSuccess.value.includes('Horário publicado com sucesso')) {
+        localSuccess.value = 'Schedule published successfully. Email sent to the nursing team.'
+      }
+      if (localSuccess.value.includes('Horário já publicado')) {
+        localSuccess.value = 'Schedule already published.'
+      }
+      if (localSuccess.value.includes('Rascunho apagado')) {
+        localSuccess.value = 'Draft deleted successfully.'
+      }
+      if (localSuccess.value.includes('Grelha guardada com sucesso')) {
+        localSuccess.value = 'Grid saved successfully.'
+      }
+      if (localSuccess.value.includes('Alterações publicadas com sucesso')) {
+        localSuccess.value = 'Changes published successfully.'
+      }
+    } else {
+      if (localSuccess.value.includes('Schedule published successfully')) {
+        localSuccess.value = 'Horário publicado com sucesso. Email enviado à equipa de enfermagem.'
+      }
+      if (localSuccess.value.includes('Schedule already published')) {
+        localSuccess.value = 'Horário já publicado.'
+      }
+      if (localSuccess.value.includes('Draft deleted')) {
+        localSuccess.value = 'Rascunho apagado com sucesso.'
+      }
+      if (localSuccess.value.includes('Grid saved successfully')) {
+        localSuccess.value = 'Grelha guardada com sucesso.'
+      }
+      if (localSuccess.value.includes('Changes published successfully')) {
+        localSuccess.value = 'Alterações publicadas com sucesso.'
+      }
+    }
+  }
+})
+
 
 // True while the page is loading its initial data.
 const isBootstrapping = ref(true)
@@ -176,14 +243,90 @@ const scheduleStatusClass = computed(() => {
 // Shared helpers for backend error normalization and user-friendly feedback.
 
 const getBackendErrorMessage = (error: unknown) => {
-  const backendError = (error as { data?: { message?: string }, message?: string })?.data?.message
-  if (typeof backendError === 'string' && backendError.trim().length > 0) {
-    return backendError.trim()
+  let message = ''
+  
+  if (typeof error === 'string') {
+    message = error.trim()
+  } else {
+    const backendError = (error as { data?: { message?: string }, message?: string })?.data?.message
+    if (typeof backendError === 'string' && backendError.trim().length > 0) {
+      message = backendError.trim()
+    } else {
+      const runtimeError = (error as { message?: string })?.message
+      message = typeof runtimeError === 'string' ? runtimeError.trim() : ''
+    }
   }
 
-  const runtimeError = (error as { message?: string })?.message
-  return typeof runtimeError === 'string' ? runtimeError.trim() : ''
+  if (message) {
+    const hasNoAssignedShifts = message.includes('There are days') || message.includes('Existem dias no horário') || message.includes('sem turnos atribuídos')
+    const hasInsufficientNurses = message.includes('minimum number') || message.includes('número mínimo') || message.includes('não está a ser cumprido')
+    const hasAlreadyPublished = message.includes('already published') || message.includes('já publicado')
+    const hasInvalidDateRange = message.includes('invalid date range') || message.includes('intervalo de datas inválido')
+    const hasShiftNotFound = message.includes('Shift not found') || message.includes('Turno não encontrado')
+    const hasNoPermission = message.includes('No permission') || message.includes('Sem permissão')
+    const hasMissingId = message.includes('identify schedule') || message.includes('identificar o horário')
+    const hasSessionUnavailable = message.includes('session unavailable') || message.includes('Sessão do horário indisponível')
+    const hasMissingShiftId = message.includes('without an identifier') || message.includes('sem identificador')
+    const hasNoNewAssignments = message.includes('no new assignments') || message.includes('Não existem novas atribuições')
+    const hasCouldNotSave = message.includes('Could not save assignments') || message.includes('Não foi possível guardar as atribuições')
+
+    
+    const isEnglish = currentLocale.value === 'en'
+
+    
+    if (hasNoAssignedShifts) {
+      return isEnglish 
+        ? 'There are days in the schedule without any shifts assigned to nurses.' 
+        : 'Existem dias no horário sem turnos atribuídos a enfermeiros.'
+    }
+    if (hasInsufficientNurses) {
+      return isEnglish 
+        ? 'The minimum number of nurses required for each shift is not being met.' 
+        : 'O número mínimo de enfermeiros exigido para cada turno não está a ser cumprido.'
+    }
+    if (hasAlreadyPublished) {
+      return isEnglish 
+        ? 'Schedule is already published.' 
+        : 'Horário já publicado.'
+    }
+    if (hasInvalidDateRange) {
+      return isEnglish 
+        ? 'The schedule has an invalid date range.' 
+        : 'O horário tem um intervalo de datas inválido.'
+    }
+    if (hasShiftNotFound) {
+      return isEnglish 
+        ? 'Shift not found.' 
+        : 'Turno não encontrado.'
+    }
+    if (hasNoPermission) {
+      return isEnglish 
+        ? 'No permission.' 
+        : 'Sem permissão.'
+    }
+    if (hasMissingId) {
+      return isEnglish ? 'Could not identify schedule.' : 'Não foi possível identificar o horário.'
+    }
+    if (hasSessionUnavailable) {
+      return isEnglish ? 'Schedule session unavailable. Recreate the period before editing the grid.' : 'Sessão do horário indisponível. Volta a criar o período antes de editar a grelha.'
+    }
+    if (hasMissingShiftId) {
+      return isEnglish ? 'Could not update an existing shift without an identifier.' : 'Não foi possível atualizar um turno existente sem identificador.'
+    }
+    if (hasNoNewAssignments) {
+      return isEnglish ? 'There are no new assignments to save.' : 'Não existem novas atribuições para guardar.'
+    }
+    if (hasCouldNotSave) {
+      return isEnglish ? 'Could not save assignments. Try again.' : 'Não foi possível guardar as atribuições. Tenta novamente.'
+    }
+
+  }
+
+  return message
 }
+
+
+
 
 const normalizeErrorMessage = (message: string) => {
   return message
@@ -214,7 +357,7 @@ const shouldTryNextPublishEndpoint = (error: unknown) => {
     || normalizedMessage.includes('method not allowed')
     || normalizedMessage.includes('not found')
     || normalizedMessage.includes('unsupported method')
- }
+}
 
 // Returns an array of day objects for the current month, used to build the grid columns.
 const monthDays = computed(() => {
@@ -837,22 +980,26 @@ const hasUnsavedGridChanges = () => {
 // ==================== Save Flow ====================
 
 // Saves all filled grid cells to the API, one request per assignment.
-const saveGridAssignments = async () => {
+const saveGridAssignments = async (isSilent = false) => {
   localError.value = ''
   localWarning.value = ''
-  localSuccess.value = ''
+  if (!isSilent) {
+    localSuccess.value = ''
+  }
 
   if (!scheduleId.value) {
-    localError.value = 'Nao foi possivel identificar o horario.'
+    localError.value = currentLocale.value === 'pt' 
+      ? 'Não foi possível identificar o horário.' 
+      : 'Could not identify schedule.'
     return
   }
-
   if (!schedule.value || schedule.value.id !== scheduleId.value) {
-    localError.value = 'Sessao do horario indisponivel. Volta a criar o periodo antes de editar a grelha.'
+    localError.value = currentLocale.value === 'pt' 
+      ? 'Sessão do horário indisponível. Volta a criar o período antes de editar a grelha.' 
+      : 'Schedule session unavailable. Recreate the period before editing the grid.'
     return
   }
 
-  // Groups existing shift assignments by nurse/date to decide between create and update.
   const existingAssignmentByNurseDate = new Map<string, { shiftId: number | null, shiftTypeId: number }>()
 
   for (const existingShift of shifts.value) {
@@ -883,11 +1030,11 @@ const saveGridAssignments = async () => {
         shiftTypeId: Number(shiftTypeId),
       }
     })
-    // Keeps previous month cells read-only by saving only dates inside the schedule range.
     .filter((assignment) => isDateWithinScheduleRange(assignment.shiftDate))
 
   const assignmentsToCreate: Array<{ nurseId: number; shiftDate: string; shiftTypeId: number }> = []
   const assignmentsToUpdate: Array<{ shiftId: number; nurseId: number; shiftDate: string; shiftTypeId: number }> = []
+  const assignmentsToDelete: Array<{ shiftId: number; nurseId: number }> = []
 
   for (const assignment of desiredAssignments) {
     const existingAssignment = existingAssignmentByNurseDate.get(`${assignment.nurseId}::${assignment.shiftDate}`)
@@ -902,7 +1049,9 @@ const saveGridAssignments = async () => {
     }
 
     if (existingAssignment.shiftId === null) {
-      localError.value = 'Nao foi possivel atualizar um turno existente sem identificador.'
+      localError.value = currentLocale.value === 'pt' 
+        ? 'Não foi possível atualizar um turno existente sem identificador.' 
+        : 'Could not update an existing shift without an identifier.'
       return
     }
 
@@ -912,8 +1061,21 @@ const saveGridAssignments = async () => {
     })
   }
 
-  if (!assignmentsToCreate.length && !assignmentsToUpdate.length) {
-    localError.value = 'Nao existem novas atribuicoes para guardar.'
+  // Identify deletions (exists in old, but not in new desired list)
+  for (const [key, existing] of existingAssignmentByNurseDate.entries()) {
+    const hasInDesired = desiredAssignments.some(d => `${d.nurseId}::${d.shiftDate}` === key)
+    if (!hasInDesired && existing.shiftId !== null) {
+      const [nurseId] = key.split('::')
+      assignmentsToDelete.push({ shiftId: existing.shiftId, nurseId: Number(nurseId) })
+    }
+  }
+
+   if (!assignmentsToCreate.length && !assignmentsToUpdate.length && !assignmentsToDelete.length) {
+    if (!isSilent) {
+      localError.value = currentLocale.value === 'pt' 
+        ? 'Não existem novas atribuições para guardar.' 
+        : 'There are no new assignments to save.'
+    }
     return
   }
 
@@ -928,23 +1090,39 @@ const saveGridAssignments = async () => {
       await createShift(assignment.shiftTypeId, assignment.shiftDate, [assignment.nurseId])
     }
 
-    localSuccess.value = 'Grelha guardada com sucesso.'
+    for (const deletion of assignmentsToDelete) {
+      await $fetch(`${config.public.apiBase}/shifts/${deletion.shiftId}?nurse_id=${deletion.nurseId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token.value}`,
+        },
+      })
+    }
+
+    await fetchScheduleShifts(scheduleId.value)
+
+    if (!isSilent) {
+      localSuccess.value = currentLocale.value === 'pt' 
+        ? 'Grelha guardada com sucesso.' 
+        : 'Grid saved successfully.'
+    }
     handleCellMouseUp()
   } catch (error: unknown) {
-    // Uses backend validation message when available.
     const backendError = (error as { data?: { message?: string } })?.data?.message
     const runtimeErrorMessage = error instanceof Error ? error.message : ''
 
     localError.value =
       backendError
       || runtimeErrorMessage
-      ||
-      errorShiftCreation.value
-      || 'Nao foi possivel guardar as atribuicoes. Tenta novamente.'
+      || errorShiftCreation.value
+      || (currentLocale.value === 'pt' 
+          ? 'Não foi possível guardar as atribuições. Tenta novamente.' 
+          : 'Could not save assignments. Try again.')
   } finally {
     isSaving.value = false
   }
 }
+
 
 const publishSchedule = async () => {
   localError.value = ''
@@ -952,17 +1130,17 @@ const publishSchedule = async () => {
   localSuccess.value = ''
 
   if (!scheduleId.value) {
-    localError.value = 'Nao foi possivel identificar o horario.'
+    localError.value = currentLocale.value === 'pt' ? 'Não foi possível identificar o horário.' : 'Could not identify schedule.'
     return
   }
 
   if (!token.value) {
-    localError.value = 'Sessao expirada. Inicia sessao novamente.'
+    localError.value = currentLocale.value === 'pt' ? 'Sessão expirada. Inicia sessão novamente.' : 'Session expired. Sign in again.'
     return
   }
 
   if (schedule.value?.status === 'published') {
-    localSuccess.value = currentLocale.value === 'pt' ? 'Horario ja publicado.' : 'Schedule already published.'
+    localSuccess.value = currentLocale.value === 'pt' ? 'Horário já publicado.' : 'Schedule already published.'
     return
   }
 
@@ -970,7 +1148,7 @@ const publishSchedule = async () => {
 
   try {
     if (hasUnsavedGridChanges()) {
-      await saveGridAssignments()
+      await saveGridAssignments(true)
 
       if (localError.value) {
         return
@@ -981,66 +1159,42 @@ const publishSchedule = async () => {
       Authorization: `Bearer ${token.value}`,
     }
 
-    const publishAttempts = [
-      () => $fetch(`${config.public.apiBase}/schedules/${scheduleId.value}/publish`, {
-        method: 'POST',
-        headers: authHeaders,
-      }),
-      () => $fetch(`${config.public.apiBase}/schedules/${scheduleId.value}/publish`, {
-        method: 'PATCH',
-        headers: authHeaders,
-      }),
-      () => $fetch(`${config.public.apiBase}/schedules/${scheduleId.value}`, {
-        method: 'PATCH',
-        headers: authHeaders,
-        body: { status: 'published' },
-      }),
-    ]
+    const isRevision = schedule.value?.status === 'revision'
+    // Choose the correct endpoint based on the state
+    // If it's a revision, use 'publish-edit'. If it's a draft, use 'publish'.
+    const endpoint = isRevision 
+      ? `${config.public.apiBase}/schedules/${scheduleId.value}/publish-edit`
+      : `${config.public.apiBase}/schedules/${scheduleId.value}/publish`
+    // The publish-edit is always POST, the publish normal can be PATCH
+    const method = isRevision ? 'POST' : 'PATCH'
+    await $fetch(endpoint, {
+      method,
+      headers: authHeaders,
+    })
 
-    let publishSucceeded = false
-    let lastPublishError: unknown = null
-    for (const attempt of publishAttempts) {
-      try {
-        await attempt()
-        publishSucceeded = true
-        break
-      } catch (error: unknown) {
-        lastPublishError = error
-        if (!shouldTryNextPublishEndpoint(error)) {
-          throw error
-        }
-      }
+    // Success
+    if (!isRevision) {
+      await fetchSchedule(scheduleId.value)
+    } else if (schedule.value) {
+      schedule.value.status = 'published' 
     }
-
-    if (!publishSucceeded) {
-      throw lastPublishError || new Error('Nao foi possivel publicar o horario.')
-    }
-
-    await fetchSchedule(scheduleId.value)
+    
     localSuccess.value = currentLocale.value === 'pt'
-      ? 'Horário publicado com sucesso. Email enviado à equipa de enfermagem.'
-      : 'Schedule published successfully. Email sent to the nursing team.'
+      ? (isRevision ? 'Alterações publicadas com sucesso.' : 'Horário publicado com sucesso. Email enviado à equipa.')
+      : (isRevision ? 'Changes published successfully.' : 'Schedule published successfully. Email sent to the team.')
+
+    setTimeout(async () => {
+      isConfirmedLeave.value = true
+      await navigateTo('/dashboard')
+    }, 4000)  
   } catch (error: unknown) {
-    const statusCode = (error as { statusCode?: number, status?: number })?.statusCode ?? (error as { status?: number })?.status
-    const backendError = getBackendErrorMessage(error)
-
-    if (statusCode === 422 && backendError) {
-      localWarning.value = backendError
-      return
-    }
-
-    if (backendError) {
-      localError.value = backendError
-      return
-    }
-
-    localError.value = isNetworkPublishError(error)
-      ? (currentLocale.value === 'pt' ? 'Erro de rede ao publicar o horario. Verifica a ligacao e tenta novamente.' : 'Network error while publishing schedule. Check your connection and try again.')
-      : (currentLocale.value === 'pt' ? 'Ocorreu um erro inesperado ao publicar o horario.' : 'An unexpected error occurred while publishing schedule.')
+    localError.value = getBackendErrorMessage(error)
   } finally {
     isPublishing.value = false
   }
 }
+
+    
 
 const deleteDraftSchedule = async () => {
   localError.value = ''
@@ -1088,6 +1242,7 @@ const confirmDeleteDraftSchedule = async () => {
     await deleteSchedule(scheduleId.value)
     isDeleteDraftModalOpen.value = false
     localSuccess.value = texts.value.edit.deleteDraftSuccess
+    isConfirmedLeave.value = true 
     await navigateTo('/schedule-create')
   } catch (error: unknown) {
     const backendError = getBackendErrorMessage(error)
@@ -1112,6 +1267,48 @@ const handleGlobalMouseUp = () => {
   handleCellMouseUp()
 }
 
+
+//==================== Back Button ====================
+
+const isBackModalOpen = ref(false)
+const isConfirmedLeave = ref(false)
+const targetRoute = ref<string | null>(null)
+const handleBackClick = () => {
+  targetRoute.value = null
+  isBackModalOpen.value = true
+}
+// Interceta todo e qualquer movimento de saída da página (incluindo swipe)
+onBeforeRouteLeave((to, from, next) => {
+  if (isConfirmedLeave.value) {
+    next()
+    return
+  }
+  targetRoute.value = to.fullPath
+  isBackModalOpen.value = true
+  next(false) // Cancela a navegação de imediato
+})
+const confirmLeave = () => {
+  isConfirmedLeave.value = true
+  isBackModalOpen.value = false
+  if (targetRoute.value) {
+    router.push(targetRoute.value)
+  } else {
+    router.back()
+  }
+}
+const confirmSaveAndLeave = async () => {
+  isBackModalOpen.value = false
+  await saveGridAssignments()
+  isConfirmedLeave.value = true
+  if (targetRoute.value) {
+    router.push(targetRoute.value)
+  } else {
+    router.back()
+  }
+}
+
+
+
 // ==================== Lifecycle ====================
 
 onMounted(async () => {
@@ -1119,6 +1316,7 @@ onMounted(async () => {
     window.addEventListener('mouseup', handleGlobalMouseUp)
     window.addEventListener('keydown', handleDeleteDraftModalEscape)
   }
+  
 
   isBootstrapping.value = true
   localError.value = ''
@@ -1179,288 +1377,290 @@ onBeforeUnmount(() => {
 
 <template>
   <!-- ==================== Page Layout ==================== -->
-  <main class="dashboard-page schedule-page schedule-grid-page">
-    <section class="dashboard-card schedule-card schedule-grid-card">
-      <button class="language-switch" type="button" @click="toggleLanguage">
-        <span class="language-switch__flag">{{ localeFlag }}</span>
-        <span>{{ localeLabel }}</span>
-      </button>
+  <main class="dashboard-layout hr-page">
+    <AppNavbar />
 
-      <p class="eyebrow">{{ texts.edit.pageEyebrow }}</p>
-      <div class="schedule-title-row">
-        <h1>{{ texts.edit.pageTitle }}</h1>
-        <span class="schedule-status-badge" :class="scheduleStatusClass">
-          {{ scheduleStatusLabel }}
-        </span>
+    <!-- Warnings -->
+    <transition name="slide-down">
+      <div v-if="localWarning" class="global-toast success">
+        <div class="toast-content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ localWarning }}</span>
+        </div>
       </div>
+    </transition>
+    <transition name="slide-down">
+      <div v-if="localError" class="global-toast success">
+        <div class="toast-content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ localError }}</span>
+        </div>
+      </div>
+    </transition>
+    <transition name="slide-down">
+      <div v-if="localSuccess" class="global-toast error">
+        <div class="toast-content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <span>{{ localSuccess }}</span>
+        </div>
+      </div>
+    </transition>
 
-      <!-- ==================== Header Actions ==================== -->
+    <section class="hr-content" style="padding-top: 20px; max-width: 100%;">
+      <!-- Buttons -->
+      <div class="uc-top-bar schedule-grid-top-bar" style="margin-bottom: 20px; width: 100%;">
+        <div class="uc-title-group">
+          <button type="button" class="back-link" @click="handleBackClick" style="margin: 0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            {{ texts.backButton }}
+          </button>
 
-      <div class="schedule-grid-top-actions">
-        <button type="button" class="schedule-secondary-button" @click="() => router.back()">
-          {{ texts.backButton }}
-        </button>
+        </div>
 
-        <div class="schedule-grid-top-actions__primary">
-          <button
-            v-if="canDeleteDraft"
-            type="button"
+        <div class="schedule-grid-top-actions__primary" style="display: flex; gap: 12px; align-items: center;">
+          <!-- Button delete -->
+          <button v-if="canDeleteDraft" type="button"
             class="schedule-grid-icon-button schedule-grid-icon-button--danger"
             :disabled="isBootstrapping || loadingShiftCreation || isSaving || isPublishing || isDeletingDraft"
-            :title="texts.edit.deleteDraft"
-            :aria-label="texts.edit.deleteDraft"
-            @click="deleteDraftSchedule"
-          >
-            <svg v-if="!isDeletingDraft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16" aria-hidden="true">
+            :title="texts.edit.deleteDraft" :aria-label="texts.edit.deleteDraft" @click="deleteDraftSchedule">
+            <svg v-if="!isDeletingDraft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" width="16" height="16" aria-hidden="true">
               <path d="M18 6 6 18" />
               <path d="M6 6 18 18" />
             </svg>
             <span v-else aria-hidden="true">…</span>
           </button>
 
-          <button
-            type="button"
-            class="schedule-secondary-button schedule-grid-action-button"
+          <button type="button" class="schedule-secondary-button schedule-grid-action-button"
             :disabled="isBootstrapping || loadingShiftCreation || isSaving || isPublishing || isDeletingDraft"
-            @click="saveGridAssignments"
-          >
+            @click="saveGridAssignments()" style="color: var(--primary-strong); font-weight: 600;">
             {{ isSaving ? texts.edit.savingAssignments : texts.edit.saveAssignments }}
           </button>
 
-          <button
-            type="button"
-            class="login-button schedule-grid-action-button schedule-primary-button"
+          <!-- Button publish -->
+          <button type="button" class="login-button schedule-grid-action-button schedule-primary-button"
             :disabled="isBootstrapping || isSaving || isPublishing || isDeletingDraft || schedule?.status === 'published'"
-            @click="publishSchedule"
-          >
-            {{ isPublishing ? (currentLocale === 'pt' ? 'A publicar...' : 'Publishing...') : (currentLocale === 'pt' ? 'Publicar' : 'Publish') }}
+            @click="publishSchedule">
+            {{ isPublishing ? (currentLocale === 'pt' ? 'A publicar...' : 'Publishing...') : (currentLocale === 'pt' ?
+              'Publicar' : 'Publish') }}
           </button>
         </div>
       </div>
 
-      <p class="schedule-intro">
-        {{ texts.edit.pageSubtitle }}
-      </p>
-
-      <!-- ==================== Active Shift Toolbar ==================== -->
-
-      <div class="schedule-legend">
-        <span class="schedule-legend__title">{{ texts.edit.activeShiftLabel }}</span>
-        <div class="schedule-legend__items">
-          <button
-            v-for="shiftType in shiftTypes"
-            :key="`toolbar-${shiftType.id}`"
-            type="button"
-            class="schedule-legend__item"
-            :class="{ 'is-selected': selectedShiftTypeId === shiftType.id }"
-            :style="{
-              backgroundColor: getShiftTypeBackgroundColor(shiftType.id) || '#f5f5f7',
-              borderColor: selectedShiftTypeId === shiftType.id ? 'rgba(102, 67, 155, 0.45)' : 'var(--line)',
-              borderWidth: selectedShiftTypeId === shiftType.id ? '2px' : '1px'
-            }"
-            @click="selectShiftType(shiftType.id)"
-          >
-            {{ getLocalizedShiftTypeName(shiftType.name) }}
-          </button>
+      <section class="dashboard-card schedule-card schedule-grid-card"
+        style="margin: 0; width: 100%; max-width: 100%; box-sizing: border-box;">
+        <div class="schedule-title-row">
+          <h1>{{ texts.edit.pageTitle }}</h1>
+          <span class="schedule-status-badge" :class="scheduleStatusClass">
+            {{ scheduleStatusLabel }}
+          </span>
         </div>
-      </div>
 
-      <div class="schedule-month-nav">
-        <button
-          type="button"
-          class="schedule-secondary-button"
-          :disabled="!canGoToPreviousMonth"
-          @click="goToPreviousMonth"
-        >
-          {{ texts.edit.previousMonth }}
-        </button>
 
-        <strong class="schedule-month-label">{{ monthLabel }}</strong>
+        <!-- ==================== Active Shift Toolbar ==================== -->
 
-        <button
-          type="button"
-          class="schedule-secondary-button"
-          :disabled="!canGoToNextMonth"
-          @click="goToNextMonth"
-        >
-          {{ texts.edit.nextMonth }}
-        </button>
-      </div>
-
-      <!-- ==================== Feedback Messages ==================== -->
-
-      <p v-if="localWarning" class="form-warning">
-        {{ localWarning }}
-      </p>
-
-      <p v-if="localError" class="form-error">
-        {{ localError }}
-      </p>
-
-      <p v-if="localSuccess" class="form-success">
-        {{ localSuccess }}
-      </p>
-
-      <p v-if="errorNurses || errorShiftTypes || errorShifts" class="form-error">
-        {{ errorNurses || errorShiftTypes || errorShifts }}
-      </p>
-
-      <div
-        v-if="isDeleteDraftModalOpen"
-        class="schedule-confirm-overlay"
-        role="presentation"
-        @click.self="closeDeleteDraftModal"
-      >
-        <!-- Generic confirmation modal used for destructive draft actions. -->
-        <div class="schedule-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-draft-grid-title">
-          <h3 id="delete-draft-grid-title">
-            {{ texts.edit.deleteDraft }}
-          </h3>
-
-          <p>{{ texts.edit.deleteDraftConfirmation }}</p>
-
-          <div class="schedule-confirm-actions">
-            <button
-              type="button"
-              class="schedule-secondary-button"
-              :disabled="isDeletingDraft"
-              @click="closeDeleteDraftModal"
-            >
-              {{ currentLocale === 'pt' ? 'Cancelar' : 'Cancel' }}
-            </button>
-
-            <button
-              type="button"
-              class="login-button schedule-danger-button"
-              :disabled="isDeletingDraft"
-              @click="confirmDeleteDraftSchedule"
-            >
-              {{ isDeletingDraft ? texts.edit.deletingDraft : texts.edit.deleteDraft }}
+        <div class="schedule-legend">
+          <span class="schedule-legend__title">{{ texts.edit.activeShiftLabel }}</span>
+          <div class="schedule-legend__items">
+            <button v-for="shiftType in shiftTypes" :key="`toolbar-${shiftType.id}`" type="button"
+              class="schedule-legend__item" :class="{ 'is-selected': selectedShiftTypeId === shiftType.id }" :style="{
+                backgroundColor: getShiftTypeBackgroundColor(shiftType.id) || '#f5f5f7',
+                borderColor: selectedShiftTypeId === shiftType.id ? 'rgba(102, 67, 155, 0.45)' : 'var(--line)',
+                borderWidth: selectedShiftTypeId === shiftType.id ? '2px' : '1px'
+              }" @click="selectShiftType(shiftType.id)" @mouseenter="showFloatingTooltip(texts.edit.minNursesLabel(shiftType.min_nurses || 0), $event)"
+  @mouseleave="hideFloatingTooltip">
+              {{ getLocalizedShiftTypeName(shiftType.name) }}
             </button>
           </div>
         </div>
-      </div>
 
-      <!-- ==================== Schedule Grid ==================== -->
+        <div class="schedule-month-nav">
+          <button type="button" class="schedule-secondary-button" :disabled="!canGoToPreviousMonth"
+            @click="goToPreviousMonth">
+            {{ texts.edit.previousMonth }}
+          </button>
 
-      <div class="schedule-grid-container">
-        <table class="schedule-grid">
-          <thead>
-            <tr>
-              <th class="schedule-grid__nurse-header">{{ texts.edit.nurseHeader }}</th>
-              <th
-                v-for="day in monthDays"
-                :key="day.dateIso"
-                class="schedule-grid__day-header"
-                :class="{ 'is-weekend': day.isWeekend }"
-              >
-                {{ day.day }}
-              </th>
-            </tr>
-          </thead>
+          <strong class="schedule-month-label">{{ monthLabel }}</strong>
 
-          <tbody>
-            <tr v-if="isBootstrapping || loadingNurses || loadingShiftTypes || loadingShifts">
-              <td :colspan="monthDays.length + 1" class="schedule-grid__feedback">
-                {{ texts.edit.loadingGrid }}
-              </td>
-            </tr>
-
-            <tr v-else-if="!nurses.length">
-              <td :colspan="monthDays.length + 1" class="schedule-grid__feedback">
-                {{ texts.edit.noNurses }}
-              </td>
-            </tr>
-
-            <tr v-for="nurse in nurses" v-else :key="nurse.id">
-              <td class="schedule-grid__nurse-cell">
-                <span
-                  class="schedule-grid__nurse-name schedule-tooltip"
-                  @mouseenter="showFloatingTooltip(getNursePreferenceSummary(nurse.id).value.preferenceText, $event)"
-                  @mouseleave="hideFloatingTooltip"
-                >
-                  <span class="schedule-grid__nurse-name-text">{{ nurse.name }}</span>
-                </span>
-                <span
-                  v-if="getNursePreferenceSummary(nurse.id).value.conflicts > 0"
-                  class="schedule-grid__nurse-warning"
-                  @mouseenter="showFloatingTooltip(texts.edit.assignmentsAgainstPreferences(getNursePreferenceSummary(nurse.id).value.conflicts), $event)"
-                  @mouseleave="hideFloatingTooltip"
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M10.29 3.86L1.82 18a1.75 1.75 0 0 0 1.51 2.64h17.34a1.75 1.75 0 0 0 1.51-2.64L13.71 3.86a1.75 1.75 0 0 0-3.42 0Z" />
-                    <path d="M12 9v4" />
-                    <path d="M12 17h.01" />
-                  </svg>
-                </span>
-              </td>
-
-              <td
-                v-for="day in monthDays"
-                :key="`${nurse.id}-${day.dateIso}`"
-                class="schedule-grid__cell"
-                :class="{ 'is-weekend': day.isWeekend }"
-                :style="{
-                  backgroundColor: getShiftTypeBackgroundColor(getCellShiftTypeId(nurse.id, day.dateIso)) || '',
-                  position: 'relative'
-                }"
-                @mousedown.prevent="handleCellMouseDown(nurse.id, day.dateIso)"
-                @mouseover="handleCellMouseOver(nurse.id, day.dateIso)"
-                @mouseup="handleCellMouseUp"
-                @click="handleCellClick(nurse.id, day.dateIso)"
-                @mouseenter="setHoveredCell(nurse.id, day.dateIso)"
-                @mouseleave="clearHoveredCell"
-              >
-                <button
-                  v-if="hoveredCellKey === getCellKey(nurse.id, day.dateIso) && getCellShiftTypeId(nurse.id, day.dateIso) && isDateWithinScheduleRange(day.dateIso)"
-                  type="button"
-                  class="schedule-secondary-button"
-                  :style="{
-                    position: 'absolute',
-                    top: '2px',
-                    right: '2px',
-                    minWidth: '20px',
-                    height: '20px',
-                    padding: '0',
-                    lineHeight: '1',
-                    borderRadius: '999px',
-                    fontSize: '0.74rem'
-                  }"
-                  @click.stop="clearCellAssignment(nurse.id, day.dateIso)"
-                >
-                  x
-                </button>
-
-                <span class="schedule-grid__cell-text">
-                  {{ getLocalizedShiftTypeName(getShiftTypeNameById(getCellShiftTypeId(nurse.id, day.dateIso))) || '-' }}
-                </span>
-
-                <span
-                  v-if="hasCellRestWarning(nurse.id, day.dateIso)"
-                  class="schedule-tooltip schedule-tooltip--warning schedule-grid__cell-warning"
-                  @mouseenter="showFloatingTooltip(texts.edit.restWarning, $event)"
-                  @mouseleave="hideFloatingTooltip"
-                >
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M10.29 3.86L1.82 18a1.75 1.75 0 0 0 1.51 2.64h17.34a1.75 1.75 0 0 0 1.51-2.64L13.71 3.86a1.75 1.75 0 0 0-3.42 0Z" />
-                    <path d="M12 9v4" />
-                    <path d="M12 17h.01" />
-                  </svg>
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <Teleport to="body" v-if="tooltipVisible">
-        <div
-          class="schedule-tooltip-fixed"
-          :style="tooltipStyle"
-        >
-          {{ tooltipText }}
+          <button type="button" class="schedule-secondary-button" :disabled="!canGoToNextMonth" @click="goToNextMonth">
+            {{ texts.edit.nextMonth }}
+          </button>
         </div>
-      </Teleport>
+
+        <!-- ==================== Feedback Messages ==================== -->
+
+        <p v-if="errorNurses || errorShiftTypes || errorShifts" class="form-error">
+          {{ errorNurses || errorShiftTypes || errorShifts }}
+        </p>
+
+        <transition name="fade">
+          <div v-if="isDeleteDraftModalOpen" class="modal-overlay" @click.self="closeDeleteDraftModal">
+            <div class="modal-card">
+              <div class="modal-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                  </path>
+                </svg>
+              </div>
+              <h2>{{ currentLocale === 'pt' ? 'Apagar horário' : 'Delete schedule' }}</h2>
+              <p>{{ currentLocale === 'pt' ? 'Tens a certeza de que queres apagar este horário? Esta ação não pode ser anulada.' : 'Are you sure you want to delete this schedule? This action cannot be undone.' }}</p>
+              <div class="modal-actions">
+                <button type="button" class="modal-btn cancel" :disabled="isDeletingDraft"
+                  @click="closeDeleteDraftModal">
+                  {{ currentLocale === 'pt' ? 'Cancelar' : 'Cancel' }}
+                </button>
+                <button type="button" class="modal-btn confirm" :disabled="isDeletingDraft"
+                  @click="confirmDeleteDraftSchedule">
+                  {{ isDeletingDraft ? (currentLocale === 'pt' ? 'A apagar...' : 'Deleting...') : (currentLocale ===
+                    'pt' ? 'Apagar horário' : 'Delete schedule') }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </transition>
+
+        <transition name="fade">
+          <div v-if="isBackModalOpen" class="modal-overlay" @click.self="isBackModalOpen = false">
+            <div class="modal-card">
+              <div class="modal-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+              </div>
+              <h2>{{ currentLocale === 'pt' ? 'Sair da página' : 'Leave page' }}</h2>
+              <p>{{ currentLocale === 'pt' ? 'Tens a certeza de que queres sair desta página? Tens alterações que podem não ser guardadas.' : 'Are you sure you want to leave this page ? You have unsaved changes.'}}</p>
+              <div class="modal-actions" style="display: flex; gap: 12px; justify-content: center; width: 100%;">
+                <button type="button" class="modal-btn cancel" @click="isBackModalOpen = false" style="flex: 1;">
+                  {{ currentLocale === 'pt' ? 'Cancelar' : 'Cancel' }}
+                </button>
+                <button type="button" class="modal-btn cancel" @click="confirmLeave"
+                  style="flex: 1; background: var(--pink, #f2a2d1); color: white; border: none; box-shadow: 0 10px 20px rgba(242, 162, 209, 0.22);">
+                  {{ currentLocale === 'pt' ? 'Sair' : 'Leave' }}
+                </button>
+                <button type="button" class="modal-btn confirm" @click="confirmSaveAndLeave"
+                  style="flex: 1; font-size: 14px; white-space: nowrap;">
+                  {{ currentLocale === 'pt' ? 'Guardar alterações' : 'Save changes' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </transition>
+
+        <!-- ==================== Schedule Grid ==================== -->
+
+        <div class="schedule-grid-container">
+          <table class="schedule-grid">
+            <thead>
+              <tr>
+                <th class="schedule-grid__nurse-header">{{ texts.edit.nurseHeader }}</th>
+                <th v-for="day in monthDays" :key="day.dateIso" class="schedule-grid__day-header"
+                  :class="{ 'is-weekend': day.isWeekend }">
+                  {{ day.day }}
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr v-if="isBootstrapping || loadingNurses || loadingShiftTypes || loadingShifts">
+                <td :colspan="monthDays.length + 1" class="schedule-grid__feedback">
+                  {{ texts.edit.loadingGrid }}
+                </td>
+              </tr>
+
+              <tr v-else-if="!nurses.length">
+                <td :colspan="monthDays.length + 1" class="schedule-grid__feedback">
+                  {{ texts.edit.noNurses }}
+                </td>
+              </tr>
+
+              <tr v-for="nurse in nurses" v-else :key="nurse.id">
+                <td class="schedule-grid__nurse-cell">
+                  <span class="schedule-grid__nurse-name schedule-tooltip"
+                    @mouseenter="showFloatingTooltip(getNursePreferenceSummary(nurse.id).value.preferenceText, $event)"
+                    @mouseleave="hideFloatingTooltip">
+                    <span class="schedule-grid__nurse-name-text">{{ nurse.name }}</span>
+                  </span>
+                  <span v-if="getNursePreferenceSummary(nurse.id).value.conflicts > 0"
+                    class="schedule-grid__nurse-warning"
+                    @mouseenter="showFloatingTooltip(texts.edit.assignmentsAgainstPreferences(getNursePreferenceSummary(nurse.id).value.conflicts), $event)"
+                    @mouseleave="hideFloatingTooltip">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path
+                        d="M10.29 3.86L1.82 18a1.75 1.75 0 0 0 1.51 2.64h17.34a1.75 1.75 0 0 0 1.51-2.64L13.71 3.86a1.75 1.75 0 0 0-3.42 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                  </span>
+                </td>
+
+                <td v-for="day in monthDays" :key="`${nurse.id}-${day.dateIso}`" class="schedule-grid__cell"
+                  :class="{ 'is-weekend': day.isWeekend }" :style="{
+                    backgroundColor: getShiftTypeBackgroundColor(getCellShiftTypeId(nurse.id, day.dateIso)) || '',
+                    position: 'relative'
+                  }" @mousedown.prevent="handleCellMouseDown(nurse.id, day.dateIso)"
+                  @mouseover="handleCellMouseOver(nurse.id, day.dateIso)" @mouseup="handleCellMouseUp"
+                  @click="handleCellClick(nurse.id, day.dateIso)" @mouseenter="setHoveredCell(nurse.id, day.dateIso)"
+                  @mouseleave="clearHoveredCell">
+                  <button
+                    v-if="hoveredCellKey === getCellKey(nurse.id, day.dateIso) && getCellShiftTypeId(nurse.id, day.dateIso) && isDateWithinScheduleRange(day.dateIso)"
+                    type="button" class="schedule-secondary-button" :style="{
+                      position: 'absolute',
+                      top: '2px',
+                      right: '2px',
+                      minWidth: '20px',
+                      height: '20px',
+                      padding: '0',
+                      lineHeight: '1',
+                      borderRadius: '999px',
+                      fontSize: '0.74rem'
+                    }" @click.stop="clearCellAssignment(nurse.id, day.dateIso)">
+                    x
+                  </button>
+
+                  <span class="schedule-grid__cell-text">
+                    {{ getLocalizedShiftTypeName(getShiftTypeNameById(getCellShiftTypeId(nurse.id, day.dateIso))) || '-'
+                    }}
+                  </span>
+
+                  <span v-if="hasCellRestWarning(nurse.id, day.dateIso)"
+                    class="schedule-tooltip schedule-tooltip--warning schedule-grid__cell-warning"
+                    @mouseenter="showFloatingTooltip(texts.edit.restWarning, $event)" @mouseleave="hideFloatingTooltip">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path
+                        d="M10.29 3.86L1.82 18a1.75 1.75 0 0 0 1.51 2.64h17.34a1.75 1.75 0 0 0 1.51-2.64L13.71 3.86a1.75 1.75 0 0 0-3.42 0Z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <Teleport to="body" v-if="tooltipVisible">
+          <div class="schedule-tooltip-fixed" :style="tooltipStyle">
+            {{ tooltipText }}
+          </div>
+        </Teleport>
+      </section>
     </section>
   </main>
 </template>

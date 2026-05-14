@@ -120,7 +120,7 @@ class ScheduleController extends Controller
 
         $schedule = Schedule::with('creator')->find($id);
 
-        if (! $schedule) {
+        if (!$schedule) {
             return response()->json([
                 'message' => 'Horário não encontrado.',
             ], 404);
@@ -211,9 +211,11 @@ class ScheduleController extends Controller
 
         // Prevent creating two schedules that start within the same calendar month.
         $startDate = Carbon::parse($validated['start_date']);
-        if (Schedule::whereYear('start_date', $startDate->year)
-            ->whereMonth('start_date', $startDate->month)
-            ->exists()) {
+        if (
+            Schedule::whereYear('start_date', $startDate->year)
+                ->whereMonth('start_date', $startDate->month)
+                ->exists()
+        ) {
             return response()->json([
                 'message' => 'Já existe um horário para este mês.',
             ], 422);
@@ -280,7 +282,7 @@ class ScheduleController extends Controller
 
         $schedule = Schedule::find($id);
 
-        if (! $schedule) {
+        if (!$schedule) {
             return response()->json([
                 'message' => 'Horário não encontrado.',
             ], 404);
@@ -356,7 +358,7 @@ class ScheduleController extends Controller
 
         $schedule = Schedule::find($id);
 
-        if (! $schedule) {
+        if (!$schedule) {
             return response()->json([
                 'message' => 'Horário não encontrado.',
             ], 404);
@@ -368,7 +370,7 @@ class ScheduleController extends Controller
             ], 422);
         }
 
-        if (! Shift::where('schedule_id', $schedule->id)->exists()) {
+        if (!Shift::where('schedule_id', $schedule->id)->exists()) {
             return response()->json([
                 'message' => 'O horário não pode ser publicado sem turnos atribuídos.',
             ], 422);
@@ -376,91 +378,10 @@ class ScheduleController extends Controller
 
         \Carbon\Carbon::setLocale('pt');
 
-        $scheduleShifts = Shift::with('users:id,name')
-            ->where('schedule_id', $schedule->id)
-            ->get();
-
-        $nurseIds = $scheduleShifts
-            ->flatMap(fn($shift) => $shift->users->pluck('id'))
-            ->unique()
-            ->values();
-
-        $nurseNames = User::whereIn('id', $nurseIds)
-            ->where('role', UserRole::Nurse->value)
-            ->pluck('name', 'id');
-
-        $nurseIds = $nurseNames->keys()->values();
-
-        $assignedByDateAndNurse = $scheduleShifts
-            ->flatMap(function ($shift) {
-                $date = $shift->shift_date->toDateString();
-                return $shift->users->map(fn($nurse) => $date . '_' . $nurse->id);
-            })
-            ->unique()
-            ->flip();
-
-        $startDate = $schedule->start_date?->copy()->startOfDay();
-        $endDate = $schedule->end_date?->copy()->startOfDay();
-
-        if (! $startDate || ! $endDate) {
-            return response()->json([
-                'message' => 'O horário tem um intervalo de datas inválido.',
-            ], 422);
+        $validationError = $this->validateScheduleIntegrity($schedule);
+        if ($validationError) {
+            return $validationError;
         }
-
-        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
-            $dateString = $date->toDateString();
-
-            foreach ($nurseIds as $nurseId) {
-                $assignmentKey = $dateString . '_' . $nurseId;
-
-                if (! $assignedByDateAndNurse->has($assignmentKey)) {
-                    $formatted = $date->translatedFormat('d \\d\\e F \\d\\e Y');
-                    $nurseName = $nurseNames->get($nurseId, 'Enfermeiro');
-
-                    return response()->json([
-                        'message' => "O enfermeiro {$nurseName} não tem turno atribuído no dia {$formatted}.",
-                    ], 422);
-                }
-            }
-        }
-
-        $blockingTypeIds = ShiftType::whereIn('name', ['dayOff', 'holidays', 'sick leave', 'parental leave'])
-            ->pluck('id')
-            ->all();
-
-        $shifts = Shift::with('shiftType')
-            ->where('schedule_id', $schedule->id)
-            ->whereNotIn('shift_type_id', $blockingTypeIds)
-            ->get()
-            ->groupBy(fn($s) => $s->shift_date->toDateString() . '_' . $s->shift_type_id);
-
-        $shiftTypeNames = [
-            'morning'        => 'Manhã',
-            'afternoon'      => 'Tarde',
-            'night'          => 'Noite',
-            'dayOff'         => 'Folga',
-            'holidays'       => 'Férias',
-            'sick leave'     => 'Baixa Médica',
-            'parental leave' => 'Licença Parental',
-        ];
-
-        foreach ($shifts as $group) {
-            $shiftType = $group->first()->shiftType;
-            $minNurses = (int) ($shiftType?->min_nurses ?? 0);
-
-            if ($group->count() < $minNurses) {
-                $shiftDate = $group->first()->shift_date->translatedFormat('d \d\e F \d\e Y');
-                $rawName = $shiftType?->name;
-                $rawName = $rawName instanceof \BackedEnum ? $rawName->value : (string) $rawName;
-                $translatedName = $shiftTypeNames[$rawName] ?? $rawName;
-
-                return response()->json([
-                    'message' => "O dia {$shiftDate} ({$translatedName}) tem menos do que {$minNurses} enfermeiros atribuídos.",
-                ], 422);
-            }
-        }
-
         $schedule->status = 'published';
         $schedule->save();
 
@@ -530,7 +451,7 @@ class ScheduleController extends Controller
     {
         $schedule = Schedule::find($id);
 
-        if (! $schedule) {
+        if (!$schedule) {
             return response()->json([
                 'message' => 'Horário não encontrado.',
             ], 404);
@@ -552,7 +473,7 @@ class ScheduleController extends Controller
 
     // ------------------- EDIT SCHEDULE--------------------
 
-        #[OA\Post(
+    #[OA\Post(
         path: '/api/schedules/{id}/edit',
         summary: 'Inicia a edição de um horário publicado (Cria rascunho)',
         security: [['bearerAuth' => []]],
@@ -639,7 +560,7 @@ class ScheduleController extends Controller
 
         ]
     )]
-     public function startEdit(Request $request, int $id): JsonResponse
+    public function startEdit(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
         $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
@@ -669,7 +590,7 @@ class ScheduleController extends Controller
                 if (!$existingRevision->trashed()) {
                     return response()->json(['message' => 'Já existe uma edição em curso para este horário.', 'data' => ['id' => $existingRevision->id]], 200);
                 }
-                
+
                 //if it is an old edit (soft-deleted), we permanently delete it 
                 // to not conflict with the "unique" rule of the database and allow us to create a new one
                 $existingRevision->shifts()->forceDelete();
@@ -701,7 +622,7 @@ class ScheduleController extends Controller
     }
 
 
-        #[OA\Post(
+    #[OA\Post(
         path: '/api/schedules/{id}/publish-edit',
         summary: 'Publica as alterações feitas no rascunho de edição',
         security: [['bearerAuth' => []]],
@@ -768,62 +689,93 @@ class ScheduleController extends Controller
     {
         $user = $request->user();
         $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
         if ($role !== UserRole::HeadNurse->value) {
-            return response()->json([
-                'message' => 'Sem permissão para publicar edições.',
-            ], 403);
+            return response()->json(['message' => 'Sem permissão para publicar edições.'], 403);
         }
-        return DB::transaction(function () use ($revisionId) {
-            $revision = Schedule::with('shifts.users')->find($revisionId);
-            
-            if (!$revision) {
-                return response()->json(['message' => 'Rascunho não encontrado.'], 404);
-            }
 
-            if ($revision->status !== 'revision' || $revision->parent_id === null) {
+
+        try {
+            return DB::transaction(function () use ($revisionId) {
+                $revision = Schedule::with('shifts.users')->find($revisionId);
+
+                if (!$revision) {
+                    return response()->json(['message' => 'Rascunho não encontrado.'], 404);
+                }
+
+                if ($revision->status !== 'revision' || $revision->parent_id === null) {
+                    return response()->json(['message' => 'O ID fornecido não é um rascunho de edição válido.'], 422);
+                }
+
+                $original = Schedule::findOrFail($revision->parent_id);
+
+                $validationError = $this->validateScheduleIntegrity($revision);
+                if ($validationError)
+                    return $validationError;
+
+                $changesCount = $this->calculateChanges($original, $revision);
+
+                // Clean the old shifts from the original schedule (permanent to avoid filling the DB)
+                $original->shifts()->forceDelete();
+
+                // Move the shifts from the revision to the original schedule in an atomic way
+                Shift::where('schedule_id', $revision->id)->update(['schedule_id' => $original->id]);
+
+                // Update the edit counter
+                $original->edit_count += 1;
+                $original->save();
+
+
+                // Notification (wrapped in try-catch so that the publication doesn't fail if the email fails)
+                try {
+                    $original->refresh();
+
+                    // Get the IDs of all users who have shifts in this schedule
+                    $notifiableUserIds = \DB::table('user_shifts')
+                        ->whereIn('shift_id', function($query) use ($original) {
+                            $query->select('id')
+                                  ->from('shifts')
+                                  ->where('schedule_id', $original->id);
+                        })
+                        ->pluck('user_id')
+                        ->unique()
+                        ->toArray();
+
+                    // Get the users (Nurses and Head Nurses) who belong to these IDs
+                    $recipients = User::whereIn('id', $notifiableUserIds)
+                        ->where(function($query) {
+                            $query->where('role', 'nurse')
+                                  ->orWhere('role', 'head_nurse');
+                        })
+                        ->get();
+
+                    // Delete the revision draft
+                    $revision->forceDelete();
+
+                    if ($recipients->isNotEmpty()) {
+                        // Send the update notification to all nurses
+                        Notification::send(
+                            $recipients, 
+                            new \App\Notifications\ScheduleUpdatedNotification($original)
+                        );
+                    }
+                } catch (\Exception $e) {
+                    // Only log the warning if the email fails, so that the user doesn't receive a 500 error
+                    \Log::warning("Failed to send update emails: " . $e->getMessage());
+                }
+
                 return response()->json([
-                    'message' => 'O ID fornecido não é um rascunho de edição válido.'
-                ], 422);
-            }
-
-            $original = Schedule::findOrFail($revision->parent_id);
-
-            $validationError = $this->validateScheduleIntegrity($revision);
-            if ($validationError) return $validationError;
-
-            // Calculate Statistics (compares number of shifts or differences)
-            $changesCount = $this->calculateChanges($original, $revision);
-
-            // Replace Shifts - Delete old ones, move new ones
-            $original->shifts()->each(fn($s) => $s->delete()); 
-
-            foreach ($revision->shifts as $shift) {
-                $shift->schedule_id = $original->id;
-                $shift->save();
-            }
-
-            // Update Original Schedule
-            $original->edit_count += $changesCount;
-            $original->save();
-
-            // Delete Draft
-            $revision->forceDelete(); 
-
-            // Notifies all nurses associated with the schedule
-            $nurseIds = Shift::where('schedule_id', $original->id)
-                ->join('user_shifts', 'shifts.id', '=', 'user_shifts.shift_id')
-                ->pluck('user_shifts.user_id')->unique();
-            
-            $nurses = User::whereIn('id', $nurseIds)->get();
-
-            Notification::send($nurses, new \App\Notifications\ScheduleUpdatedNotification($original));
-
+                    'message' => 'Alterações publicadas com sucesso.',
+                    'changes_detected' => $changesCount
+                ]);
+            });
+        } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Alterações publicadas com sucesso.',
-                'changes_detected' => $changesCount
-            ]);
-        });
+                'message' => 'Erro ao publicar alterações: ' . $e->getMessage()
+            ], 500);
+        }
     }
+
 
     private function calculateChanges($original, $revision): int
     {
@@ -850,29 +802,36 @@ class ScheduleController extends Controller
             $dateString = $date->toDateString();
             foreach ($nurseIds as $nurseId) {
                 if (!$assignedByDateAndNurse->has($dateString . '_' . $nurseId)) {
-                    $formatted = $date->translatedFormat('d \\d\\e F \\d\\e Y');
                     return response()->json([
-                        'message' => "O enfermeiro {$nurseNames[$nurseId]} não tem turno no dia {$formatted}."
+                        'message' => "Existem dias no horário sem turnos atribuídos a enfermeiros."
                     ], 422);
                 }
             }
         }
 
         // Validates the minimum number of nurses per shift
-        $blockingTypeIds = ShiftType::whereIn('name', ['dayOff', 'holidays', 'sick leave', 'parental leave'])->pluck('id')->all();
+        $blockingTypeIds = ShiftType::where(function ($q) {
+            $q->where('name', 'like', '%off%')
+                ->orWhere('name', 'like', '%folga%')
+                ->orWhere('name', 'like', '%holiday%')
+                ->orWhere('name', 'like', '%férias%')
+                ->orWhere('name', 'like', '%leave%')
+                ->orWhere('name', 'like', '%baixa%')
+                ->orWhere('name', 'like', '%licença%');
+        })->pluck('id')->all();
+
         $shifts = Shift::with('shiftType')->where('schedule_id', $schedule->id)
             ->whereNotIn('shift_type_id', $blockingTypeIds)->get()
             ->groupBy(fn($s) => $s->shift_date->toDateString() . '_' . $s->shift_type_id);
         foreach ($shifts as $group) {
             $shiftType = $group->first()->shiftType;
             if ($group->count() < ($shiftType->min_nurses ?? 0)) {
-                $date = $group->first()->shift_date->translatedFormat('d \d\e F \d\e Y');
                 return response()->json([
-                    'message' => "O dia {$date} ({$shiftType->name}) tem enfermeiros insuficientes."
+                    'message' => "O número mínimo de enfermeiros exigido para cada turno não está a ser cumprido."
                 ], 422);
             }
         }
-        
+
         return null; // Everything is ok
     }
 

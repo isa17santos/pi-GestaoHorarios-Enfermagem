@@ -32,8 +32,11 @@ class SchedulePublishedNotification extends Notification implements ShouldQueue
 
         return (new MailMessage)
             ->subject("Horário de {$month} publicado")
+            ->greeting("Olá, {$notifiable->name}!")
             ->line("O horário do mês de {$month} foi publicado e já está disponível.")
             ->action('Ver horário', $scheduleUrl)
-            ->line('Se tiveres alguma dúvida, contacta o teu enfermeiro chefe.');
+            ->line('Se tiveres alguma dúvida, contacta o teu enfermeiro chefe.')
+            ->salutation('Obrigado, ShiftCare');
+        
     }
 }

@@ -119,6 +119,9 @@ export const useScheduleTexts = () => {
         'sick leave': currentLocale.value === 'pt' ? 'Baixa Médica' : 'Sick Leave',
         'parental leave': currentLocale.value === 'pt' ? 'Licença Parental' : 'Parental Leave',
       },
+      minNursesLabel: (count: number) => currentLocale.value === 'pt'
+        ? `Mínimo de enfermeiros: ${count}`
+        : `Minimum nurses: ${count}`,
     },
   }))
 

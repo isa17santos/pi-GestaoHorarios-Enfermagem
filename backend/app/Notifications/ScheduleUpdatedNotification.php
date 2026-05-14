@@ -17,7 +17,7 @@ class ScheduleUpdatedNotification extends Notification
 
     public function via($notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail'];
     }
 
     public function toMail($notifiable): MailMessage
@@ -29,7 +29,7 @@ class ScheduleUpdatedNotification extends Notification
             ->line("Informamos que o horário referente ao mês de {$mes} sofreu alterações.")
             ->line("Por favor, aceda à aplicação para consultar a sua nova escala.")
             ->action('Ver Horário', url('/schedules/' . $this->schedule->id))
-            ->line('Obrigado por utilizar o nosso sistema!');
+            ->salutation('Obrigado, ShiftCare');
     }
 
     public function toArray($notifiable): array

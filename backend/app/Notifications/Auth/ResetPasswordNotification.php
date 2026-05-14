@@ -35,13 +35,12 @@ class ResetPasswordNotification extends Notification implements ShouldQueue
 
         // Creates the reset password email message with translated subject, content, action button, expiration info, and ignore notice
         return (new MailMessage)
-            ->subject(__('auth.reset_password_subject'))
-            ->line(__('auth.reset_password_line'))
-            ->action(__('auth.reset_password_action'), $resetUrl)
-            ->line(__('auth.reset_password_expire', [
-                'minutes' => config('auth.passwords.users.expire'),
-            ]))
-            ->line(__('auth.reset_password_ignore'));
+            ->subject(__('Recuperação de password'))
+            ->greeting("Olá!")
+            ->line('Se solicitaste a recuperação da tua palavra-passe, clica no botão abaixo.')
+            ->action('Redefinir palavra-passe', $resetUrl)
+            ->line('Se não solicitaste esta alteração, podes ignorar este email.')
+            ->salutation('Obrigado, ShiftCare');
     }
 
 }

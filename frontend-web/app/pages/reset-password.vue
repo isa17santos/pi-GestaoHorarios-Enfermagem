@@ -284,7 +284,9 @@ onMounted(() => {
 
 <template>
     <main class="dashboard-page reset-password-page">
-        <img :src="logoUrl" alt="Logotipo ShiftCare" class="page-logo">
+        <NuxtLink to="/">
+            <img :src="logoUrl" alt="Logotipo ShiftCare" class="page-logo">
+        </NuxtLink>
 
         <button class="language-switch" type="button" @click="toggleLanguage">
             <span class="language-switch__flag">{{ localeFlag }}</span>
