@@ -10,6 +10,7 @@ class NursePreference extends Model
 {
     use SoftDeletes;
 
+    // Mass assignment is limited to period-based preference attributes.
     protected $fillable = [
         'user_id',
         'month',
@@ -24,6 +25,7 @@ class NursePreference extends Model
 
     protected function casts(): array
     {
+        // Cast flags to booleans so API payloads stay consistent across database drivers.
         return [
             'prefers_morning' => 'boolean',
             'prefers_afternoon' => 'boolean',

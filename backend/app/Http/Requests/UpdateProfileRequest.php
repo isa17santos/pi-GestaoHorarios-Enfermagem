@@ -17,6 +17,7 @@ class UpdateProfileRequest extends FormRequest
     // Get the validation rules that apply to the request.
     public function rules(): array
     {
+        // Ignore the authenticated user when checking unique email to allow keeping current email.
         $userId = $this->user()->id;
 
         return [
@@ -29,6 +30,7 @@ class UpdateProfileRequest extends FormRequest
     // Define custom validation error messages using translation keys.
     public function messages(): array
     {
+        // Keep API validation messages aligned with existing translation keys.
         return [
             'email.unique' => __('auth.email_already_in_use'),
             'email.email' => __('auth.email_invalid'),

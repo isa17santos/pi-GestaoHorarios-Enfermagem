@@ -32,5 +32,7 @@ return [
     'new_password_must_be_different' => 'A nova password deve ser diferente da password atual.',
     'profile_updated_success' => 'Perfil atualizado com sucesso.',
     'profile_preferences_updated_success' => 'Preferencias atualizadas com sucesso.',
+    'profile_preferences_deleted_success' => 'Preferencia eliminada com sucesso.',
+    'profile_preference_not_found' => 'Preferencia não encontrada.',
 
 ];

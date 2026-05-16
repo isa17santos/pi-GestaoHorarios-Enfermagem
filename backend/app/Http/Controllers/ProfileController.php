@@ -41,6 +41,7 @@ class ProfileController extends Controller
     )]
     public function show(Request $request): JsonResponse
     {
+        // The authenticated user is resolved from the bearer token by auth:sanctum.
         $user = $request->user();
 
         return response()->json([
@@ -85,10 +86,12 @@ class ProfileController extends Controller
     )]
     public function showPreferences(Request $request): JsonResponse
     {
+        // Preferences are always loaded for the caller's own profile.
         $user = $request->user();
 
         $preferences = NursePreference::query()
             ->where('user_id', $user->id)
+            // Chronological ordering keeps preference history predictable for clients.
             ->orderBy('year')
             ->orderBy('month')
             ->get([
@@ -160,9 +163,11 @@ class ProfileController extends Controller
     )]
     public function updatePreferences(UpdateProfilePreferencesRequest $request): JsonResponse
     {
+        // Payload has already been validated by UpdateProfilePreferencesRequest.
         $user = $request->user();
         $validated = $request->validated();
 
+        // Upsert by (user_id, month, year) to keep one preference record per period.
         $preference = NursePreference::query()->updateOrCreate(
             [
                 'user_id' => $user->id,
@@ -192,6 +197,61 @@ class ProfileController extends Controller
                 'prefers_weekends',
                 'notes',
             ]),
+        ]);
+    }
+
+    #[OA\Delete(
+        path: '/api/profile/preferences/{id}',
+        summary: 'Eliminar uma preferencia do utilizador autenticado',
+        security: [['bearerAuth' => []]],
+        tags: ['Profile'],
+        parameters: [
+            new OA\Parameter(
+                name: 'id',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer'),
+                example: 10
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Preferencia eliminada com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Preferencia eliminada com sucesso.'),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Não autenticado'),
+            new OA\Response(response: 403, description: 'Sem permissão para eliminar esta preferencia'),
+            new OA\Response(response: 404, description: 'Preferencia não encontrada'),
+        ]
+    )]
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        // Find by primary key and return 404 when the preference does not exist.
+        $preference = NursePreference::query()->find($id);
+
+        if (! $preference) {
+            return response()->json([
+                'message' => __('auth.profile_preference_not_found'),
+            ], 404);
+        }
+
+        // Enforce ownership so users can only delete their own preference records.
+        if ($preference->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => __('auth.unauthorized'),
+            ], 403);
+        }
+
+        // Model uses SoftDeletes, so delete() performs a soft delete.
+        $preference->delete();
+
+        return response()->json([
+            'message' => __('auth.profile_preferences_deleted_success'),
         ]);
     }
 
@@ -238,6 +298,7 @@ class ProfileController extends Controller
     )]
     public function update(UpdateProfileRequest $request): JsonResponse
     {
+        // Update only provided fields so PATCH remains partial.
         $user = $request->user();
 
         if ($request->filled('name')) {

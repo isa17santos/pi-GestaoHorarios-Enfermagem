@@ -16,6 +16,7 @@ class UpdateProfilePreferencesRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Month/year identify the preference period used by the upsert key.
             'month' => ['required', 'integer', 'between:1,12'],
             'year' => ['required', 'integer', 'min:2024'],
             'prefers_morning' => ['required', 'boolean'],
@@ -29,6 +30,7 @@ class UpdateProfilePreferencesRequest extends FormRequest
 
     public function messages(): array
     {
+        // Portuguese API messages are kept explicit to avoid generic validator output.
         return [
             'month.required' => 'O campo month é obrigatório.',
             'month.integer' => 'O campo month deve ser um número inteiro.',

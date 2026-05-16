@@ -428,16 +428,16 @@
                 }
             }
         },
-        "/api/users/{id}/preferences": {
+        "/api/users/{userId}/preferences": {
             "get": {
                 "tags": [
                     "Nurse Preferences"
                 ],
                 "summary": "Lista as preferencias de um utilizador",
-                "operationId": "2d566c5d87d12976419a8f9d4643f194",
+                "operationId": "21652fc474b94ffc28a4cf983e8ba870",
                 "parameters": [
                     {
-                        "name": "id",
+                        "name": "userId",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -453,10 +453,6 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "user_id": {
-                                            "type": "integer",
-                                            "example": 4
-                                        },
                                         "data": {
                                             "type": "array",
                                             "items": {
@@ -465,9 +461,13 @@
                                                         "type": "integer",
                                                         "example": 1
                                                     },
-                                                    "schedule_id": {
+                                                    "month": {
                                                         "type": "integer",
-                                                        "example": 1
+                                                        "example": 3
+                                                    },
+                                                    "year": {
+                                                        "type": "integer",
+                                                        "example": 2026
                                                     },
                                                     "prefers_morning": {
                                                         "type": "boolean",
@@ -506,6 +506,9 @@
                     },
                     "404": {
                         "description": "Utilizador não encontrado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para consultar preferencias"
                     },
                     "401": {
                         "description": "Não autenticado"
@@ -862,6 +865,58 @@
                     },
                     "422": {
                         "description": "Dados inválidos ou em falta"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/profile/preferences/{id}": {
+            "delete": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Eliminar uma preferencia do utilizador autenticado",
+                "operationId": "cce82c3876032abc9b0dc8df8bf8d1c2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "example": 10
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Preferencia eliminada com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Preferencia eliminada com sucesso."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para eliminar esta preferencia"
+                    },
+                    "404": {
+                        "description": "Preferencia não encontrada"
                     }
                 },
                 "security": [
