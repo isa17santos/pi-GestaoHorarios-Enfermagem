@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\NursePreference;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -10,13 +11,13 @@ use OpenApi\Attributes as OA;
 class NursePreferenceController extends Controller
 {
     #[OA\Get(
-        path: '/api/users/{id}/preferences',
+        path: '/api/users/{userId}/preferences',
         summary: 'Lista as preferencias de um utilizador',
         security: [['bearerAuth' => []]],
         tags: ['Nurse Preferences'],
         parameters: [
             new OA\Parameter(
-                name: 'id',
+                name: 'userId',
                 in: 'path',
                 required: true,
                 schema: new OA\Schema(type: 'integer'),
@@ -29,7 +30,6 @@ class NursePreferenceController extends Controller
                 description: 'Preferencias devolvidas com sucesso',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'user_id', type: 'integer', example: 4),
                         new OA\Property(
                             property: 'data',
                             type: 'array',
@@ -37,7 +37,8 @@ class NursePreferenceController extends Controller
                                 type: 'object',
                                 properties: [
                                     new OA\Property(property: 'id', type: 'integer', example: 1),
-                                    new OA\Property(property: 'schedule_id', type: 'integer', example: 1),
+                                    new OA\Property(property: 'month', type: 'integer', example: 3),
+                                    new OA\Property(property: 'year', type: 'integer', example: 2026),
                                     new OA\Property(property: 'prefers_morning', type: 'boolean', example: true),
                                     new OA\Property(property: 'prefers_afternoon', type: 'boolean', example: false),
                                     new OA\Property(property: 'prefers_night', type: 'boolean', example: false),
@@ -55,27 +56,42 @@ class NursePreferenceController extends Controller
                 description: 'Utilizador não encontrado'
             ),
             new OA\Response(
+                response: 403,
+                description: 'Sem permissão para consultar preferencias'
+            ),
+            new OA\Response(
                 response: 401,
                 description: 'Não autenticado'
             ),
         ]
     )]
-    public function indexByUser(int $id): JsonResponse
+    public function index(int $userId): JsonResponse
     {
+        $user = request()->user();
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        if ($role !== UserRole::HeadNurse->value) {
+            return response()->json([
+                'message' => 'Sem permissão para consultar preferencias.',
+            ], 403);
+        }
+
         // Return 404 explicitly when the target user does not exist.
-        if (! User::query()->whereKey($id)->exists()) {
+        if (! User::query()->whereKey($userId)->exists()) {
             return response()->json([
                 'message' => 'Utilizador não encontrado.',
             ], 404);
         }
 
-        // A user can have multiple preference rows across schedules.
+        // Preferences are organized by month and year.
         $preferences = NursePreference::query()
-            ->where('user_id', $id)
-            ->orderBy('schedule_id')
+            ->where('user_id', $userId)
+            ->orderBy('year')
+            ->orderBy('month')
             ->get([
                 'id',
-                'schedule_id',
+                'month',
+                'year',
                 'prefers_morning',
                 'prefers_afternoon',
                 'prefers_night',
@@ -85,7 +101,6 @@ class NursePreferenceController extends Controller
             ]);
 
         return response()->json([
-            'user_id' => $id,
             'data' => $preferences,
         ]);
     }

@@ -62,7 +62,7 @@ const texts = computed(() => ({
     start_time: currentLocale.value === 'pt' ? 'A hora de início é obrigatória' : 'Start time is required',
     end_time: currentLocale.value === 'pt' ? 'A hora de fim é obrigatória' : 'End time is required',
     min_nurses: currentLocale.value === 'pt' ? 'O número mínimo de enfermeiros é obrigatório' : 'Minimum nurses is required',
-    min_nurses_invalid: currentLocale.value === 'pt' ? 'Deve ser no mínimo 1' : 'Must be at least 1',
+    min_nurses_invalid: currentLocale.value === 'pt' ? 'Deve ser no mínimo 0' : 'Must be at least 0',
     serverValidation: currentLocale.value === 'pt' ? 'Verifique os dados do formulário.' : 'Please verify the form data.',
     formError: currentLocale.value === 'pt' ? 'Por favor, corrija os erros no formulário.' : 'Please correct the errors in the form.',
   },
@@ -130,7 +130,7 @@ const fetchShiftType = async () => {
       color: item.color ?? '#d9f3ff',
       start_time: item.start_time ? item.start_time.slice(0, 5) : '',
       end_time: item.end_time ? item.end_time.slice(0, 5) : '',
-      min_nurses: item.min_nurses ?? 1,
+      min_nurses: item.min_nurses ?? 0,
     }
   } catch (e) {
     console.error('Erro ao carregar tipo de turno:', e)
@@ -148,7 +148,8 @@ const handleSubmit = async () => {
   if (!form.value.end_time) errors.value.end_time = 'end_time'
   if (!form.value.min_nurses && form.value.min_nurses !== 0) {
     errors.value.min_nurses = 'min_nurses'
-  } else if (Number(form.value.min_nurses) < 1) {
+  // Permite 0 enfermeiros; rejeita apenas valores negativos
+  } else if (Number(form.value.min_nurses) < 0) {
     errors.value.min_nurses = 'min_nurses_invalid'
   }
 
@@ -313,7 +314,7 @@ onMounted(async () => {
             <input
               v-model.number="form.min_nurses"
               type="number"
-              min="1"
+              min="0"
               :placeholder="texts.placeholders.min_nurses"
               class="uc-input"
               :class="{ 'input-error': errors.min_nurses }"

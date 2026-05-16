@@ -589,10 +589,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.shift-types-page .filters-group {
-  width: 100%;
-}
-
 .shift-types-page .hr-search-wrapper {
   margin: 0;
   max-width: 420px;
@@ -632,8 +628,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 992px) {
   .shift-types-page .create-btn {
-    align-self: stretch;
-    width: 100%;
+    align-self: flex-end;
   }
 }
 </style>

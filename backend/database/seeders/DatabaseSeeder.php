@@ -264,7 +264,8 @@ class DatabaseSeeder extends Seeder
         DB::table('nurse_preferences')->insert([
             [
                 'user_id' => $nurses[0]->id,
-                'schedule_id' => $draftScheduleId,
+                'month' => 3,
+                'year' => 2026,
                 'prefers_morning' => true,
                 'prefers_afternoon' => false,
                 'prefers_night' => false,
@@ -276,7 +277,8 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[1]->id,
-                'schedule_id' => $draftScheduleId,
+                'month' => 3,
+                'year' => 2026,
                 'prefers_morning' => false,
                 'prefers_afternoon' => true,
                 'prefers_night' => false,
@@ -288,7 +290,8 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[2]->id,
-                'schedule_id' => $draftScheduleId,
+                'month' => 3,
+                'year' => 2026,
                 'prefers_morning' => false,
                 'prefers_afternoon' => false,
                 'prefers_night' => true,
@@ -300,7 +303,8 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[3]->id,
-                'schedule_id' => $publishedScheduleId,
+                'month' => 4,
+                'year' => 2026,
                 'prefers_morning' => true,
                 'prefers_afternoon' => true,
                 'prefers_night' => false,
@@ -312,7 +316,8 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[4]->id,
-                'schedule_id' => $publishedScheduleId,
+                'month' => 4,
+                'year' => 2026,
                 'prefers_morning' => false,
                 'prefers_afternoon' => true,
                 'prefers_night' => true,
@@ -324,7 +329,8 @@ class DatabaseSeeder extends Seeder
             ],
             [
                 'user_id' => $nurses[5]->id,
-                'schedule_id' => $publishedScheduleId,
+                'month' => 4,
+                'year' => 2026,
                 'prefers_morning' => true,
                 'prefers_afternoon' => false,
                 'prefers_night' => true,
