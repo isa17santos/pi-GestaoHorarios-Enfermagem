@@ -161,44 +161,61 @@ class ProfileController extends Controller
             new OA\Response(response: 422, description: 'Dados inválidos ou em falta'),
         ]
     )]
-    public function updatePreferences(UpdateProfilePreferencesRequest $request): JsonResponse
-    {
-        // Payload has already been validated by UpdateProfilePreferencesRequest.
-        $user = $request->user();
-        $validated = $request->validated();
+    
+   public function updatePreferences(UpdateProfilePreferencesRequest $request): JsonResponse
+{
+    // Payload has already been validated by UpdateProfilePreferencesRequest.
+    $user = $request->user();
+    $validated = $request->validated();
 
-        // Upsert by (user_id, month, year) to keep one preference record per period.
-        $preference = NursePreference::query()->updateOrCreate(
-            [
-                'user_id' => $user->id,
-                'month' => $validated['month'],
-                'year' => $validated['year'],
-            ],
-            [
-                'prefers_morning' => $validated['prefers_morning'],
-                'prefers_afternoon' => $validated['prefers_afternoon'],
-                'prefers_night' => $validated['prefers_night'],
-                'avoid_weekends' => $validated['avoid_weekends'],
-                'prefers_weekends' => $validated['prefers_weekends'],
-                'notes' => $validated['notes'] ?? null,
-            ]
-        );
+    // Handle soft-deleted records for the same user_id + month + year
+    $preference = NursePreference::withTrashed()
+        ->where('user_id', $user->id)
+        ->where('month', $validated['month'])
+        ->where('year', $validated['year'])
+        ->first();
 
-        return response()->json([
-            'message' => __('auth.profile_preferences_updated_success'),
-            'data' => $preference->only([
-                'id',
-                'month',
-                'year',
-                'prefers_morning',
-                'prefers_afternoon',
-                'prefers_night',
-                'avoid_weekends',
-                'prefers_weekends',
-                'notes',
-            ]),
+    if ($preference) {
+        // Restore if soft-deleted and update fields
+        $preference->restore();
+        $preference->fill([
+            'prefers_morning'   => $validated['prefers_morning'],
+            'prefers_afternoon' => $validated['prefers_afternoon'],
+            'prefers_night'     => $validated['prefers_night'],
+            'avoid_weekends'    => $validated['avoid_weekends'],
+            'prefers_weekends'  => $validated['prefers_weekends'],
+            'notes'             => $validated['notes'] ?? null,
+        ])->save();
+    } else {
+        // Create new record if none exists
+        $preference = NursePreference::create([
+            'user_id'           => $user->id,
+            'month'             => $validated['month'],
+            'year'              => $validated['year'],
+            'prefers_morning'   => $validated['prefers_morning'],
+            'prefers_afternoon' => $validated['prefers_afternoon'],
+            'prefers_night'     => $validated['prefers_night'],
+            'avoid_weekends'    => $validated['avoid_weekends'],
+            'prefers_weekends'  => $validated['prefers_weekends'],
+            'notes'             => $validated['notes'] ?? null,
         ]);
     }
+
+    return response()->json([
+        'message' => __('auth.profile_preferences_updated_success'),
+        'data' => $preference->only([
+            'id',
+            'month',
+            'year',
+            'prefers_morning',
+            'prefers_afternoon',
+            'prefers_night',
+            'avoid_weekends',
+            'prefers_weekends',
+            'notes',
+        ]),
+    ]);
+}
 
     #[OA\Delete(
         path: '/api/profile/preferences/{id}',
