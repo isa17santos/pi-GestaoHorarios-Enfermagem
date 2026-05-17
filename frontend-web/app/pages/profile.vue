@@ -822,7 +822,7 @@ onBeforeUnmount(() => {
         <!-- A alteração de palavra-passe segue o fluxo de recuperação (envio de email + token) -->
         <!-- Ações de dados pessoais: métricas alinhadas ao botão "Adicionar Preferências" -->
         <div class="profile-actions profile-actions--personal">
-          <NuxtLink to="/forgot-password" class="secondary-btn">
+          <NuxtLink to="/reset-password" class="secondary-btn">
             {{ texts.changePassword }}
           </NuxtLink>
           <button type="submit" class="submit-btn" :class="{ loading: savingProfile }" :disabled="savingProfile">
@@ -832,7 +832,8 @@ onBeforeUnmount(() => {
       </form>
     </section>
 
-    <section class="profile-card preferences-card">
+    <!-- Secção de preferências mensais — apenas visível para utilizadores com papel 'nurse' -->
+    <section v-if="user?.role === 'nurse'" class="profile-card preferences-card">
       <!-- Cabeçalho da secção de preferências: título + botão na linha de cima, pesquisa em baixo -->
       <div class="preferences-card-head">
         <!-- Linha do título: "Preferências Mensais" à esquerda, "Adicionar Preferências" à direita -->
