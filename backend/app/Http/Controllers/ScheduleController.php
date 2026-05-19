@@ -789,15 +789,24 @@ class ScheduleController extends Controller
         if (!Shift::where('schedule_id', $schedule->id)->exists()) {
             return response()->json(['message' => 'O horário não pode ser publicado sem turnos atribuídos.'], 422);
         }
-        $scheduleShifts = Shift::with('users:id,name')->where('schedule_id', $schedule->id)->get();
-        $nurseNames = User::where('role', UserRole::Nurse->value)->pluck('name', 'id');
+
+        $scheduleShifts = Shift::with(['users:id,name', 'shiftType'])->where('schedule_id', $schedule->id)->get();
+
+
+        $nurseNames = User::whereIn('role', [UserRole::Nurse->value, UserRole::HeadNurse->value])
+            ->where('active', true)
+            ->pluck('name', 'id');
+
         $nurseIds = $nurseNames->keys();
+
         $assignedByDateAndNurse = $scheduleShifts->flatMap(function ($shift) {
             $date = $shift->shift_date->toDateString();
             return $shift->users->map(fn($nurse) => $date . '_' . $nurse->id);
         })->unique()->flip();
+
         $startDate = $schedule->start_date->startOfDay();
         $endDate = $schedule->end_date->startOfDay();
+        
         for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
             $dateString = $date->toDateString();
             foreach ($nurseIds as $nurseId) {
@@ -811,18 +820,19 @@ class ScheduleController extends Controller
 
         // Validates the minimum number of nurses per shift
         $blockingTypeIds = ShiftType::where(function ($q) {
-            $q->where('name', 'like', '%off%')
-                ->orWhere('name', 'like', '%folga%')
-                ->orWhere('name', 'like', '%holiday%')
-                ->orWhere('name', 'like', '%férias%')
-                ->orWhere('name', 'like', '%leave%')
-                ->orWhere('name', 'like', '%baixa%')
-                ->orWhere('name', 'like', '%licença%');
+            $q->whereRaw('LOWER(name) LIKE ?', ['%off%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%folga%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%holiday%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%férias%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%leave%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%baixa%'])
+                ->orWhereRaw('LOWER(name) LIKE ?', ['%licença%']);
         })->pluck('id')->all();
 
         $shifts = Shift::with('shiftType')->where('schedule_id', $schedule->id)
             ->whereNotIn('shift_type_id', $blockingTypeIds)->get()
             ->groupBy(fn($s) => $s->shift_date->toDateString() . '_' . $s->shift_type_id);
+
         foreach ($shifts as $group) {
             $shiftType = $group->first()->shiftType;
             if ($group->count() < ($shiftType->min_nurses ?? 0)) {
@@ -832,8 +842,352 @@ class ScheduleController extends Controller
             }
         }
 
+        //Dayoff validation
+        $dayOffTypeIds = ShiftType::whereRaw('LOWER(name) LIKE ?', ['%off%'])
+            ->orWhereRaw('LOWER(name) LIKE ?', ['%folga%'])
+            ->pluck('id')
+            ->all();
+
+        // Group shifts by nurse and date 
+        $nurseShifts = [];
+        foreach ($scheduleShifts as $shift) {
+            $dateStr = $shift->shift_date->toDateString();
+            foreach ($shift->users as $user) {
+                $nurseShifts[$user->id][$dateStr] = $shift;
+            }
+        }
+
+        $toMinutes = function (string $time): ?int {
+            $parts = explode(':', $time);
+            if (count($parts) < 2) return null;
+            return ((int)$parts[0] * 60) + (int)$parts[1];
+        };
+        $restGapAfterPreviousShift = function ($previousShiftType, $nextShiftType) use ($toMinutes): ?int {
+            $prevStart = $toMinutes($previousShiftType->start_time);
+            $prevEnd = $toMinutes($previousShiftType->end_time);
+            $nextStart = $toMinutes($nextShiftType->start_time);
+            if ($prevStart === null || $prevEnd === null || $nextStart === null) {
+                return null;
+            }
+            $crossesMidnight = ($prevEnd <= $prevStart);
+            $previousEndAbsolute = $crossesMidnight ? ($prevEnd + 24 * 60) : $prevEnd;
+            return ($nextStart + 24 * 60) - $previousEndAbsolute;
+        };
+
+        // Filter only the shift IDs corresponding to morning, afternoon and night
+        $activeTypeIds = ShiftType::whereIn('name', ['morning', 'afternoon', 'night'])->pluck('id')->all();
+
+        foreach ($nurseIds as $nurseId) {
+            $shiftsOfNurse = $nurseShifts[$nurseId] ?? [];
+            for ($date = $startDate->copy(); $date->lt($endDate); $date->addDay()) {
+                $d1Str = $date->toDateString();
+                $d2Str = $date->copy()->addDay()->toDateString();
+                $shift1 = $shiftsOfNurse[$d1Str] ?? null;
+                $shift2 = $shiftsOfNurse[$d2Str] ?? null;
+                if ($shift1 && $shift2) {
+                    if (!in_array($shift1->shift_type_id, $activeTypeIds) || !in_array($shift2->shift_type_id, $activeTypeIds)) {
+                        continue;
+                    }
+                    $gap = $restGapAfterPreviousShift($shift1->shiftType, $shift2->shiftType);
+                    if ($gap !== null && $gap < 11 * 60) {
+                        return response()->json([
+                            'message' => "Existem turnos com menos de 11h de diferença."
+                        ], 422);
+                    }
+                }
+            }
+        }
+
+        // Defines the start of the first full week and the end of the last full week
+        $extendedStart = $startDate->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+        $extendedEnd = $endDate->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
+
+        // Loads all shifts of active nurses that fall within that extended interval
+        $allShifts = Shift::with(['users:id,name', 'shiftType'])
+            ->whereBetween('shift_date', [$extendedStart->toDateString(), $extendedEnd->toDateString()])
+            ->where(function ($query) use ($schedule) {
+                // Loads the shifts belonging to the current schedule/revision
+                $query->where('schedule_id', $schedule->id)
+                      // Loads shifts from other already PUBLISHED schedules, 
+                      // but strictly outside the date range of the current schedule
+                      ->orWhere(function ($q) use ($schedule) {
+                          $q->whereHas('schedule', function ($sq) {
+                              $sq->where('status', 'published');
+                          })
+                          ->where(function ($dq) use ($schedule) {
+                              $dq->where('shift_date', '<', $schedule->start_date->toDateString())
+                                 ->orWhere('shift_date', '>', $schedule->end_date->toDateString());
+                          });
+                      });
+            })
+            ->get();
+        $extendedNurseShifts = [];
+        foreach ($allShifts as $shift) {
+            $dateStr = $shift->shift_date->toDateString();
+            foreach ($shift->users as $user) {
+                $extendedNurseShifts[$user->id][$dateStr] = $shift;
+            }
+        }
+
+        // Divides the extended interval into actual weeks from Monday to Sunday
+        $weeks = [];
+        for ($date = $extendedStart->copy(); $date->lte($extendedEnd); $date->addWeek()) {
+            $weeks[] = [
+                'start' => $date->copy(),
+                'end' => $date->copy()->endOfWeek(\Carbon\Carbon::SUNDAY),
+            ];
+        }
+        foreach ($nurseIds as $nurseId) {
+            $shiftsOfNurse = $extendedNurseShifts[$nurseId] ?? [];
+
+            // Validation of not having more than 2 days off in a row
+            $dayOffDates = [];
+            foreach ($shiftsOfNurse as $dStr => $shift) {
+                if (in_array($shift->shift_type_id, $dayOffTypeIds)) {
+                    $dayOffDates[] = $dStr;
+                }
+            }
+            sort($dayOffDates);
+            $consecutive = 1;
+            for ($i = 1; $i < count($dayOffDates); $i++) {
+                $prevDate = \Carbon\Carbon::parse($dayOffDates[$i - 1]);
+                $currDate = \Carbon\Carbon::parse($dayOffDates[$i]);
+                
+                // If the current date is exactly 1 day after the previous one
+                if ($prevDate->copy()->addDay()->isSameDay($currDate)) {
+                    $consecutive++;
+                    if ($consecutive > 2) {
+                        return response()->json([
+                            'message' => "Não pode ter mais de 2 dias de folga seguidos",
+                            'nurse_id' => $nurseId,
+                            'invalid_dates' => array_slice($dayOffDates, $i - ($consecutive - 1), $consecutive)
+                        ], 422);
+                    }
+                } else {
+                    $consecutive = 1; // Resets the counter if there is a break
+                }
+            }
+            
+            // Validation of exactly 2 days off per week
+            foreach ($weeks as $week) {
+                $dayOffCount = 0;
+                $hasAllDays = true;
+                $hasSpecialAbsence = false;
+                $weekDayOffDates = []; // Save the dates of the days off of this week
+
+                for ($d = $week['start']->copy(); $d->lte($week['end']); $d->addDay()) {
+                    $dStr = $d->toDateString();
+                    $shift = $shiftsOfNurse[$dStr] ?? null;
+                    
+                    if (!$shift) {
+                        // If we don't have the day mapped in the database (ex: days of the previous month not seeded),
+                        // we cannot validate this week rigorously.
+                        $hasAllDays = false;
+                        break;
+                    }
+                    
+                    if (in_array($shift->shift_type_id, $dayOffTypeIds)) {
+                        $dayOffCount++;
+                        $weekDayOffDates[] = $dStr;
+                    } elseif (in_array($shift->shift_type_id, $blockingTypeIds)) {
+                        // If the nurse has Vacations, Sick Leave or Parental Leave this week,
+                        // it is a special absence week. We do not apply the rule of 2 days off scale.
+                        $hasSpecialAbsence = true;
+                    }
+                }
+                // Only validates if we have the 7 days mapped and no special absence (vacations, sick leave, etc)
+                if ($hasAllDays && !$hasSpecialAbsence && $dayOffCount !== 2) {
+                    return response()->json([
+                        'message' => "Obrigatorio 2 dias de folga por semana",
+                        'nurse_id' => $nurseId,
+                        'invalid_dates' => $weekDayOffDates
+                    ], 422);
+                }
+            }
+        }
+
         return null; // Everything is ok
     }
+
+
+        #[OA\Get(
+        path: '/api/schedules/weekly',
+        summary: 'Obtém o horário semanal ativo (pessoal ou global) de enfermeiros',
+        security: [['bearerAuth' => []]],
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'date',
+                in: 'query',
+                description: 'Qualquer data dentro da semana que se quer visualizar.',
+                required: false,
+                schema: new OA\Schema(type: 'string', format: 'date'),
+                example: '2026-05-18'
+            ),
+            new OA\Parameter(
+                name: 'view',
+                in: 'query',
+                description: 'Tipo de visualização: "pessoal" (apenas o próprio horário) ou "global" (horário de toda a equipa).',
+                required: false,
+                schema: new OA\Schema(type: 'string', enum: ['personal', 'global']),
+                example: 'personal'
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Dados do horário semanal obtidos com sucesso',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'start_date', type: 'string', format: 'date', example: '2026-05-18'),
+                                new OA\Property(property: 'end_date', type: 'string', format: 'date', example: '2026-05-24'),
+                                new OA\Property(property: 'view', type: 'string', example: 'personal'),
+                                new OA\Property(
+                                    property: 'shifts',
+                                    type: 'array',
+                                    items: new OA\Items(
+                                        type: 'object',
+                                        properties: [
+                                            new OA\Property(property: 'date', type: 'string', format: 'date', example: '2026-05-20'),
+                                            new OA\Property(
+                                                property: 'shift_type',
+                                                type: 'object',
+                                                properties: [
+                                                    new OA\Property(property: 'name', type: 'string', example: 'Manhã'),
+                                                    new OA\Property(property: 'start_time', type: 'string', example: '08:00:00'),
+                                                    new OA\Property(property: 'end_time', type: 'string', example: '16:00:00'),
+                                                ]
+                                            ),
+                                            new OA\Property(
+                                                property: 'users',
+                                                type: 'array',
+                                                items: new OA\Items(
+                                                    type: 'object',
+                                                    properties: [
+                                                        new OA\Property(property: 'name', type: 'string', example: 'Helena Coelho'),
+                                                        new OA\Property(property: 'role', type: 'string', example: 'nurse'),
+                                                    ]
+                                                )
+                                            ),
+                                        ]
+                                    )
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 401, 
+                description: 'Não autenticado',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Utilizador não autenticado.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403, 
+                description: 'Sem permissão para esta função',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Sem permissão para aceder a esta funcionalidade.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 422, 
+                description: 'Formato de data ou visualização inválidos',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Erro de validação nas informações fornecidas.')
+                    ]
+                )
+            )
+        ]
+    )]
+    public function weekly(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        // Allows access to nurses and head nurses
+        if (!in_array($role, [UserRole::Nurse->value, UserRole::HeadNurse->value])) {
+            return response()->json([
+                'message' => 'Sem permissão para visualizar o horário semanal.',
+            ], 403);
+        }
+
+        // Basic validation of query parameters
+        $validated = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'view' => ['nullable', 'string', 'in:personal,global'],
+        ], [
+            'date.date_format' => 'O campo date deve estar no formato YYYY-MM-DD.',
+            'view.in' => 'O campo view deve ser "personal" ou "global".',
+        ]);
+
+        $view = $validated['view'] ?? 'personal';
+        
+        // Defines the reference date (default: today)
+        $baseDate = isset($validated['date']) ? Carbon::parse($validated['date']) : Carbon::now();
+        
+        // Defines the week limits (Monday to Sunday, aligned with the European calendar)
+        $startDate = $baseDate->copy()->startOfWeek(Carbon::MONDAY);
+        $endDate = $baseDate->copy()->endOfWeek(Carbon::SUNDAY);
+
+        // Build the query to search for shifts in the desired week
+        $shiftsQuery = Shift::with(['shiftType', 'users:id,name,role'])
+            ->whereBetween('shift_date', [
+                $startDate->toDateString(), 
+                $endDate->toDateString()
+            ])
+            ->whereHas('schedule', function ($q) {
+                // Only published and active schedules are visible
+                $q->where('status', 'published');
+            });
+
+        // If it's a personal view, filter only shifts where the authenticated user is scheduled
+        if ($view === 'personal') {
+            $shiftsQuery->whereHas('users', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
+
+        // Retrieves and formats data for the frontend
+        $shifts = $shiftsQuery->get()->map(function (Shift $shift): array {
+            return [
+                'id' => $shift->id,
+                'date' => $shift->shift_date?->toDateString(),
+                'shift_type' => $shift->shiftType ? [
+                    'id' => $shift->shiftType->id,
+                    'name' => $shift->shiftType->name,
+                    'color' => $shift->shiftType->color,
+                    'start_time' => $shift->shiftType->start_time,
+                    'end_time' => $shift->shiftType->end_time,
+                ] : null,
+                'users' => $shift->users->map(fn(User $u): array => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'role' => $u->role instanceof \BackedEnum ? $u->role->value : $u->role,
+                ])->values()->all(),
+            ];
+        });
+
+        return response()->json([
+            'data' => [
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+                'view' => $view,
+                'shifts' => $shifts,
+            ],
+        ]);
+    }
+
 
 
 }
