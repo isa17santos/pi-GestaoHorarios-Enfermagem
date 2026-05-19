@@ -5,6 +5,12 @@ use Illuminate\Support\Facades\Route;
 
 // Schedule creation endpoints for planning periods.
 Route::middleware('auth:sanctum')->group(function () {
+
+    // View Current Schedule
+    Route::get('/schedules/weekly', [ScheduleController::class, 'weekly']);
+
+
+    // Create Schedule
     Route::get('/schedules', [ScheduleController::class, 'index']);
     Route::get('/schedules/{id}', [ScheduleController::class, 'show']);
     Route::post('/schedules', [ScheduleController::class, 'store']);

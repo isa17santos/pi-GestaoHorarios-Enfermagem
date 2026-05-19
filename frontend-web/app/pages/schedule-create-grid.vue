@@ -66,6 +66,10 @@ const canDeleteDraft = computed(() => {
 const localError = ref('')
 const localWarning = ref('')
 const localSuccess = ref('')
+const validationErrorCells = ref<{ nurseId: number, dateIso: string }[]>([])
+const validationErrorMessage = ref('')
+const rawError = ref<unknown>(null)             
+const rawValidationError = ref<unknown>(null)
 
 watch(localWarning, (newVal) => {
   if (newVal) {
@@ -129,6 +133,14 @@ watch(currentLocale, (newLocale) => {
         localSuccess.value = 'Alterações publicadas com sucesso.'
       }
     }
+  }
+})
+watch(currentLocale, () => {
+  if (localError.value && rawError.value) {
+    localError.value = getBackendErrorMessage(rawError.value)
+  }
+  if (validationErrorMessage.value && rawValidationError.value) {
+    validationErrorMessage.value = getBackendErrorMessage(rawValidationError.value)
   }
 })
 
@@ -269,7 +281,8 @@ const getBackendErrorMessage = (error: unknown) => {
     const hasMissingShiftId = message.includes('without an identifier') || message.includes('sem identificador')
     const hasNoNewAssignments = message.includes('no new assignments') || message.includes('Não existem novas atribuições')
     const hasCouldNotSave = message.includes('Could not save assignments') || message.includes('Não foi possível guardar as atribuições')
-
+    const hasMoreThanTwoConsecutiveDaysOff = message.includes('Não pode ter mais de 2 dias de folga') || message.includes('Cannot have more than 2 consecutive days off')
+    const hasRequiredTwoDaysOffPerWeek = message.includes('Obrigatorio 2 dias de folga por semana') || message.includes('Required 2 days off per week')
     
     const isEnglish = currentLocale.value === 'en'
 
@@ -318,6 +331,16 @@ const getBackendErrorMessage = (error: unknown) => {
     }
     if (hasCouldNotSave) {
       return isEnglish ? 'Could not save assignments. Try again.' : 'Não foi possível guardar as atribuições. Tenta novamente.'
+    }
+    if (hasMoreThanTwoConsecutiveDaysOff) {
+      return isEnglish 
+        ? 'Cannot have more than 2 consecutive days off.' 
+        : 'Não pode ter mais de 2 dias de folga seguidos.'
+    }
+    if (hasRequiredTwoDaysOffPerWeek) {
+      return isEnglish 
+        ? 'Required 2 days off per week.' 
+        : 'Obrigatório 2 dias de folga por semana.'
     }
 
   }
@@ -1128,6 +1151,10 @@ const publishSchedule = async () => {
   localError.value = ''
   localWarning.value = ''
   localSuccess.value = ''
+  validationErrorCells.value = []
+  validationErrorMessage.value = ''
+  rawError.value = null          
+  rawValidationError.value = null
 
   if (!scheduleId.value) {
     localError.value = currentLocale.value === 'pt' ? 'Não foi possível identificar o horário.' : 'Could not identify schedule.'
@@ -1188,7 +1215,17 @@ const publishSchedule = async () => {
       await navigateTo('/dashboard')
     }, 4000)  
   } catch (error: unknown) {
+    rawError.value = error                
     localError.value = getBackendErrorMessage(error)
+    rawValidationError.value = error         
+    validationErrorMessage.value = localError.value
+    const data = (error as any)?.data
+    if (data && data.nurse_id && Array.isArray(data.invalid_dates)) {
+      validationErrorCells.value = data.invalid_dates.map((date: string) => ({
+        nurseId: data.nurse_id,
+        dateIso: date
+      }))
+    }
   } finally {
     isPublishing.value = false
   }
@@ -1638,9 +1675,10 @@ onBeforeUnmount(() => {
                     }}
                   </span>
 
-                  <span v-if="hasCellRestWarning(nurse.id, day.dateIso)"
+                  <span v-if="hasCellRestWarning(nurse.id, day.dateIso) || validationErrorCells.some(c => c.nurseId === nurse.id && c.dateIso === day.dateIso)"
                     class="schedule-tooltip schedule-tooltip--warning schedule-grid__cell-warning"
-                    @mouseenter="showFloatingTooltip(texts.edit.restWarning, $event)" @mouseleave="hideFloatingTooltip">
+                    @mouseenter="showFloatingTooltip(hasCellRestWarning(nurse.id, day.dateIso) ? texts.edit.restWarning : validationErrorMessage, $event)" 
+                    @mouseleave="hideFloatingTooltip">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7"
                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path

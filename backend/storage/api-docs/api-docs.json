@@ -1596,6 +1596,174 @@
                 ]
             }
         },
+        "/api/schedules/weekly": {
+            "get": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Obtém o horário semanal ativo (pessoal ou global) de enfermeiros",
+                "operationId": "14493faca0abc670fdaaddd055f338bd",
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Qualquer data dentro da semana que se quer visualizar.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "example": "2026-05-18"
+                    },
+                    {
+                        "name": "view",
+                        "in": "query",
+                        "description": "Tipo de visualização: \"pessoal\" (apenas o próprio horário) ou \"global\" (horário de toda a equipa).",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "personal",
+                                "global"
+                            ]
+                        },
+                        "example": "personal"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dados do horário semanal obtidos com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "start_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-05-18"
+                                                },
+                                                "end_date": {
+                                                    "type": "string",
+                                                    "format": "date",
+                                                    "example": "2026-05-24"
+                                                },
+                                                "view": {
+                                                    "type": "string",
+                                                    "example": "personal"
+                                                },
+                                                "shifts": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "date": {
+                                                                "type": "string",
+                                                                "format": "date",
+                                                                "example": "2026-05-20"
+                                                            },
+                                                            "shift_type": {
+                                                                "properties": {
+                                                                    "name": {
+                                                                        "type": "string",
+                                                                        "example": "Manhã"
+                                                                    },
+                                                                    "start_time": {
+                                                                        "type": "string",
+                                                                        "example": "08:00:00"
+                                                                    },
+                                                                    "end_time": {
+                                                                        "type": "string",
+                                                                        "example": "16:00:00"
+                                                                    }
+                                                                },
+                                                                "type": "object"
+                                                            },
+                                                            "users": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "properties": {
+                                                                        "name": {
+                                                                            "type": "string",
+                                                                            "example": "Helena Coelho"
+                                                                        },
+                                                                        "role": {
+                                                                            "type": "string",
+                                                                            "example": "nurse"
+                                                                        }
+                                                                    },
+                                                                    "type": "object"
+                                                                }
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Utilizador não autenticado."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Sem permissão para esta função",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sem permissão para aceder a esta funcionalidade."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Formato de data ou visualização inválidos",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Erro de validação nas informações fornecidas."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/shifts": {
             "post": {
                 "tags": [
