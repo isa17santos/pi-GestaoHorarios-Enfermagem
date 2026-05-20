@@ -1,7 +1,7 @@
 info:
-  name: 200VisualizarHorarioPessoal
+  name: 401VisualizarHorario
   type: http
-  seq: 14
+  seq: 16
 
 http:
   method: GET
@@ -15,7 +15,7 @@ http:
       type: query
   auth:
     type: bearer
-    token: "{{token_nurse}}"
+    token: ""
 
 settings:
   encodeUrl: true
