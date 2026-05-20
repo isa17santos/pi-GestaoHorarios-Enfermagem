@@ -1,0 +1,27 @@
+info:
+  name: 422Login
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}/login"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"email\": \"miguel@example.pt\",\r
+
+      \    \"password\": \"password1\"\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

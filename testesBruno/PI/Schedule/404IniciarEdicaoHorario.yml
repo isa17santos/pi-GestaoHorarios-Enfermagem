@@ -1,0 +1,20 @@
+info:
+  name: 404IniciarEdicaoHorario
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{base_url}}/schedules/20/edit"
+  headers:
+    - name: Accept
+      value: application/json
+  auth:
+    type: bearer
+    token: "{{token_head_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

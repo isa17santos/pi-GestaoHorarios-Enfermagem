@@ -1,0 +1,32 @@
+info:
+  name: CreateShiftType_Forbidden
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}/shift-types"
+  body:
+    type: json
+    data: "{\r
+
+      \    \"name\": \"Teste\",\r
+
+      \    \"start_time\": \"08:00\",\r
+
+      \    \"end_time\": \"16:00\",\r
+
+      \    \"color\": \"#FF5733\",\r
+
+      \    \"min_nurses\": 2\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,29 @@
+info:
+  name: 200EdiçãoUtilizador
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}/users/13"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \  \"name\": \"Mario Varela\",\r
+
+      \  \"email\": \"mario.varela@example.pt\"\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

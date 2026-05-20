@@ -1,0 +1,27 @@
+info:
+  name: 422ValidateToken-InvalidToken
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{base_url}}/password-recovery/validate-token"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"token\" : \"74fef08a5c536d0a8467cb3f0d0d617a8f21a97e888e614fde0\",\r
+
+      \    \"email\": \"miguel.ferreira@example.pt\"\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

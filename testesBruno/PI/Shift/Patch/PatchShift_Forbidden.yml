@@ -1,0 +1,30 @@
+info:
+  name: PatchShift_Forbidden
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{base_url}}/shifts/7"
+  body:
+    type: json
+    data: "{\r
+
+      \    \"schedule_id\": 3,\r
+
+      \    \"shift_type_id\": 1,\r
+
+      \    \"shift_date\": \"2026-05-04\",\r
+
+      \    \"user_ids\": [1, 2]\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

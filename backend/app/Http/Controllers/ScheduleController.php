@@ -591,7 +591,7 @@ class ScheduleController extends Controller
                     return response()->json(['message' => 'Já existe uma edição em curso para este horário.', 'data' => ['id' => $existingRevision->id]], 200);
                 }
 
-                //if it is an old edit (soft-deleted), we permanently delete it 
+                //if it is an old edit (soft-deleted), we permanently delete it
                 // to not conflict with the "unique" rule of the database and allow us to create a new one
                 $existingRevision->shifts()->forceDelete();
                 $existingRevision->forceDelete();
@@ -755,7 +755,7 @@ class ScheduleController extends Controller
                     if ($recipients->isNotEmpty()) {
                         // Send the update notification to all nurses
                         Notification::send(
-                            $recipients, 
+                            $recipients,
                             new \App\Notifications\ScheduleUpdatedNotification($original)
                         );
                     }
@@ -806,7 +806,7 @@ class ScheduleController extends Controller
 
         $startDate = $schedule->start_date->startOfDay();
         $endDate = $schedule->end_date->startOfDay();
-        
+
         for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
             $dateString = $date->toDateString();
             foreach ($nurseIds as $nurseId) {
@@ -848,7 +848,7 @@ class ScheduleController extends Controller
             ->pluck('id')
             ->all();
 
-        // Group shifts by nurse and date 
+        // Group shifts by nurse and date
         $nurseShifts = [];
         foreach ($scheduleShifts as $shift) {
             $dateStr = $shift->shift_date->toDateString();
@@ -908,7 +908,7 @@ class ScheduleController extends Controller
             ->where(function ($query) use ($schedule) {
                 // Loads the shifts belonging to the current schedule/revision
                 $query->where('schedule_id', $schedule->id)
-                      // Loads shifts from other already PUBLISHED schedules, 
+                      // Loads shifts from other already PUBLISHED schedules,
                       // but strictly outside the date range of the current schedule
                       ->orWhere(function ($q) use ($schedule) {
                           $q->whereHas('schedule', function ($sq) {
@@ -952,7 +952,7 @@ class ScheduleController extends Controller
             for ($i = 1; $i < count($dayOffDates); $i++) {
                 $prevDate = \Carbon\Carbon::parse($dayOffDates[$i - 1]);
                 $currDate = \Carbon\Carbon::parse($dayOffDates[$i]);
-                
+
                 // If the current date is exactly 1 day after the previous one
                 if ($prevDate->copy()->addDay()->isSameDay($currDate)) {
                     $consecutive++;
@@ -967,7 +967,7 @@ class ScheduleController extends Controller
                     $consecutive = 1; // Resets the counter if there is a break
                 }
             }
-            
+
             // Validation of exactly 2 days off per week
             foreach ($weeks as $week) {
                 $dayOffCount = 0;
@@ -978,14 +978,14 @@ class ScheduleController extends Controller
                 for ($d = $week['start']->copy(); $d->lte($week['end']); $d->addDay()) {
                     $dStr = $d->toDateString();
                     $shift = $shiftsOfNurse[$dStr] ?? null;
-                    
+
                     if (!$shift) {
                         // If we don't have the day mapped in the database (ex: days of the previous month not seeded),
                         // we cannot validate this week rigorously.
                         $hasAllDays = false;
                         break;
                     }
-                    
+
                     if (in_array($shift->shift_type_id, $dayOffTypeIds)) {
                         $dayOffCount++;
                         $weekDayOffDates[] = $dStr;
@@ -1022,7 +1022,7 @@ class ScheduleController extends Controller
                 description: 'Qualquer data dentro da semana que se quer visualizar.',
                 required: false,
                 schema: new OA\Schema(type: 'string', format: 'date'),
-                example: '2026-05-18'
+                example: '2026-07-18'
             ),
             new OA\Parameter(
                 name: 'view',
@@ -1082,7 +1082,7 @@ class ScheduleController extends Controller
                 )
             ),
             new OA\Response(
-                response: 401, 
+                response: 401,
                 description: 'Não autenticado',
                 content: new OA\JsonContent(
                     properties: [
@@ -1091,7 +1091,7 @@ class ScheduleController extends Controller
                 )
             ),
             new OA\Response(
-                response: 403, 
+                response: 403,
                 description: 'Sem permissão para esta função',
                 content: new OA\JsonContent(
                     properties: [
@@ -1100,7 +1100,7 @@ class ScheduleController extends Controller
                 )
             ),
             new OA\Response(
-                response: 422, 
+                response: 422,
                 description: 'Formato de data ou visualização inválidos',
                 content: new OA\JsonContent(
                     properties: [
@@ -1132,10 +1132,10 @@ class ScheduleController extends Controller
         ]);
 
         $view = $validated['view'] ?? 'personal';
-        
+
         // Defines the reference date (default: today)
         $baseDate = isset($validated['date']) ? Carbon::parse($validated['date']) : Carbon::now();
-        
+
         // Defines the week limits (Monday to Sunday, aligned with the European calendar)
         $startDate = $baseDate->copy()->startOfWeek(Carbon::MONDAY);
         $endDate = $baseDate->copy()->endOfWeek(Carbon::SUNDAY);
@@ -1143,7 +1143,7 @@ class ScheduleController extends Controller
         // Build the query to search for shifts in the desired week
         $shiftsQuery = Shift::with(['shiftType', 'users:id,name,role'])
             ->whereBetween('shift_date', [
-                $startDate->toDateString(), 
+                $startDate->toDateString(),
                 $endDate->toDateString()
             ])
             ->whereHas('schedule', function ($q) {
@@ -1159,24 +1159,41 @@ class ScheduleController extends Controller
         }
 
         // Retrieves and formats data for the frontend
-        $shifts = $shiftsQuery->get()->map(function (Shift $shift): array {
-            return [
-                'id' => $shift->id,
-                'date' => $shift->shift_date?->toDateString(),
-                'shift_type' => $shift->shiftType ? [
-                    'id' => $shift->shiftType->id,
-                    'name' => $shift->shiftType->name,
-                    'color' => $shift->shiftType->color,
-                    'start_time' => $shift->shiftType->start_time,
-                    'end_time' => $shift->shiftType->end_time,
-                ] : null,
-                'users' => $shift->users->map(fn(User $u): array => [
+        $shifts = $shiftsQuery->get()
+            ->groupBy(function (Shift $shift): string {
+                return $shift->shift_date?->toDateString() . '_' . ($shift->shiftType?->id ?? 'null');
+            })
+            ->map(function ($groupedShifts): array {
+                // Usamos o primeiro turno do grupo para extrair os dados gerais do turno
+                $firstShift = $groupedShifts->first();
+
+                // Agrupa todos os utilizadores associados a todos os turnos deste grupo
+                $users = $groupedShifts->flatMap(function (Shift $shift) {
+                    return $shift->users;
+                })
+                ->unique('id')
+                ->map(fn(User $u): array => [
                     'id' => $u->id,
                     'name' => $u->name,
                     'role' => $u->role instanceof \BackedEnum ? $u->role->value : $u->role,
-                ])->values()->all(),
-            ];
-        });
+                ])
+                ->values()
+                ->all();
+                return [
+                    'id' => $firstShift->id,
+                    'date' => $firstShift->shift_date?->toDateString(),
+                    'shift_type' => $firstShift->shiftType ? [
+                        'id' => $firstShift->shiftType->id,
+                        'name' => $firstShift->shiftType->name,
+                        'color' => $firstShift->shiftType->color,
+                        'start_time' => $firstShift->shiftType->start_time,
+                        'end_time' => $firstShift->shiftType->end_time,
+                    ] : null,
+                    'users' => $users,
+                ];
+            })
+            ->values()
+            ->all();
 
         return response()->json([
             'data' => [

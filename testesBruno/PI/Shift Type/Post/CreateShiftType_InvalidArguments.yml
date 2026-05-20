@@ -1,0 +1,18 @@
+info:
+  name: CreateShiftType_InvalidArguments
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/shift-types"
+  body:
+    type: json
+    data: "{\r\n\r\n}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

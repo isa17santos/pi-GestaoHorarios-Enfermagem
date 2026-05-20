@@ -1,0 +1,20 @@
+info:
+  name: 401Me
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{base_url}}/me"
+  headers:
+    - name: Accept
+      value: application/json
+  auth:
+    type: bearer
+    token: hdsghcujsadhgbcjshdgbcjash
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

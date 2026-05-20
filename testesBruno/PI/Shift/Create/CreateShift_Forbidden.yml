@@ -1,0 +1,30 @@
+info:
+  name: CreateShift_Forbidden
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{base_url}}/api/shifts"
+  body:
+    type: json
+    data: "{\r
+
+      \    \"schedule_id\": 6,\r
+
+      \    \"shift_type_id\": 1,\r
+
+      \    \"shift_date\": \"2026-04-07\",\r
+
+      \    \"user_ids\": [4, 5]\r
+
+      }"
+  auth:
+    type: bearer
+    token: 34|UpuIxZtFkjrxYuMcyvNVDXCR3ag6oa9TLSVMxJTH8b34a8fa
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

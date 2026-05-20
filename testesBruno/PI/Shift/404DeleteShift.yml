@@ -1,0 +1,20 @@
+info:
+  name: 404DeleteShift
+  type: http
+  seq: 5
+
+http:
+  method: DELETE
+  url: "{{base_url}}/shifts/100000000000"
+  headers:
+    - name: Accept
+      value: application/json
+  auth:
+    type: bearer
+    token: "{{token_head_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

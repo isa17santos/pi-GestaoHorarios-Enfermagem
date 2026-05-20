@@ -1,0 +1,39 @@
+info:
+  name: CreatePreferences_ValidRequest
+  type: http
+  seq: 3
+
+http:
+  method: PATCH
+  url: "{{base_url}}/profile/preferences"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"month\": 3,\r
+
+      \    \"year\": 2026,\r
+
+      \    \"prefers_morning\": true,\r
+
+      \    \"prefers_afternoon\": false,\r
+
+      \    \"prefers_night\": false,\r
+
+      \    \"avoid_weekends\": false,\r
+
+      \    \"prefers_weekends\": true,\r
+
+      \    \"notes\": \"Teste amamentação\"\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

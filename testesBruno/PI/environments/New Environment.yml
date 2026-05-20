@@ -1,0 +1,14 @@
+name: New Environment
+variables:
+  - name: base_url
+    value: http://192.168.100.13:8000/api
+  - secret: true
+    name: api_token
+  - name: password_reset_token
+    value: 057532fa75670742f73c83f63af2931f9f5d15a35b2605c4adfbeb3d2ffa3c09
+  - secret: true
+    name: token_head_nurse
+  - secret: true
+    name: token_admin
+  - secret: true
+    name: token_nurse

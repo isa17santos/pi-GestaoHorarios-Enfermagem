@@ -1,0 +1,28 @@
+info:
+  name: PatchShift_NotFound
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{base_url}}/shifts/9999"
+  body:
+    type: json
+    data: "{\r
+
+      \    \"schedule_id\": 3,\r
+
+      \    \"shift_type_id\": 1,\r
+
+      \    \"shift_date\": \"2026-05-04\",\r
+
+      \    \"user_ids\": [1, 2]\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

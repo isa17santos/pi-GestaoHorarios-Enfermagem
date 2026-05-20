@@ -1,0 +1,20 @@
+info:
+  name: 404EliminarUtilizador
+  type: http
+  seq: 11
+
+http:
+  method: DELETE
+  url: "{{base_url}}/users/40"
+  headers:
+    - name: Accept
+      value: application/json
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

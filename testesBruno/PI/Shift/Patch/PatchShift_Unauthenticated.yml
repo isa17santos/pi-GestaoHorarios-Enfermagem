@@ -1,0 +1,25 @@
+info:
+  name: PatchShift_Unauthenticated
+  type: http
+  seq: 4
+
+http:
+  method: PATCH
+  url: "{{base_url}}/shifts/7"
+  body:
+    type: text
+    data: "{\r
+
+      \    \"shift_type_id\": 1,\r
+
+      \    \"shift_date\": \"2026-05-04\",\r
+
+      \    \"user_ids\": [1, 2]\r
+
+      }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

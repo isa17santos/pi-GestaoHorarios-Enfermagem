@@ -1,0 +1,14 @@
+info:
+  name: PublishSchedule_Unauthenticated
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}/schedules/1/publish"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,17 @@
+info:
+  name: 403PublicacaoEdicaoHorario
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{base_url}}/schedules/3/publish-edit"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

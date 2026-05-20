@@ -1,0 +1,31 @@
+info:
+  name: 422CriarUtilizador
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}/users"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \  \"name\": \"Marco Varela\",\r
+
+      \  \"email\": \"marco.varela@example.pt\",\r
+
+      \  \"password\": \"Password@123\"\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

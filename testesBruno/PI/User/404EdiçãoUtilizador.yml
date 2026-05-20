@@ -1,0 +1,29 @@
+info:
+  name: 404EdiçãoUtilizador
+  type: http
+  seq: 9
+
+http:
+  method: PATCH
+  url: "{{base_url}}/users/40"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \  \"name\": \"Mario Varela\",\r
+
+      \  \"email\": \"mario.varel@example.pt\"\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

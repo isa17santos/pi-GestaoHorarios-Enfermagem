@@ -1,0 +1,22 @@
+info:
+  name: CreateSchedule_MissingEndDate
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}/schedules"
+  body:
+    type: json
+    data: "{\r
+
+      \  \"start_date\": \"2026-05-01\"\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

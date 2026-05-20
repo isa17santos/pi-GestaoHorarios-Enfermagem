@@ -1,0 +1,27 @@
+info:
+  name: EditProfile_ValidRequest
+  type: http
+  seq: 4
+
+http:
+  method: PATCH
+  url: "{{base_url}}/profile"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"name\": \"Teste\",\r
+
+      \    \"email\": \"novo@example.pt\"\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

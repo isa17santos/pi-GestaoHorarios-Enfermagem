@@ -1,0 +1,17 @@
+info:
+  name: PublishSchedule_Forbidden
+  type: http
+  seq: 7
+
+http:
+  method: PATCH
+  url: "{{base_url}}/schedules/1/publish"
+  auth:
+    type: bearer
+    token: "{{api_token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

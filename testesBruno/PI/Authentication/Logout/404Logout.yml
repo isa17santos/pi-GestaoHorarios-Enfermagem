@@ -1,0 +1,20 @@
+info:
+  name: 404Logout
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/logout"
+  headers:
+    - name: Accept
+      value: application/json
+  auth:
+    type: bearer
+    token: hdsghcujsadhgbcjshdgbcjash
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

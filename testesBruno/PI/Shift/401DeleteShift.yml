@@ -1,0 +1,24 @@
+info:
+  name: 401DeleteShift
+  type: http
+  seq: 6
+
+http:
+  method: DELETE
+  url: "{{base_url}}/shifts/5?nurse_id=7"
+  headers:
+    - name: Accept
+      value: application/json
+  params:
+    - name: nurse_id
+      value: "7"
+      type: query
+  auth:
+    type: bearer
+    token: ""
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

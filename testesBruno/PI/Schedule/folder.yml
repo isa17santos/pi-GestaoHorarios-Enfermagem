@@ -1,0 +1,9 @@
+info:
+  name: Schedule
+  type: folder
+  seq: 6
+
+request:
+  auth:
+    type: bearer
+    token: "{{token_head_nurse}}"
