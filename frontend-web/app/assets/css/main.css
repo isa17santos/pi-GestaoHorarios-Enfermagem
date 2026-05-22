@@ -6,6 +6,7 @@
 @import './human-resources.css';
 @import './user-create.css';
 @import './profile.css';
+@import './change-password.css';
 
 /* ------- DEFAULT COLORS -------- */
 :root {
