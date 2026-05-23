@@ -93,6 +93,7 @@ const texts = computed(() => ({
   searchPreferencesLabel: currentLocale.value === 'pt' ? 'Procurar Preferências' : 'Search Preferences',
   searchPreferencesPlaceholder: currentLocale.value === 'pt' ? 'Pesquisar por mês ou ano' : 'Search by month or year',
   changePassword: currentLocale.value === 'pt' ? 'Alterar Palavra-passe' : 'Change Password',
+  back: currentLocale.value === 'pt' ? 'Voltar' : 'Back',
   saveProfile: currentLocale.value === 'pt' ? 'Guardar Dados Pessoais' : 'Save Personal Data',
   savingProfile: currentLocale.value === 'pt' ? 'A guardar...' : 'Saving...',
   savePreferences: currentLocale.value === 'pt' ? 'Guardar Preferências' : 'Save Preferences',
@@ -782,6 +783,13 @@ onBeforeUnmount(() => {
 
     <div class="profile-top-bar">
       <div class="profile-title-group">
+        <NuxtLink to="/dashboard" class="back-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          {{ texts.back }}
+        </NuxtLink>
         <h1>{{ texts.title }}</h1>
         <p class="profile-subtitle">{{ texts.subtitle }}</p>
       </div>
@@ -822,7 +830,7 @@ onBeforeUnmount(() => {
         <!-- A alteração de palavra-passe segue o fluxo de recuperação (envio de email + token) -->
         <!-- Ações de dados pessoais: métricas alinhadas ao botão "Adicionar Preferências" -->
         <div class="profile-actions profile-actions--personal">
-          <NuxtLink to="/reset-password" class="secondary-btn">
+          <NuxtLink to="/change-password" class="secondary-btn">
             {{ texts.changePassword }}
           </NuxtLink>
           <button type="submit" class="submit-btn" :class="{ loading: savingProfile }" :disabled="savingProfile">

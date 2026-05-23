@@ -1,7 +1,7 @@
 name: New Environment
 variables:
   - name: base_url
-    value: http://192.168.100.13:8000/api
+    value: http://localhost:8000/api
   - secret: true
     name: api_token
   - name: password_reset_token

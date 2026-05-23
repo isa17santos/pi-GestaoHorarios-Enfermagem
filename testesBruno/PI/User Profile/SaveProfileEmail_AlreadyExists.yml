@@ -1,7 +1,7 @@
 info:
   name: SaveProfileEmail_AlreadyExists
   type: http
-  seq: 7
+  seq: 5
 
 http:
   method: PATCH
