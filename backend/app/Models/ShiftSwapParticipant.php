@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ShiftSwapParticipant extends Model
 {
     protected $fillable = [
-        'swap_id',
+        'swap_request_id',
         'user_id',
         'role',
     ];
@@ -24,7 +24,7 @@ class ShiftSwapParticipant extends Model
     // Returns the swap request that this participant belongs to.
     public function swapRequest(): BelongsTo
     {
-        return $this->belongsTo(ShiftSwapRequest::class, 'swap_id');
+        return $this->belongsTo(ShiftSwapRequest::class, 'swap_request_id');
     }
 
     // Returns the user linked to this participant record.

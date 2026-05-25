@@ -521,6 +521,89 @@
                 ]
             }
         },
+        "/api/profile/change-password": {
+            "post": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Altera a password do utilizador autenticado",
+                "operationId": "9e9c52641e7e8e60f1a2a643084beba6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "PasswordAtual@123"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "NovaPassword@123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "NovaPassword@123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password alterada com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password alterada com sucesso."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Password atual inválida ou payload inválido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Dados inválidos."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "current_password": [
+                                                    "A password atual está incorreta."
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/profile": {
             "get": {
                 "tags": [
@@ -2493,6 +2576,275 @@
                 ]
             }
         },
+        "/api/swaps": {
+            "get": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Listar pedidos de troca",
+                "operationId": "f31ab080390e6265c55eac07f3d58be3",
+                "parameters": [
+                    {
+                        "name": "direction",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "nullable": true,
+                            "enum": [
+                                "sent",
+                                "received"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "nullable": true,
+                            "enum": [
+                                "pending",
+                                "accepted",
+                                "rejected",
+                                "cancelled"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Listagem paginada de SwapRequests"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Criar pedido de troca",
+                "operationId": "21ef029199e9261502baebb17a314c0b",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "offered_shift_ids",
+                                    "requested_shift_ids",
+                                    "target_user_id"
+                                ],
+                                "properties": {
+                                    "offered_shift_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "requested_shift_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "target_user_id": {
+                                        "type": "integer"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Pedido de troca criado com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "422": {
+                        "description": "Dados inválidos"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}": {
+            "get": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Ver detalhe de um pedido de troca",
+                "operationId": "3fe7f7bdb070b20383b0573a0c0e7a98",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SwapRequest detalhado"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}/accept": {
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Aceitar pedido de troca",
+                "operationId": "3bdaee8c2fac7f25127817e5c1d1fd5f",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pedido de troca aceite com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}/reject": {
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Rejeitar pedido de troca",
+                "operationId": "a2b887f1ffcdb0650ec1aa86b8ba92ef",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pedido de troca rejeitado com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}/cancel": {
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Cancelar pedido de troca",
+                "operationId": "bd9d6b38f9c88dabe799d33974305c79",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pedido de troca cancelado com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
@@ -2930,6 +3282,10 @@
         }
     },
     "tags": [
+        {
+            "name": "SwapRequests",
+            "description": "Gestão de pedidos de troca de turnos"
+        },
         {
             "name": "Auth",
             "description": "Operacoes relacionadas com autenticação."

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\ShiftSwapRequest;
 use App\Models\ShiftType;
+use App\Policies\SwapRequestPolicy;
 use App\Policies\ShiftTypePolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -23,5 +25,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(ShiftType::class, ShiftTypePolicy::class);
+        Gate::policy(ShiftSwapRequest::class, SwapRequestPolicy::class);
     }
 }

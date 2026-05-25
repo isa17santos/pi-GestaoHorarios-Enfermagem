@@ -2,30 +2,30 @@
 
 namespace App\Models;
 
-use App\Enums\ShiftSwapRequestShiftKind;
+use App\Enums\ShiftSwapRequestShiftType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ShiftSwapRequestShift extends Model
 {
     protected $fillable = [
-        'swap_id',
+        'swap_request_id',
         'shift_id',
         'owner_user_id',
-        'kind',
+        'type',
     ];
 
     protected function casts(): array
     {
         return [
-            'kind' => ShiftSwapRequestShiftKind::class,
+            'type' => ShiftSwapRequestShiftType::class,
         ];
     }
 
     // Returns the swap request that this shift entry belongs to.
     public function swapRequest(): BelongsTo
     {
-        return $this->belongsTo(ShiftSwapRequest::class, 'swap_id');
+        return $this->belongsTo(ShiftSwapRequest::class, 'swap_request_id');
     }
 
     // Returns the shift linked to this entry.

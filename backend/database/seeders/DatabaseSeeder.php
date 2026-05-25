@@ -614,14 +614,14 @@ class DatabaseSeeder extends Seeder
             ]);
             DB::table('shift_swap_participants')->insert([
                 [
-                    'swap_id' => $swapIdMay,
+                    'swap_request_id' => $swapIdMay,
                     'user_id' => $nurses[1]->id,
                     'role' => 'requester',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
                 [
-                    'swap_id' => $swapIdMay,
+                    'swap_request_id' => $swapIdMay,
                     'user_id' => $nurses[2]->id,
                     'role' => 'target',
                     'created_at' => $now,
@@ -630,18 +630,18 @@ class DatabaseSeeder extends Seeder
             ]);
             DB::table('shift_swap_request_shifts')->insert([
                 [
-                    'swap_id' => $swapIdMay,
+                    'swap_request_id' => $swapIdMay,
                     'shift_id' => $andreShiftIdMay,
                     'owner_user_id' => $nurses[1]->id,
-                    'kind' => 'offered',
+                    'type' => 'offered',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
                 [
-                    'swap_id' => $swapIdMay,
+                    'swap_request_id' => $swapIdMay,
                     'shift_id' => $brunoShiftIdMay,
                     'owner_user_id' => $nurses[2]->id,
-                    'kind' => 'requested',
+                    'type' => 'requested',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]
@@ -664,14 +664,14 @@ class DatabaseSeeder extends Seeder
             ]);
             DB::table('shift_swap_participants')->insert([
                 [
-                    'swap_id' => $swapIdJune,
+                    'swap_request_id' => $swapIdJune,
                     'user_id' => $nurses[4]->id,
                     'role' => 'requester',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
                 [
-                    'swap_id' => $swapIdJune,
+                    'swap_request_id' => $swapIdJune,
                     'user_id' => $nurses[5]->id,
                     'role' => 'target',
                     'created_at' => $now,
@@ -680,18 +680,18 @@ class DatabaseSeeder extends Seeder
             ]);
             DB::table('shift_swap_request_shifts')->insert([
                 [
-                    'swap_id' => $swapIdJune,
+                    'swap_request_id' => $swapIdJune,
                     'shift_id' => $helenaShiftIdJune,
                     'owner_user_id' => $nurses[4]->id,
-                    'kind' => 'offered',
+                    'type' => 'offered',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
                 [
-                    'swap_id' => $swapIdJune,
+                    'swap_request_id' => $swapIdJune,
                     'shift_id' => $joanaShiftIdJune,
                     'owner_user_id' => $nurses[5]->id,
-                    'kind' => 'requested',
+                    'type' => 'requested',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]
@@ -714,14 +714,14 @@ class DatabaseSeeder extends Seeder
             ]);
             DB::table('shift_swap_participants')->insert([
                 [
-                    'swap_id' => $swapIdJuly,
+                    'swap_request_id' => $swapIdJuly,
                     'user_id' => $nurses[7]->id,
                     'role' => 'requester',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
                 [
-                    'swap_id' => $swapIdJuly,
+                    'swap_request_id' => $swapIdJuly,
                     'user_id' => $nurses[8]->id,
                     'role' => 'target',
                     'created_at' => $now,
@@ -730,18 +730,18 @@ class DatabaseSeeder extends Seeder
             ]);
             DB::table('shift_swap_request_shifts')->insert([
                 [
-                    'swap_id' => $swapIdJuly,
+                    'swap_request_id' => $swapIdJuly,
                     'shift_id' => $inesShiftIdJuly,
                     'owner_user_id' => $nurses[7]->id,
-                    'kind' => 'offered',
+                    'type' => 'offered',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
                 [
-                    'swap_id' => $swapIdJuly,
+                    'swap_request_id' => $swapIdJuly,
                     'shift_id' => $sofiaShiftIdJuly,
                     'owner_user_id' => $nurses[8]->id,
-                    'kind' => 'requested',
+                    'type' => 'requested',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]
