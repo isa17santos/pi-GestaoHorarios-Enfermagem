@@ -117,7 +117,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'morning',
                 'color' => '#d9f3ff',
-                'start_time' => '08:00:00',
+                'start_time' => '07:00:00',
                 'end_time' => '16:00:00',
                 'min_nurses' => 3,
                 'created_at' => $now,
@@ -126,7 +126,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'afternoon',
                 'color' => '#dff7e8',
-                'start_time' => '16:00:00',
+                'start_time' => '15:00:00',
                 'end_time' => '00:00:00',
                 'min_nurses' => 3,
                 'created_at' => $now,
@@ -179,7 +179,7 @@ class DatabaseSeeder extends Seeder
             ],
         ]);
 
-        
+
         $headNurseId = DB::table('users')
             ->where('email', 'ana.antunes@example.pt')
             ->value('id');
@@ -216,7 +216,7 @@ class DatabaseSeeder extends Seeder
             11 => [5, 6], // Sat, Sun - Diana Oliveira
             12 => [5, 6], // Sat, Sun - Eduardo Ribeiro
             13 => [5, 6], // Sat, Sun - Fernanda Pinto
-            14 => [6, 2], // Sun, Wed - Gabriela Costa 
+            14 => [6, 2], // Sun, Wed - Gabriela Costa
         ];
 
         // Generate published schedules (MAY, JUNE, JULY 2026)
@@ -285,7 +285,7 @@ class DatabaseSeeder extends Seeder
                     $shiftsByDateAndNurse[$dateStr][$nurseId] = $shiftId;
                     $previousShifts[$nurseId] = $shiftTypeIds['dayOff'];
                 }
-                
+
                 // Rotate professionals on duty for a dynamic pattern
                 $workCount = count($workingNurses);
                 $morningCount = 4;
@@ -335,7 +335,7 @@ class DatabaseSeeder extends Seeder
                     ]);
                     $shiftsByDateAndNurse[$dateStr][$nurseId] = $shiftId;
                 }
-                
+
                 // Create afternoon shifts
                 foreach ($afternoonNurses as $nurseId) {
                     $shiftId = DB::table('shifts')->insertGetId([
@@ -751,11 +751,11 @@ class DatabaseSeeder extends Seeder
 
 
     private function assignShifts(
-        array $workingNurses, 
-        array $previousShifts, 
-        array $shiftTypeIds, 
-        int $morningCount, 
-        int $afternoonCount, 
+        array $workingNurses,
+        array $previousShifts,
+        array $shiftTypeIds,
+        int $morningCount,
+        int $afternoonCount,
         int $nightCount
     ): ?array {
         $result = [];
@@ -786,10 +786,10 @@ class DatabaseSeeder extends Seeder
         if ($index === count($workingNurses)) {
             return $morningLeft === 0 && $afternoonLeft === 0 && $nightLeft === 0;
         }
-        
+
         $nurseId = $workingNurses[$index];
         $prevShift = $previousShifts[$nurseId] ?? null;
-        
+
         // Try Morning
         if ($morningLeft > 0) {
             $canWorkMorning = true;
@@ -804,7 +804,7 @@ class DatabaseSeeder extends Seeder
                 unset($result[$nurseId]);
             }
         }
-        
+
         // Try Afternoon
         if ($afternoonLeft > 0) {
             $canWorkAfternoon = true;
@@ -819,7 +819,7 @@ class DatabaseSeeder extends Seeder
                 unset($result[$nurseId]);
             }
         }
-        
+
         // Try Night
         if ($nightLeft > 0) {
             $result[$nurseId] = $shiftTypeIds['night'];
@@ -828,7 +828,7 @@ class DatabaseSeeder extends Seeder
             }
             unset($result[$nurseId]);
         }
-        
+
         return false;
     }
 }

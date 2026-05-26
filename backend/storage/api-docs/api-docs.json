@@ -1764,6 +1764,63 @@
                 ]
             }
         },
+        "/api/schedules/ical": {
+            "get": {
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Exporta os turnos do utilizador no formato iCal",
+                "operationId": "43c5fe0353439f0b191d2da6016600ce",
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "query",
+                        "description": "Personal Access Token do utilizador",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ficheiro iCal gerado e descarregado com sucesso."
+                    },
+                    "401": {
+                        "description": "Não autenticado.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Token inválido ou não autorizado."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Acesso proibido.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sem permissão para exportar horários."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/shifts": {
             "post": {
                 "tags": [
