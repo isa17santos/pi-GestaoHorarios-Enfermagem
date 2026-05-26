@@ -3,6 +3,10 @@
 use App\Http\Controllers\ScheduleController;
 use Illuminate\Support\Facades\Route;
 
+
+Route::get('/schedules/ical', [ScheduleController::class, 'ical']);
+
+
 // Schedule creation endpoints for planning periods.
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -21,5 +25,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // Edit Schedule
     Route::post('/schedules/{id}/edit', [ScheduleController::class, 'startEdit']);
     Route::post('/schedules/{id}/publish-edit', [ScheduleController::class, 'publishEdit']);
-    
+
 });

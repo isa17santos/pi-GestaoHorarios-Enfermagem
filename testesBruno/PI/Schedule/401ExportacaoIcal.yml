@@ -1,0 +1,17 @@
+info:
+  name: 401ExportacaoIcal
+  type: http
+  seq: 20
+
+http:
+  method: GET
+  url: "{{base_url}}/schedules/ical"
+  auth:
+    type: bearer
+    token: dssedf
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

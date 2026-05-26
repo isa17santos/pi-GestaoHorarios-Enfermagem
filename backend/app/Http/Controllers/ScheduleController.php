@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 class ScheduleController extends Controller
@@ -731,7 +732,7 @@ class ScheduleController extends Controller
                     $original->refresh();
 
                     // Get the IDs of all users who have shifts in this schedule
-                    $notifiableUserIds = \DB::table('user_shifts')
+                    $notifiableUserIds = DB::table('user_shifts')
                         ->whereIn('shift_id', function($query) use ($original) {
                             $query->select('id')
                                   ->from('shifts')
@@ -761,7 +762,7 @@ class ScheduleController extends Controller
                     }
                 } catch (\Exception $e) {
                     // Only log the warning if the email fails, so that the user doesn't receive a 500 error
-                    \Log::warning("Failed to send update emails: " . $e->getMessage());
+                    Log::warning("Failed to send update emails: " . $e->getMessage());
                 }
 
                 return response()->json([
@@ -777,7 +778,7 @@ class ScheduleController extends Controller
     }
 
 
-    private function calculateChanges($original, $revision): int
+    private function calculateChanges(Schedule $original, Schedule $revision): int
     {
         // count how many shifts in the revision are different from the original
         return abs($revision->shifts()->count() - $original->shifts()->count()) + 1;
@@ -1151,10 +1152,28 @@ class ScheduleController extends Controller
                 $q->where('status', 'published');
             });
 
-        // If it's a personal view, filter only shifts where the authenticated user is scheduled
         if ($view === 'personal') {
-            $shiftsQuery->whereHas('users', function ($q) use ($user) {
-                $q->where('users.id', $user->id);
+            $userCombinations = Shift::whereHas('users', function ($q) use ($user) {
+                    $q->where('users.id', $user->id);
+                })
+                ->whereBetween('shift_date', [
+                    $startDate->toDateString(),
+                    $endDate->toDateString(),
+                ])
+                ->whereHas('schedule', function ($q) {
+                    $q->where('status', 'published');
+                })
+                ->select('shift_date', 'shift_type_id')
+                ->distinct()
+                ->get();
+
+            $shiftsQuery->where(function ($query) use ($userCombinations) {
+                foreach ($userCombinations as $combo) {
+                    $query->orWhere(function ($q) use ($combo) {
+                        $q->where('shift_date', $combo->shift_date)
+                        ->where('shift_type_id', $combo->shift_type_id);
+                    });
+                }
             });
         }
 
@@ -1206,7 +1225,119 @@ class ScheduleController extends Controller
     }
 
 
+        #[OA\Get(
+        path: '/api/schedules/ical',
+        summary: 'Exporta os turnos do utilizador no formato iCal',
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'token',
+                in: 'query',
+                description: 'Personal Access Token do utilizador',
+                required: true,
+                schema: new OA\Schema(type: 'string')
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Ficheiro iCal gerado e descarregado com sucesso.'
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Não autenticado.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Token inválido ou não autorizado.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Acesso proibido.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Sem permissão para exportar horários.')
+                    ]
+                )
+            )
+        ]
+    )]
+    public function ical(Request $request): \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+    {
+        $token = $request->query('token') ?? $request->bearerToken();
 
+        if (!$token) {
+            return response()->json(['message' => 'Token não fornecido.'], 401);
+        }
+
+        // clean the word "Bearer " in case it came accidently in the string
+        $token = str_replace('Bearer ', '', $token);
+
+        // Find the Personal Access Token sent in the query string
+        $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+        if (!$accessToken || !$accessToken->tokenable) {
+            return response()->json(['message' => 'Token inválido ou não autorizado.'], 401);
+        }
+
+        $user = $accessToken->tokenable;
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        // Role validation
+        if (!in_array($role, [\App\Enums\UserRole::Nurse->value, \App\Enums\UserRole::HeadNurse->value])) {
+            return response()->json(['message' => 'Sem permissão para exportar horários.'], 403);
+        }
+
+
+        // Get all shifts for the user that belong to already published schedules
+        $shifts = \App\Models\Shift::with('shiftType')
+            ->whereHas('users', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })
+            ->whereHas('schedule', function ($q) {
+                $q->where('status', 'published');
+            })
+            ->get();
+
+        // Build the iCalendar file
+        $ical = "BEGIN:VCALENDAR\r\n";
+        $ical .= "VERSION:2.0\r\n";
+        $ical .= "PRODID:-//GestaoHorarios//PT\r\n";
+        $ical .= "CALSCALE:GREGORIAN\r\n";
+
+        foreach ($shifts as $shift) {
+            if (!$shift->shiftType) continue;
+
+            $ical .= "BEGIN:VEVENT\r\n";
+            $ical .= "UID:shift-{$shift->id}@gestaohorarios\r\n";
+
+            // Combine the shift date with the start and end times of the shift type
+            $start = \Carbon\Carbon::parse($shift->shift_date->format('Y-m-d') . ' ' . $shift->shiftType->start_time);
+            $end = \Carbon\Carbon::parse($shift->shift_date->format('Y-m-d') . ' ' . $shift->shiftType->end_time);
+
+            // If the end time is less than the start time, it means the shift ends on the next day (crosses midnight)
+            if ($end <= $start) {
+                $end->addDay();
+            }
+
+            // The format for iCal must be in UTC, the Z at the end indicates this
+            $ical .= "DTSTAMP:" . now()->timezone('UTC')->format('Ymd\THis\Z') . "\r\n";
+            $ical .= "DTSTART:" . $start->format('Ymd\THis') . "\r\n";
+            $ical .= "DTEND:" . $end->format('Ymd\THis') . "\r\n";
+
+            $summary = "Turno " . $shift->shiftType->name;
+            $ical .= "SUMMARY:" . $summary . "\r\n";
+            $ical .= "END:VEVENT\r\n";
+        }
+
+        $ical .= "END:VCALENDAR\r\n";
+
+        // Return with the appropriate headers to be recognized as a calendar file
+        return response($ical)
+            ->header('Content-Type', 'text/calendar; charset=utf-8')
+            ->header('Content-Disposition', 'attachment; filename="horario.ics"');
+    }
 }
 
 
