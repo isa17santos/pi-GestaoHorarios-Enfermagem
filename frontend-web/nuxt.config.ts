@@ -8,6 +8,8 @@ export default defineNuxtConfig({
     '~/assets/css/main.css',
     '~/assets/css/schedule-create.css',
     '~/assets/css/schedule-create-grid.css',
+    '~/assets/css/swaps.css',
+    '~/assets/css/swap-create.css',
   ],
 
   runtimeConfig: {

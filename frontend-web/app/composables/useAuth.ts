@@ -1,5 +1,6 @@
 // Represents the authenticated user data stored in the frontend session state
 type AuthUser = {
+  id: number
   name: string
   email: string
   role: string

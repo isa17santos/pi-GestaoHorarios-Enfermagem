@@ -18,6 +18,58 @@ use OpenApi\Attributes as OA;
 
 class ShiftController extends Controller
 {
+    #[OA\Get(
+        path: '/api/shifts',
+        summary: 'List shifts with optional filters',
+        security: [['bearerAuth' => []]],
+        tags: ['Shifts'],
+        parameters: [
+            new OA\Parameter(
+                name: 'mine',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts assigned to the authenticated user',
+                schema: new OA\Schema(type: 'boolean')
+            ),
+            new OA\Parameter(
+                name: 'user_id',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts assigned to a specific user',
+                schema: new OA\Schema(type: 'integer')
+            ),
+            new OA\Parameter(
+                name: 'from',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts with shift_date >= from (YYYY-MM-DD)',
+                schema: new OA\Schema(type: 'string', format: 'date')
+            ),
+            new OA\Parameter(
+                name: 'future',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts with shift_date > today',
+                schema: new OA\Schema(type: 'boolean')
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Successful response with data array of shifts',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'array',
+                            items: new OA\Items(type: 'object')
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ]
+    )]
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Shift::query()
@@ -25,22 +77,33 @@ class ShiftController extends Controller
 
         // Apply assignment-based filters from query params.
         if ($request->filled('user_id')) {
+            // Keep only shifts assigned to the explicit user passed in the query.
             $query->whereHas('users', function ($q) use ($request): void {
                 $q->where('users.id', (int) $request->query('user_id'));
             });
         }
 
         if ($request->boolean('mine')) {
+            // Restrict results to shifts where the authenticated user is assigned.
             $query->whereHas('users', function ($q) use ($request): void {
                 $q->where('users.id', $request->user()->id);
             });
         }
 
+        if ($request->boolean('exclude_mine')) {
+            // Remove shifts that already include the authenticated user.
+            $query->whereDoesntHave('users', function ($q) use ($request): void {
+                $q->where('users.id', $request->user()->id);
+            });
+        }
+
         if ($request->filled('from')) {
+            // Return only shifts on or after the provided start date.
             $query->whereDate('shift_date', '>=', (string) $request->query('from'));
         }
 
         if ($request->boolean('future')) {
+            // Keep only upcoming shifts relative to today's date.
             $query->whereDate('shift_date', '>', Carbon::today()->toDateString());
         }
 
