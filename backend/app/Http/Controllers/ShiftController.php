@@ -5,15 +5,52 @@ namespace App\Http\Controllers;
 use App\Enums\UserRole;
 use App\Http\Requests\Shift\StoreShiftRequest;
 use App\Http\Requests\Shift\UpdateShiftRequest;
+use App\Http\Resources\ShiftResource;
 use App\Models\Schedule;
 use App\Models\Shift;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 class ShiftController extends Controller
 {
+    public function index(Request $request): AnonymousResourceCollection
+    {
+        $query = Shift::query()
+            ->with(['shiftType', 'users']);
+
+        // Apply assignment-based filters from query params.
+        if ($request->filled('user_id')) {
+            $query->whereHas('users', function ($q) use ($request): void {
+                $q->where('users.id', (int) $request->query('user_id'));
+            });
+        }
+
+        if ($request->boolean('mine')) {
+            $query->whereHas('users', function ($q) use ($request): void {
+                $q->where('users.id', $request->user()->id);
+            });
+        }
+
+        if ($request->filled('from')) {
+            $query->whereDate('shift_date', '>=', (string) $request->query('from'));
+        }
+
+        if ($request->boolean('future')) {
+            $query->whereDate('shift_date', '>', Carbon::today()->toDateString());
+        }
+
+        $shifts = $query
+            ->orderBy('shift_date')
+            ->get();
+
+        return ShiftResource::collection($shifts);
+    }
+
     #[OA\Post(
         path: '/api/shifts',
         summary: 'Cria um turno individual',

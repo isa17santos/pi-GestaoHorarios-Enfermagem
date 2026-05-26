@@ -112,6 +112,7 @@ class AuthController extends Controller
             'message' => __('auth.login_success'),
             'token' => $token,
             'user' => [
+                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role instanceof \BackedEnum ? $user->role->value : $user->role,
