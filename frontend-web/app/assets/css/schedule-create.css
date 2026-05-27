@@ -422,7 +422,49 @@
     width: 42px;
   }
 
-  .schedule-month-picker__months {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .schedule-month-picker__panel {
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    width: auto !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+  
+  
+  .schedule-month-picker__header .schedule-secondary-button {
+    width: 36px !important;
+    min-width: 36px !important;
+    max-width: 36px !important;
+    height: 36px !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    border-radius: 10px !important;
+  }
+  
+  .schedule-month-picker__header .schedule-secondary-button:first-of-type::before {
+    content: '‹' !important;
+    font-size: 1.4rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-strong) !important;
+    line-height: 1 !important;
+    display: inline-block;
+  }
+  
+  .schedule-month-picker__header .schedule-secondary-button:last-of-type::before {
+    content: '›' !important;
+    font-size: 1.4rem !important;
+    font-weight: 700 !important;
+    color: var(--primary-strong) !important;
+    line-height: 1 !important;
+    display: inline-block;
+  }
+  .schedule-month-picker__header strong {
+    font-size: 0.95rem !important;
+    flex-shrink: 0 !important;
   }
 }

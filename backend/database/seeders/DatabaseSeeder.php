@@ -374,7 +374,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // 2. Generate DRAFT for August 2026
+        // Generate DRAFT for August 2026
         $draftScheduleId = DB::table('schedules')->insertGetId([
             'created_by' => $headNurseId,
             'start_date' => '2026-08-01',

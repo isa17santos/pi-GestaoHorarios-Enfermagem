@@ -599,13 +599,13 @@ class ScheduleController extends Controller
             }
 
 
-            // 1. Clone the Schedule
+            // Clone the Schedule
             $revision = $original->replicate();
             $revision->status = 'revision';
             $revision->parent_id = $original->id;
             $revision->save();
 
-            // 2. Clone shifts and assignments
+            // Clone shifts and assignments
             foreach ($original->shifts as $shift) {
                 $newShift = $shift->replicate();
                 $newShift->schedule_id = $revision->id;
@@ -1183,10 +1183,10 @@ class ScheduleController extends Controller
                 return $shift->shift_date?->toDateString() . '_' . ($shift->shiftType?->id ?? 'null');
             })
             ->map(function ($groupedShifts): array {
-                // Usamos o primeiro turno do grupo para extrair os dados gerais do turno
+                // We use the first shift in the group to extract the general shift data
                 $firstShift = $groupedShifts->first();
 
-                // Agrupa todos os utilizadores associados a todos os turnos deste grupo
+                // Gathers all users associated with all shifts in this group
                 $users = $groupedShifts->flatMap(function (Shift $shift) {
                     return $shift->users;
                 })
@@ -1225,7 +1225,7 @@ class ScheduleController extends Controller
     }
 
 
-        #[OA\Get(
+    #[OA\Get(
         path: '/api/schedules/ical',
         summary: 'Exporta os turnos do utilizador no formato iCal',
         tags: ['Schedules'],
