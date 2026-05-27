@@ -41,6 +41,37 @@ const tooltipY         = ref(0)
 const timeIndicatorTop = ref('0px')
 let timeIntervalId: any = null
 
+// Polling silencioso para detetar atualizações de horário em tempo real
+const hasScheduleChanges = ref(false)
+const lastShiftsHash = ref<string | null>(null)
+let checkIntervalId: any = null
+const refreshPage = () => {
+  if (process.client) {
+    window.location.reload()
+  }
+}
+const pollWeeklySchedule = async () => {
+  // Verifies only if it is not loading, if there are no errors and if no changes have been detected
+  if (loading.value || hasScheduleChanges.value || error.value) return
+  try {
+    const config   = useRuntimeConfig()
+    const response = await $fetch<{ data: { shifts: any[] } }>(`${config.public.apiBase}/schedules/weekly`, {
+      headers: { Authorization: `Bearer ${token.value}` },
+      query: { date: getLocalDateStr(startOfWeek.value), view: currentView.value },
+    })
+    
+    const newShifts = response.data.shifts || []
+    const newHash = JSON.stringify(newShifts)
+    
+    // If we already have data loaded in the session and the new hash is different, alert the user
+    if (lastShiftsHash.value !== null && newHash !== lastShiftsHash.value) {
+      hasScheduleChanges.value = true
+    }
+  } catch (err) {
+    console.warn('Erro silencioso ao verificar atualização do horário:', err)
+  }
+}
+
 const hoursList = [
   '00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00',
   '08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00',
@@ -275,6 +306,7 @@ const getShortNursesList = (users: any[]): string => {
 const fetchWeeklySchedule = async () => {
   loading.value = true
   error.value   = null
+  hasScheduleChanges.value = false 
   try {
     const config   = useRuntimeConfig()
     const response = await $fetch<{ data: { shifts: any[] } }>(`${config.public.apiBase}/schedules/weekly`, {
@@ -282,6 +314,7 @@ const fetchWeeklySchedule = async () => {
       query: { date: getLocalDateStr(startOfWeek.value), view: currentView.value },
     })
     weeklyShifts.value = response.data.shifts || []
+    lastShiftsHash.value = JSON.stringify(response.data.shifts || [])
   } catch (err) {
     console.error(err)
     error.value = viewTexts.value.errorLoading
@@ -418,6 +451,9 @@ onMounted(async () => {
   updateTimeIndicator()
   timeIntervalId = setInterval(updateTimeIndicator, 60000)
 
+  // Iniciates the periodic verification every 15 seconds
+  checkIntervalId = setInterval(pollWeeklySchedule, 15000)
+
   await fetchWeeklySchedule()
   try { await fetchShiftTypes() } catch (err) { console.warn(err) }
 
@@ -435,7 +471,10 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => { if (timeIntervalId) clearInterval(timeIntervalId) })
+onBeforeUnmount(() => { 
+  if (timeIntervalId) clearInterval(timeIntervalId) 
+  if (checkIntervalId) clearInterval(checkIntervalId) 
+})
 
 const getPrintDayAllDayGroups = (dateStr: string, shifts: any[]) => {
   const dayShifts = shifts.filter(s => s.date === dateStr && isAllDay(s.shift_type))
@@ -571,7 +610,6 @@ const generateMonthlyPdf = async () => {
 
     await nextTick()
     
-    // Importações dinâmicas das bibliotecas nativas de desenho
     const html2canvasModule = (await import('html2canvas')) as any
     const html2canvas = html2canvasModule.default || html2canvasModule
     const jspdfModule = (await import('jspdf')) as any
@@ -584,7 +622,6 @@ const generateMonthlyPdf = async () => {
           throw new Error("Nenhuma página encontrada para gerar.")
         }
 
-        // Inicializa o PDF com o construtor nativo em formato A4
         const pdf = new jsPDFConstructor({
           orientation: 'portrait',
           unit: 'mm',
@@ -594,7 +631,6 @@ const generateMonthlyPdf = async () => {
         for (let i = 0; i < pages.length; i++) {
           const pageElement = pages[i] as HTMLElement
 
-          // Captura a página de forma totalmente estanque (Garante alinhamento absoluto a 0px)
           const canvas = await html2canvas(pageElement, {
             scale: 2,
             useCORS: true,
@@ -610,11 +646,9 @@ const generateMonthlyPdf = async () => {
             pdf.addPage()
           }
 
-          // Desenha a imagem ocupando exatamente os limites físicos da folha A4 (210mm x 297mm)
           pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297)
         }
 
-        // Grava o documento final compilado sem erros acumulados
         pdf.save(`horario_mensal_${month + 1}_${year}.pdf`)
 
         isGeneratingPdf.value = false
@@ -673,6 +707,36 @@ const generateMonthlyPdf = async () => {
       </div>
 
       <template v-else>
+        <!-- Banner Warning of changes in real time -->
+        <transition name="fade">
+          <div v-if="hasScheduleChanges" class="schedule-alert-banner">
+            <div class="alert-content">
+              <div class="alert-icon-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20" class="pulse-icon">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </div>
+              <p class="alert-message">
+                <span v-if="currentLocale === 'pt'">
+                  Este horário sofreu alterações recentes. Por favor, atualize a página para ver a versão mais recente.
+                </span>
+                <span v-else>
+                  This schedule has been recently updated. Please refresh the page to view the latest version.
+                </span>
+              </p>
+            </div>
+            <button class="alert-btn" @click="refreshPage">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              {{ currentLocale === 'pt' ? 'Atualizar' : 'Refresh' }}
+            </button>
+          </div>
+        </transition>
+
         <!-- iCal Banner -->
         <transition name="fade">
           <div v-if="isBannerVisible" class="ical-export-banner">
@@ -997,7 +1061,7 @@ const generateMonthlyPdf = async () => {
         </div>
       </div>
     </transition>
-        <!-- Modal Instruções Passo a Passo -->
+        <!-- Modal Instructions -->
     <transition name="fade">
       <div v-if="isInstructionsModalOpen" class="modal-overlay" @click.self="isInstructionsModalOpen = false">
         <div class="modal-card">
@@ -1020,13 +1084,21 @@ const generateMonthlyPdf = async () => {
             </h3>
             <ol class="ical-steps" style="margin-bottom: 15px;">
               <li><span v-html="currentLocale === 'pt' ? 'Clique no botão <strong>iCal</strong> nesta página e copie o link gerado.' : 'Click the <strong>iCal</strong> button on this page and copy the generated link.'"></span></li>
-              <li><span v-html="currentLocale === 'pt' ? 'No seu iPhone, abra o browser.' : 'On your iPhone, open the browser.'"></span></li>
               <li><span v-html="currentLocale === 'pt' ? 'Cole o link na barra de pesquisa e prima <strong>Ir</strong>.' : 'Paste the link in the search bar and press <strong>Enter</strong>.'"></span></li>
-              <li><span v-html="currentLocale === 'pt' ? 'O telemóvel vai perguntar se pretende subscrever o calendário. Carregue em <strong>Subscrever</strong>.' : 'The phone will ask if you want to subscribe to the calendar. Tap <strong>Subscribe</strong>.'"></span></li>
+              <li><span v-html="currentLocale === 'pt' ? 'Será imediatamente aberto o horário no calendário. Basta salvar.' : 'The schedule will be immediately opened in the calendar. Just save it.'"></span></li>
             </ol>
 
             <h3 style="margin: 10px 0 5px; font-size: 1rem; color: var(--text);">
-              {{ currentLocale === 'pt' ? 'No Google Calendar (Android / PC)' : 'On Google Calendar (Android / PC)' }}
+              {{ currentLocale === 'pt' ? 'No Android' : 'On Android' }}
+            </h3>
+            <ol class="ical-steps">
+              <li><span v-html="currentLocale === 'pt' ? 'Clique no botão <strong>iCal</strong> nesta página e copie o link gerado.' : 'Click the <strong>iCal</strong> button on this page and copy the generated link.'"></span></li>
+              <li><span v-html="currentLocale === 'pt' ? 'Cole o link na barra de pesquisa e prima <strong>Ir</strong>. Será descarregado um ficheiro .ics.' : 'Paste the link in the search bar and press <strong>Enter</strong>. It will download a .ics file.'"></span></li>
+              <li><span v-html="currentLocale === 'pt' ? 'Abra o fichero transferido com a sua aplicação do calendário e carregue em <strong>Salvar</strong>.' : 'Open the transfered file with your calendar app and click <strong>Save</strong>.'"></span></li>
+            </ol>
+
+            <h3 style="margin: 10px 0 5px; font-size: 1rem; color: var(--text);">
+              {{ currentLocale === 'pt' ? 'No Google Calendar' : 'On Google Calendar' }}
             </h3>
             <ol class="ical-steps">
               <li><span v-html="currentLocale === 'pt' ? 'Clique no botão <strong>iCal</strong> nesta página e copie o link gerado.' : 'Click the <strong>iCal</strong> button on this page and copy the generated link.'"></span></li>
@@ -1034,7 +1106,6 @@ const generateMonthlyPdf = async () => {
               <li><span v-html="currentLocale === 'pt' ? 'Abra o  <strong>Google Calendar</strong>.' : 'Open the <strong>Google Calendar</strong>.'"></span></li>
               <li><span v-html="currentLocale === 'pt' ? 'No menu do lado esquerdo, ao lado de Outros calendários, clique no sinal <strong>+</strong> e escolha <strong>Importar</strong>.' : 'In the left menu, next to Other calendars, click the <strong>+</strong> sign and choose <strong>Import</strong>.'"></span></li>
               <li><span v-html="currentLocale === 'pt' ? 'Importe o ficheiro .ics descarregado e clique em <strong>Adicionar agenda</strong>.' : 'Import the downloaded .ics file and click <strong>Add calendar</strong>.'"></span></li>
-              <li><span v-html="currentLocale === 'pt' ? 'No seu telemóvel Android, abra a app Calendário, vá às definições e sincronize para ver as alterações.' : 'On your Android phone, open the Calendar app, go to settings and sync to see the changes.'"></span></li>
             </ol>
           </div>
           <div class="modal-actions">
@@ -1046,14 +1117,14 @@ const generateMonthlyPdf = async () => {
       </div>
     </transition>
 
-         <!-- ZONA INVISÍVEL PARA GERAR O PDF EM SEGUNDO PLANO -->
+    <!-- PDF  -->
     <div v-if="monthlyWeeks.length > 0" style="position: absolute; left: -9999px; top: 0; width: 1200px; z-index: -1;">
       <div id="pdf-content" style="background: white; padding: 0; margin: 0; width: 1200px; box-sizing: border-box;">
         <div v-for="(weekData, index) in monthlyWeeks" :key="index">
           
-          <!-- Turnos da Semana (Página 1 do Par de Páginas da Semana) -->
+          <!-- Shifts per week -->
           <div class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
-            <!-- Header da Página -->
+            <!-- Header -->
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 25px;">
               <img src="~/assets/images/logotipo.png" alt="ShiftCare" style="height: 42px;" />
               <div style="text-align: right;">
@@ -1066,10 +1137,10 @@ const generateMonthlyPdf = async () => {
               </div>
             </div>
 
-            <!-- Contentor Principal da Grelha -->
+            <!-- Grid -->
             <div class="weekly-grid-container" style="background: white; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
               
-              <!-- Cabeçalho dos Dias -->
+              <!-- Days Header -->
               <div class="weekly-grid-header" style="background: #f8fafc; border-bottom: 1px solid #cbd5e1;">
                 <div class="time-header-spacer" style="border-right: 1px solid #cbd5e1;"></div>
                 <div class="days-header-grid">
@@ -1080,7 +1151,7 @@ const generateMonthlyPdf = async () => {
                 </div>
               </div>
 
-              <!-- Linha de Turnos de Dia Inteiro -->
+              <!-- All day shifts line -->
               <div class="weekly-grid-allday" style="background: #ffffff; border-bottom: 1px solid #cbd5e1;">
                 <div class="allday-label-spacer" style="border-right: 1px solid #cbd5e1;">
                   <span style="font-weight: 700; color: #64748b;">{{ currentLocale === 'pt' ? 'Dia inteiro' : 'All day' }}</span>
@@ -1108,13 +1179,13 @@ const generateMonthlyPdf = async () => {
                 </div>
               </div>
 
-              <!-- Corpo Principal do Horário -->
+              <!-- grids main boday -->
               <div class="weekly-grid-body" style="background: #ffffff; border: none; height: 624px; max-height: 624px; overflow: hidden;">
                 <!-- Coluna das Horas -->
                 <div class="time-column" style="border-right: 1px solid #cbd5e1; background: #f8fafc; height: 624px;">
                   <div v-for="hour in hoursList" :key="hour" class="time-slot-label" style="border-bottom: none; display: flex; align-items: flex-start; justify-content: center; height: 26px; font-weight: 700; color: #64748b;">{{ hour }}</div>
                 </div>
-                <!-- Grelha de Turnos por Horas -->
+                <!-- hours -->
                 <div class="days-grid" style="height: 624px;">
                   <div class="grid-bg-lines" style="height: 624px;">
                     <div v-for="hour in hoursList" :key="hour" class="grid-bg-line" style="border-bottom: 1px dashed #e2e8f0; height: 26px;"></div>
@@ -1158,7 +1229,7 @@ const generateMonthlyPdf = async () => {
             </div>
           </div>
 
-          <!-- Resumo da Equipa (Página 2 do Par de Páginas da Semana) -->
+          <!-- nurses table -->
           <div class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
             <!-- Header da Página -->
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 30px;">
@@ -1173,13 +1244,10 @@ const generateMonthlyPdf = async () => {
               </div>
             </div>
 
-            <!-- Secção do Resumo Diário -->
             <div style="flex-grow: 1; display: flex; flex-direction: column;">
               <h3 style="margin: 0 0 20px 0; font-size: 1.25rem; color: #1e293b; font-weight: 700; border-left: 4px solid #7c3aed; padding-left: 12px; line-height: 1.2; font-family: inherit;">
                 {{ currentLocale === 'pt' ? 'Distribuição de Turnos por Dia' : 'Daily Shift Distribution' }}
               </h3>
-              
-              <!-- Layout em 2 Colunas Verticais -->
               <div style="column-count: 2; column-gap: 30px; font-size: 0.9rem; color: #334155;">
                 <div v-for="day in weekData.weekDays" :key="'legend-' + getLocalDateStr(day)" 
                   style="break-inside: avoid; margin-bottom: 20px; background: #f8fafc; padding: 15px; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
@@ -1189,7 +1257,7 @@ const generateMonthlyPdf = async () => {
                   </strong>
                   
                   <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Turnos de Dia Inteiro -->
+                    <!-- All day shifts -->
                     <div v-for="(group, idx) in getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts)" :key="'leg-all-' + idx" 
                       style="display: flex; align-items: flex-start; line-height: 1.4;">
                       <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
@@ -1200,7 +1268,7 @@ const generateMonthlyPdf = async () => {
                       </div>
                     </div>
                     
-                    <!-- Turnos por Horas -->
+                    <!-- Shifts per hour -->
                     <div v-for="seg in getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts)" :key="'leg-' + seg.id" 
                       style="display: flex; align-items: flex-start; line-height: 1.4;">
                       <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
@@ -1211,7 +1279,7 @@ const generateMonthlyPdf = async () => {
                       </div>
                     </div>
                     
-                    <!-- Sem Escalas -->
+                    <!-- No Shifts -->
                     <div v-if="getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts).length === 0 && getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts).length === 0" 
                       style="color: #94a3b8; font-style: italic; padding: 4px 0;">
                       {{ currentLocale === 'pt' ? 'Sem turnos registados' : 'No shifts scheduled' }}

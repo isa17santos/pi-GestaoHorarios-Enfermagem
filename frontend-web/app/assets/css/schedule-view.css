@@ -947,17 +947,87 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-  .schedule-controls-row { flex-direction: column; align-items: stretch; }
-  .nav-controls          { flex-wrap: wrap; justify-content: space-between; }
-  .week-range-label      { width: 100%; margin-left: 0; margin-top: 4px; font-size: 1rem; }
-  .view-actions          { justify-content: space-between; }
-  .view-toggle           { flex-grow: 1; }
-  .toggle-btn            { flex-grow: 1; justify-content: center; }
+  .schedule-controls-row { 
+    flex-direction: column; 
+    align-items: stretch; 
+    gap: 16px; 
+  }
+
+  .nav-controls { 
+    flex-wrap: wrap; 
+    justify-content: flex-start; 
+    gap: 12px; 
+    width: 100%;
+  }
+
+  .nav-arrows { 
+    display: flex; 
+    gap: 6px; 
+  }
+
+  .nav-btn, .toggle-btn, .alert-btn {
+    flex-shrink: 0 !important;
+  }
+
+  .week-range-label { 
+    width: 100%; 
+    margin-left: 0; 
+    margin-top: 8px; 
+    font-size: 1.1rem; 
+    font-weight: 700;
+  }
+
+  .view-actions { 
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  /* iCal */
+  .view-actions > *:nth-child(1) {
+    order: 1 !important;
+    flex: 1 0 auto !important;
+    justify-content: center !important;
+  }
+
+  /* PDF */
+  .view-actions > *:nth-child(2) {
+    order: 2 !important;
+    flex: 1 0 auto !important;
+    margin-left: 0 !important; /* Anula o margin-left de 8px inline no telemóvel */
+    justify-content: center !important;
+  }
+
+  /* Print */
+  .view-actions > .print-btn {
+    order: 3 !important;
+    flex: 1 0 auto !important;
+    justify-content: center !important;
+  }
+
+  /* Toggle Pessonal/Global view*/
+  .view-actions > .view-toggle {
+    order: 4 !important;
+    width: 100% !important;
+    flex-basis: 100% !important;
+    margin-top: 8px !important;
+    display: flex !important;
+  }
+
+  .view-actions > .view-toggle .toggle-btn {
+    flex-grow: 1 !important;
+    justify-content: center !important;
+  }
+
   .weekly-grid-container { overflow-x: auto; }
   .weekly-grid-header,
   .weekly-grid-allday,
   .weekly-grid-body      { min-width: 850px; }
 }
+
+
 
 /* Print */
 @media print {
@@ -1046,5 +1116,98 @@
     font-size: 0.65rem !important;
     margin-left: 2px !important;
     flex-shrink: 0 !important; 
+  }
+}
+
+
+
+/* Banner modified schedule */
+.schedule-alert-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(255, 200, 139, 0.16) 0%, rgba(247, 155, 50, 0.08) 100%);
+  border: 1px solid rgba(247, 155, 50, 0.3);
+  border-radius: 14px;
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(247, 155, 50, 0.04);
+  animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 16px;
+  flex-wrap: wrap;
+  backdrop-filter: blur(8px);
+}
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-grow: 1;
+}
+.alert-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--danger);
+  background: rgba(247, 155, 50, 0.12);
+  padding: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pulse-icon {
+  animation: pulse 2.5s infinite ease-in-out;
+}
+.alert-message {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #a8660a; 
+  margin: 0;
+  line-height: 1.5;
+}
+.alert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5d9b5; /* Fundo branco alinhado com o estilo .nav-btn */
+  color: #a8660a; 
+  border: 1px solid rgba(247, 155, 50, 0.4);
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(247, 155, 50, 0.05);
+}
+.alert-btn:hover {
+  background: rgba(247, 155, 50, 0.08); /* Efeito hover em tom pêssego suave */
+  border-color: var(--danger);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(247, 155, 50, 0.12);
+}
+.alert-btn:active {
+  transform: translateY(0);
+}
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
