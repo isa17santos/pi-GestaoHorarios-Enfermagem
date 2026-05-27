@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
+const isGeneratingPdf = ref(false)
+const monthlyWeeks = ref<any[]>([])
+
 definePageMeta({
   middleware: 'auth',
 })
@@ -12,7 +15,7 @@ const { currentLocale, texts } = useScheduleTexts()
 
 
 // ------- Scale Constants --------
-const PX_PER_HOUR = 38
+const PX_PER_HOUR = 26
 const PX_PER_MIN  = PX_PER_HOUR / 60
 
 
@@ -361,7 +364,7 @@ const hideTooltip = () => {
   tooltipUsers.value  = []
 }
 
-// ------------------ iCal & Print ------------------
+// ------------------ iCal , PDF & Print ------------------
 const mockIcalLink = computed(() => {
   if (!process.client) return ''
   
@@ -395,7 +398,18 @@ const copyIcalLink = async () => {
   }
 }
 
+const goToPrintMonth = () => {
+  window.open(`/print-month?date=${getLocalDateStr(startOfWeek.value)}&view=${currentView.value}`, '_blank')
+}
+
+
+const getAllNursesList = (users: any[], fallback = 'Sem enfermeiros'): string => {
+  if (!users || users.length === 0) return fallback
+  return users.map(u => u.name).join(', ')
+}
+
 const printSchedule = () => { if (process.client) window.print() }
+
 
 // ------------------- Lifecycle -------------------
 watch([currentView, startOfWeek], fetchWeeklySchedule)
@@ -422,6 +436,200 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => { if (timeIntervalId) clearInterval(timeIntervalId) })
+
+const getPrintDayAllDayGroups = (dateStr: string, shifts: any[]) => {
+  const dayShifts = shifts.filter(s => s.date === dateStr && isAllDay(s.shift_type))
+  const groups: Record<number, any> = {}
+  dayShifts.forEach(shift => {
+    const typeId = shift.shift_type?.id || 0
+    if (!groups[typeId]) {
+      groups[typeId] = { shift_type: shift.shift_type, users: [...shift.users], shift }
+    } else {
+      groups[typeId].users.push(...shift.users)
+    }
+  })
+  return Object.values(groups)
+}
+
+const getPrintDayTimedSegments = (dateStr: string, shifts: any[]) => {
+  const segments: any[] = []
+  const dayShifts = shifts.filter(s => s.date === dateStr && !isAllDay(s.shift_type))
+  
+  dayShifts.forEach(shift => {
+    const st = shift.shift_type
+    const startTime:string = st.start_time || '08:00:00'
+    const endTime:string = st.end_time   || '16:00:00'
+    const startH = parseInt(startTime.split(':')[0] ?? '0')
+    const startM = parseInt(startTime.split(':')[1] ?? '0')
+    const startMins = startH * 60 + startM
+
+    if (isMidnightCrossing(startTime, endTime)) {
+      segments.push({ id: `${shift.id}_seg1`, shift, startMins, endMins: 1440, isSeg2: false })
+    } else {
+      let endH = parseInt(endTime.split(':')[0] ?? '0')
+      const endM = parseInt(endTime.split(':')[1] ?? '0')
+      if (endTime === '00:00:00') endH = 24
+      segments.push({ id: `${shift.id}_normal`, shift, startMins, endMins: endH * 60 + endM, isSeg2: false })
+    }
+  })
+
+  const [y = 0, mo = 0, d = 0] = dateStr.split('-').map(Number)
+  const prevDateStr = getLocalDateStr(new Date(y, mo - 1, d - 1))
+  const prevDayShifts = shifts.filter(s => s.date === prevDateStr && !isAllDay(s.shift_type))
+  
+  prevDayShifts.forEach(shift => {
+    const st = shift.shift_type
+    const startTime: string = st.start_time || '08:00:00'
+    const endTime:   string = st.end_time   || '16:00:00'
+    if (isMidnightCrossing(startTime, endTime)) {
+      const endH  = parseInt(endTime.split(':')[0] ?? '0')
+      const endM  = parseInt(endTime.split(':')[1] ?? '0')
+      segments.push({ id: `${shift.id}_seg2`, shift, startMins: 0, endMins: endH * 60 + endM, isSeg2: true })
+    }
+  })
+
+  const sorted = [...segments].sort((a, b) => a.startMins - b.startMins || a.id.localeCompare(b.id))
+  const laneEndTimes: number[] = []
+  for (const seg of sorted) {
+    let lane = laneEndTimes.findIndex(et => et <= seg.startMins)
+    if (lane === -1) {
+      lane = laneEndTimes.length
+      laneEndTimes.push(seg.endMins)
+    } else {
+      laneEndTimes[lane] = seg.endMins
+    }
+    seg.lane = lane
+  }
+  const totalLanes = laneEndTimes.length || 1
+  segments.forEach(seg => { seg.totalLanes = totalLanes })
+  return segments
+}
+
+const getWeekRangeLabel = (start: Date) => {
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  const monthsPt = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const sd = start.getDate()
+  const ed = end.getDate()
+  const sm = currentLocale.value === 'pt' ? monthsPt[start.getMonth()] : monthsEn[start.getMonth()]
+  const em = currentLocale.value === 'pt' ? monthsPt[end.getMonth()] : monthsEn[end.getMonth()]
+  const sy = start.getFullYear()
+  const ey = end.getFullYear()
+  if (sy !== ey) return `${sd} ${sm} ${sy} – ${ed} ${em} ${ey}`
+  if (start.getMonth() !== end.getMonth()) {
+    return currentLocale.value === 'pt'
+      ? `${sd} ${sm} – ${ed} ${em} de ${sy}`
+      : `${sm} ${sd} – ${em} ${ed}, ${sy}`
+  }
+  return currentLocale.value === 'pt'
+    ? `${sd} – ${ed} de ${sm}. de ${sy}`
+    : `${sm} ${sd} – ${ed}, ${sy}`
+}
+
+const generateMonthlyPdf = async () => {
+  if (isGeneratingPdf.value) return
+  isGeneratingPdf.value = true
+  
+  const queryDate = new Date(startOfWeek.value)
+  const view = currentView.value
+  const year = queryDate.getFullYear()
+  const month = queryDate.getMonth()
+  
+  const weeks = []
+  let d = new Date(year, month, 1)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  d.setDate(diff)
+  
+  while (d.getMonth() === month || d < new Date(year, month + 1, 0)) {
+    weeks.push(new Date(d))
+    d.setDate(d.getDate() + 7)
+  }
+
+  const config = useRuntimeConfig()
+  try {
+    const promises = weeks.map(wDate => 
+      $fetch<{ data: { shifts: any[] } }>(`${config.public.apiBase}/schedules/weekly`, {
+        headers: { Authorization: `Bearer ${token.value}` },
+        query: { date: getLocalDateStr(wDate), view },
+      })
+    )
+    const responses = await Promise.all(promises)
+    
+    monthlyWeeks.value = weeks.map((weekStartDate, i) => {
+      return {
+        startDate: weekStartDate,
+        weekDays: Array.from({ length: 7 }, (_, idx) => {
+          const wd = new Date(weekStartDate)
+          wd.setDate(weekStartDate.getDate() + idx)
+          return wd
+        }),
+        shifts: responses[i]?.data?.shifts || []
+      }
+    })
+
+    await nextTick()
+    
+    // Importações dinâmicas das bibliotecas nativas de desenho
+    const html2canvasModule = (await import('html2canvas')) as any
+    const html2canvas = html2canvasModule.default || html2canvasModule
+    const jspdfModule = (await import('jspdf')) as any
+    const jsPDFConstructor = jspdfModule.jsPDF || jspdfModule.default?.jsPDF || jspdfModule.default || jspdfModule
+    
+    setTimeout(async () => {
+      try {
+        const pages = document.querySelectorAll('.pdf-page')
+        if (pages.length === 0) {
+          throw new Error("Nenhuma página encontrada para gerar.")
+        }
+
+        // Inicializa o PDF com o construtor nativo em formato A4
+        const pdf = new jsPDFConstructor({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        })
+
+        for (let i = 0; i < pages.length; i++) {
+          const pageElement = pages[i] as HTMLElement
+
+          // Captura a página de forma totalmente estanque (Garante alinhamento absoluto a 0px)
+          const canvas = await html2canvas(pageElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            windowWidth: 1200,
+            width: 1200,
+            height: 1600
+          })
+
+          const imgData = canvas.toDataURL('image/jpeg', 0.95)
+
+          if (i > 0) {
+            pdf.addPage()
+          }
+
+          // Desenha a imagem ocupando exatamente os limites físicos da folha A4 (210mm x 297mm)
+          pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297)
+        }
+
+        // Grava o documento final compilado sem erros acumulados
+        pdf.save(`horario_mensal_${month + 1}_${year}.pdf`)
+
+        isGeneratingPdf.value = false
+        monthlyWeeks.value = [] 
+      } catch (err) {
+        console.error("Erro interno ao gerar o PDF:", err)
+        isGeneratingPdf.value = false
+      }
+    }, 1500)
+
+  } catch (err) {
+    console.error("Erro ao buscar dados mensais:", err)
+    isGeneratingPdf.value = false
+  }
+}
 </script>
 
 <template>
@@ -524,6 +732,17 @@ onBeforeUnmount(() => { if (timeIntervalId) clearInterval(timeIntervalId) })
                 <line x1="3" y1="10" x2="21" y2="10"></line>
               </svg>
               <span>iCal</span>
+            </button>
+
+            <button class="nav-btn ical-info-btn" style="margin-left: 8px;" :title="currentLocale === 'pt' ? 'Exportar Mês PDF' : 'Export Month PDF'" @click="generateMonthlyPdf" :disabled="isGeneratingPdf">
+              <svg v-if="!isGeneratingPdf" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="16" height="16">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              <span>{{ isGeneratingPdf ? (currentLocale === 'pt' ? 'A gerar...' : 'Generating...') : 'PDF' }}</span>
             </button>
 
             <div class="view-toggle">
@@ -826,6 +1045,186 @@ onBeforeUnmount(() => { if (timeIntervalId) clearInterval(timeIntervalId) })
         </div>
       </div>
     </transition>
+
+         <!-- ZONA INVISÍVEL PARA GERAR O PDF EM SEGUNDO PLANO -->
+    <div v-if="monthlyWeeks.length > 0" style="position: absolute; left: -9999px; top: 0; width: 1200px; z-index: -1;">
+      <div id="pdf-content" style="background: white; padding: 0; margin: 0; width: 1200px; box-sizing: border-box;">
+        <div v-for="(weekData, index) in monthlyWeeks" :key="index">
+          
+          <!-- Turnos da Semana (Página 1 do Par de Páginas da Semana) -->
+          <div class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
+            <!-- Header da Página -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 25px;">
+              <img src="~/assets/images/logotipo.png" alt="ShiftCare" style="height: 42px;" />
+              <div style="text-align: right;">
+                <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800; color: #0f172a; font-family: inherit;">
+                  {{ currentLocale === 'pt' ? 'Escala Mensal de Turnos' : 'Monthly Shift Schedule' }}
+                </h2>
+                <span style="font-size: 0.95rem; font-weight: 600; color: #64748b; display: block; margin-top: 2px; font-family: inherit;">
+                  {{ getWeekRangeLabel(weekData.startDate) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Contentor Principal da Grelha -->
+            <div class="weekly-grid-container" style="background: white; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+              
+              <!-- Cabeçalho dos Dias -->
+              <div class="weekly-grid-header" style="background: #f8fafc; border-bottom: 1px solid #cbd5e1;">
+                <div class="time-header-spacer" style="border-right: 1px solid #cbd5e1;"></div>
+                <div class="days-header-grid">
+                  <div v-for="day in weekData.weekDays" :key="getLocalDateStr(day)" class="day-header" :class="{ 'is-weekend': isWeekend(day) }">
+                    <span class="day-name" style="font-weight: 700; color: #64748b;">{{ getDayOfWeekName(day) }}</span>
+                    <span class="day-date" style="font-weight: 800; color: #0f172a; margin-top: 4px;">{{ getDayOfMonth(day) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Linha de Turnos de Dia Inteiro -->
+              <div class="weekly-grid-allday" style="background: #ffffff; border-bottom: 1px solid #cbd5e1;">
+                <div class="allday-label-spacer" style="border-right: 1px solid #cbd5e1;">
+                  <span style="font-weight: 700; color: #64748b;">{{ currentLocale === 'pt' ? 'Dia inteiro' : 'All day' }}</span>
+                </div>
+                <div class="allday-columns-grid">
+                  <div v-for="day in weekData.weekDays" :key="'allday-' + getLocalDateStr(day)" class="allday-column" :class="{ 'is-weekend': isWeekend(day) }">
+                    <div v-for="(group, idx) in getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts)" :key="idx" class="allday-badge"
+                      :style="{
+                        backgroundColor: group.shift_type.color || '#f8fafc',
+                        borderLeftColor: adjustColorBrightness(group.shift_type.color || '#cbd5e1', -30),
+                        borderLeftWidth: '5px',
+                        borderLeftStyle: 'solid',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                      }">
+                      <span class="allday-badge-name" style="font-weight: 700; color: #0f172a;">{{ getShiftName(group.shift_type) }}</span>
+                      <div class="allday-badge-count" style="color: #0f172a; font-weight: 600;">
+                        {{ group.users.length }}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Corpo Principal do Horário -->
+              <div class="weekly-grid-body" style="background: #ffffff; border: none; height: 624px; max-height: 624px; overflow: hidden;">
+                <!-- Coluna das Horas -->
+                <div class="time-column" style="border-right: 1px solid #cbd5e1; background: #f8fafc; height: 624px;">
+                  <div v-for="hour in hoursList" :key="hour" class="time-slot-label" style="border-bottom: none; display: flex; align-items: flex-start; justify-content: center; height: 26px; font-weight: 700; color: #64748b;">{{ hour }}</div>
+                </div>
+                <!-- Grelha de Turnos por Horas -->
+                <div class="days-grid" style="height: 624px;">
+                  <div class="grid-bg-lines" style="height: 624px;">
+                    <div v-for="hour in hoursList" :key="hour" class="grid-bg-line" style="border-bottom: 1px dashed #e2e8f0; height: 26px;"></div>
+                  </div>
+                  
+                  <div v-for="day in weekData.weekDays" :key="'col-' + getLocalDateStr(day)" class="day-column" :class="{ 'is-weekend': isWeekend(day) }">
+                    <div v-for="seg in getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts)" :key="seg.id" class="shift-card"
+                      :style="{
+                        position: 'absolute',
+                        backgroundColor: seg.shift.shift_type?.color || '#f8fafc',
+                        borderLeftColor: adjustColorBrightness(seg.shift.shift_type?.color || '#cbd5e1', -30),
+                        borderLeftWidth: '5px',
+                        borderLeftStyle: 'solid',
+                        top: `${seg.startMins * PX_PER_MIN}px`,
+                        height: `${(seg.endMins - seg.startMins) * PX_PER_MIN}px`,
+                        left: `${(seg.lane / seg.totalLanes) * 100}%`,
+                        width: `${(1 / seg.totalLanes) * 100}%`,
+                        zIndex: 10 + seg.lane,
+                        padding: '6px',
+                        borderRadius: '6px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                        boxSizing: 'border-box'
+                      }">
+                      <div class="shift-card-header">
+                        <span class="shift-name" style="font-weight: 800; display: block; margin-bottom: 2px; color: #0f172a; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ getShiftName(seg.shift.shift_type) }}</span>
+                        <span class="shift-time" style="display: block; font-size: 0.72rem; color: #475569; font-weight: 600;">{{ formatSegmentTime(seg) }}</span>
+                      </div>
+                      <div class="shift-card-body">
+                        <div class="shift-nurses-count" style="font-weight: 800; color: #0f172a; margin-top: 4px; font-size: 0.8rem;">
+                          {{ seg.shift.users.length }}
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12" style="vertical-align: middle; margin-left: 2px;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumo da Equipa (Página 2 do Par de Páginas da Semana) -->
+          <div class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
+            <!-- Header da Página -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 30px;">
+              <img src="~/assets/images/logotipo.png" alt="ShiftCare" style="height: 42px;" />
+              <div style="text-align: right;">
+                <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800; color: #0f172a; font-family: inherit;">
+                  {{ currentLocale === 'pt' ? 'Resumo da Equipa' : 'Weekly Team Summary' }}
+                </h2>
+                <span style="font-size: 0.95rem; font-weight: 600; color: #64748b; display: block; margin-top: 2px; font-family: inherit;">
+                  {{ getWeekRangeLabel(weekData.startDate) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Secção do Resumo Diário -->
+            <div style="flex-grow: 1; display: flex; flex-direction: column;">
+              <h3 style="margin: 0 0 20px 0; font-size: 1.25rem; color: #1e293b; font-weight: 700; border-left: 4px solid #7c3aed; padding-left: 12px; line-height: 1.2; font-family: inherit;">
+                {{ currentLocale === 'pt' ? 'Distribuição de Turnos por Dia' : 'Daily Shift Distribution' }}
+              </h3>
+              
+              <!-- Layout em 2 Colunas Verticais -->
+              <div style="column-count: 2; column-gap: 30px; font-size: 0.9rem; color: #334155;">
+                <div v-for="day in weekData.weekDays" :key="'legend-' + getLocalDateStr(day)" 
+                  style="break-inside: avoid; margin-bottom: 20px; background: #f8fafc; padding: 15px; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                  
+                  <strong style="color: #0f172a; display: block; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 10px; font-size: 1rem; font-weight: 800;">
+                    {{ getDayOfWeekName(day) }}, {{ getDayOfMonth(day) }}
+                  </strong>
+                  
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Turnos de Dia Inteiro -->
+                    <div v-for="(group, idx) in getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts)" :key="'leg-all-' + idx" 
+                      style="display: flex; align-items: flex-start; line-height: 1.4;">
+                      <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
+                        :style="{ backgroundColor: group.shift_type.color || '#cbd5e1' }"></span>
+                      <div>
+                        <span style="font-weight: 700; color: #1e293b; margin-right: 6px;">{{ getShiftName(group.shift_type) }}:</span>
+                        <span style="color: #475569;">{{ group.users.length > 0 ? getAllNursesList(group.users, '-') : '-' }}</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Turnos por Horas -->
+                    <div v-for="seg in getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts)" :key="'leg-' + seg.id" 
+                      style="display: flex; align-items: flex-start; line-height: 1.4;">
+                      <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
+                        :style="{ backgroundColor: seg.shift.shift_type.color || '#cbd5e1' }"></span>
+                      <div>
+                        <span style="font-weight: 700; color: #1e293b; margin-right: 6px;">{{ getShiftName(seg.shift.shift_type) }}:</span>
+                        <span style="color: #475569;">{{ seg.shift.users.length > 0 ? getAllNursesList(seg.shift.users, 'Sem enfermeiros') : 'Sem enfermeiros' }}</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Sem Escalas -->
+                    <div v-if="getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts).length === 0 && getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts).length === 0" 
+                      style="color: #94a3b8; font-style: italic; padding: 4px 0;">
+                      {{ currentLocale === 'pt' ? 'Sem turnos registados' : 'No shifts scheduled' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
