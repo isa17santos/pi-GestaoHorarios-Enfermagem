@@ -88,3 +88,11 @@ const texts = computed(() => ({
     </div>
   </div>
 </template>
+
+<style scoped>
+@media print {
+  .dashboard-actions-group {
+    display: none !important;
+  }
+}
+</style>

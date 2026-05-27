@@ -117,7 +117,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'morning',
                 'color' => '#d9f3ff',
-                'start_time' => '07:00:00',
+                'start_time' => '08:00:00',
                 'end_time' => '16:00:00',
                 'min_nurses' => 3,
                 'created_at' => $now,
@@ -126,7 +126,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'afternoon',
                 'color' => '#dff7e8',
-                'start_time' => '15:00:00',
+                'start_time' => '16:00:00',
                 'end_time' => '00:00:00',
                 'min_nurses' => 3,
                 'created_at' => $now,
@@ -135,7 +135,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'night',
                 'color' => '#fff3d6',
-                'start_time' => '23:00:00',
+                'start_time' => '00:00:00',
                 'end_time' => '08:00:00',
                 'min_nurses' => 3,
                 'created_at' => $now,

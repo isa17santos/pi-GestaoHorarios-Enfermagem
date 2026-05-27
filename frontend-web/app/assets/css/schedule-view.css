@@ -431,8 +431,8 @@
   display: flex;
   position: relative;
   background: rgba(255, 255, 255, 0.3);
-  max-height: 620px;
-  overflow-y: scroll;
+  max-height: 624px;
+  overflow: hidden;
 }
 
 /* Hour Column */
@@ -443,11 +443,11 @@
   flex-direction: column;
   background: rgba(255, 255, 255, 0.5);
   border-right: 1px solid var(--line);
-  height: 944px; 
+  height: 624px; 
 }
 
 .time-slot-label {
-  height: 38px;          
+  height: 26px;          
   flex-shrink: 0;         
   display: flex;
   align-items: flex-start; 
@@ -463,9 +463,9 @@
   flex-grow: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: 912px; 
+  grid-template-rows: 624px; 
   position: relative;
-  height: 944px;
+  height: 624px;
 }
 
 /* Background Lines */
@@ -479,7 +479,7 @@
 }
 
 .grid-bg-line {
-  height: 38px;          
+  height: 26px;          
   border-bottom: 1px dashed rgba(126, 90, 181, 0.12);
   box-sizing: border-box;
   flex-shrink: 0;
@@ -961,9 +961,23 @@
 
 /* Print */
 @media print {
+  /* Removes the default headers and footers from the browser (Date, Link, Page) */
+  @page {
+    margin: 0; 
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   .back-link, .uc-top-bar, .schedule-controls-row,
   .schedule-legend, .ical-export-banner,
-  header, nav, .dashboard-header, .dashboard-greeting { display: none !important; }
+  header, nav, .dashboard-header, .dashboard-greeting,
+  .dashboard-actions-group, 
+  .time-indicator { 
+    display: none !important; 
+  }
 
   body, .dashboard-layout, .dashboard-content, .hr-content {
     margin: 0 !important;
@@ -972,12 +986,24 @@
     box-shadow: none !important;
   }
 
+  .dashboard-layout {
+    padding: 60px 50px !important;
+    box-sizing: border-box !important;
+  }
+
+  .dashboard-logo-img {
+    height: 40px !important;
+    margin-bottom: 20px !important;
+  }
+
   .weekly-grid-container {
     border: 1px solid #cbd5e1 !important;
     border-radius: 0 !important;
     background: white !important;
     width: 100% !important;
     overflow: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .weekly-grid-header,
@@ -990,20 +1016,35 @@
   }
 
   .days-grid { 
-    grid-template-rows: 800px !important; 
+    grid-template-rows: 624px !important; 
   }
 
   .grid-bg-line, .time-slot-label { 
-    height: 33.3px !important; 
+    height: 26px !important; 
   }
 
   .shift-card { 
     box-shadow: none !important; 
     border: 1px solid rgba(0,0,0,0.15) !important; 
   }
-}
 
-/* Define a altura correta do turno da tarde para alinhar perfeitamente com o fundo */
-.shift-card--tarde {
-  height: 400px !important;
+  .allday-column {
+    padding: 2px !important;
+  }
+  .allday-badge {
+    padding: 2px 4px !important;
+    font-size: 0.65rem !important;
+    height: auto !important; 
+    align-items: flex-start !important;
+  }
+  .allday-badge-name {
+    white-space: normal !important; 
+    word-break: break-word !important; 
+    line-height: 1.2 !important; 
+  }
+  .allday-badge-count {
+    font-size: 0.65rem !important;
+    margin-left: 2px !important;
+    flex-shrink: 0 !important; 
+  }
 }
