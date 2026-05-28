@@ -160,6 +160,10 @@ const isDeletingDraft = ref(false)
 // Controls the custom delete confirmation modal.
 const isDeleteDraftModalOpen = ref(false)
 
+// Controls the custom warning confirmation modal.
+const isWarningModalOpen = ref(false)
+const warningMessage = ref('')
+
 // Currently selected shift type in the toolbar.
 const selectedShiftTypeId = ref<number | null>(null)
 
@@ -585,44 +589,8 @@ const restGapAfterPreviousShift = (
   return (nextStartMinutes + 24 * 60) - previousEndAbsolute
 }
 
-// Returns true when assigning a shift would violate the 11h rest rule with adjacent days.
+// Returns true when assigning a shift would violate the rest rules.
 const hasRestViolation = (nurseId: number, dateIso: string, shiftTypeId: number): boolean => {
-  if (blockingShiftTypeIds.value.has(shiftTypeId)) return false
-
-  const previousDateIso = getRelativeDateIso(dateIso, -1)
-  if (previousDateIso) {
-    const previousShiftTypeId = getCellShiftTypeId(nurseId, previousDateIso)
-
-    if (previousShiftTypeId && !blockingShiftTypeIds.value.has(previousShiftTypeId)) {
-      const previousShiftType = shiftTypes.value.find((item) => item.id === previousShiftTypeId)
-      const currentShiftType = shiftTypes.value.find((item) => item.id === shiftTypeId)
-
-      if (previousShiftType && currentShiftType) {
-        const gap = restGapAfterPreviousShift(previousShiftType, currentShiftType)
-        if (gap !== null && gap < 11 * 60) {
-          return true
-        }
-      }
-    }
-  }
-
-  const nextDateIso = getRelativeDateIso(dateIso, 1)
-  if (nextDateIso) {
-    const nextShiftTypeId = getCellShiftTypeId(nurseId, nextDateIso)
-
-    if (nextShiftTypeId && !blockingShiftTypeIds.value.has(nextShiftTypeId)) {
-      const currentShiftType = shiftTypes.value.find((item) => item.id === shiftTypeId)
-      const nextShiftType = shiftTypes.value.find((item) => item.id === nextShiftTypeId)
-
-      if (currentShiftType && nextShiftType) {
-        const gap = restGapAfterPreviousShift(currentShiftType, nextShiftType)
-        if (gap !== null && gap < 11 * 60) {
-          return true
-        }
-      }
-    }
-  }
-
   return false
 }
 
@@ -1148,6 +1116,20 @@ const saveGridAssignments = async (isSilent = false) => {
 
 
 const publishSchedule = async () => {
+  await executePublishFlow(false)
+}
+
+const confirmPublishWithWarnings = async () => {
+  isWarningModalOpen.value = false
+  await executePublishFlow(true)
+}
+
+const closeWarningModal = () => {
+  isWarningModalOpen.value = false
+  isPublishing.value = false
+}
+
+const executePublishFlow = async (force = false) => {
   localError.value = ''
   localWarning.value = ''
   localSuccess.value = ''
@@ -1187,16 +1169,15 @@ const publishSchedule = async () => {
     }
 
     const isRevision = schedule.value?.status === 'revision'
-    // Choose the correct endpoint based on the state
-    // If it's a revision, use 'publish-edit'. If it's a draft, use 'publish'.
     const endpoint = isRevision 
       ? `${config.public.apiBase}/schedules/${scheduleId.value}/publish-edit`
       : `${config.public.apiBase}/schedules/${scheduleId.value}/publish`
-    // The publish-edit is always POST, the publish normal can be PATCH
     const method = isRevision ? 'POST' : 'PATCH'
+    
     await $fetch(endpoint, {
       method,
       headers: authHeaders,
+      body: { force }
     })
 
     // Success
@@ -1215,11 +1196,19 @@ const publishSchedule = async () => {
       await navigateTo('/dashboard')
     }, 4000)  
   } catch (error: unknown) {
+    const data = (error as any)?.data
+    
+    if (data && data.bypassable) {
+      // Abre o modal integrado em vez de usar window.confirm
+      warningMessage.value = getBackendErrorMessage(error)
+      isWarningModalOpen.value = true
+      return
+    }
+
     rawError.value = error                
     localError.value = getBackendErrorMessage(error)
     rawValidationError.value = error         
     validationErrorMessage.value = localError.value
-    const data = (error as any)?.data
     if (data && data.nurse_id && Array.isArray(data.invalid_dates)) {
       validationErrorCells.value = data.invalid_dates.map((date: string) => ({
         nurseId: data.nurse_id,
@@ -1227,10 +1216,11 @@ const publishSchedule = async () => {
       }))
     }
   } finally {
-    isPublishing.value = false
+    if (!isWarningModalOpen.value) {
+      isPublishing.value = false
+    }
   }
 }
-
     
 
 const deleteDraftSchedule = async () => {
@@ -1592,6 +1582,33 @@ onBeforeUnmount(() => {
                 <button type="button" class="modal-btn confirm" @click="confirmSaveAndLeave"
                   style="flex: 1; font-size: 14px; white-space: nowrap;">
                   {{ currentLocale === 'pt' ? 'Guardar alterações' : 'Save changes' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </transition>
+
+        <transition name="fade">
+          <div v-if="isWarningModalOpen" class="modal-overlay" @click.self="closeWarningModal">
+            <div class="modal-card">
+              <div class="modal-icon" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.28); background: rgba(245, 158, 11, 0.1);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+              <h2>{{ currentLocale === 'pt' ? 'Casos Críticos Detetados' : 'Critical Issues Detected' }}</h2>
+              <p style="text-align: center; white-space: pre-line; font-weight: 500; margin-bottom: 12px;">
+                {{ warningMessage }}
+              </p>
+              <p style="text-align: center; font-size: 14px; opacity: 0.85; margin-bottom: 24px;">
+                {{ currentLocale === 'pt' ? 'Tem a certeza de que deseja prosseguir com a publicação mesmo com estes casos críticos ou prefere corrigir?' : 'Are you sure you want to proceed with publishing even with these critical cases, or do you prefer to correct them?' }}
+              </p>
+              <div class="modal-actions" style="display: flex; gap: 12px; justify-content: center; width: 100%;">
+                <button type="button" class="modal-btn cancel" @click="closeWarningModal" style="flex: 1;">
+                  {{ currentLocale === 'pt' ? 'Corrigir' : 'Correct' }}
+                </button>
+                <button type="button" class="modal-btn confirm" @click="confirmPublishWithWarnings" style="flex: 1;">
+                  {{ currentLocale === 'pt' ? 'Prosseguir' : 'Proceed' }}
                 </button>
               </div>
             </div>

@@ -379,10 +379,12 @@ class ScheduleController extends Controller
 
         \Carbon\Carbon::setLocale('pt');
 
-        $validationError = $this->validateScheduleIntegrity($schedule);
+        $force = filter_var($request->input('force', false), FILTER_VALIDATE_BOOLEAN);
+        $validationError = $this->validateScheduleIntegrity($schedule, $force);
         if ($validationError) {
             return $validationError;
         }
+
         $schedule->status = 'published';
         $schedule->save();
 
@@ -697,7 +699,7 @@ class ScheduleController extends Controller
 
 
         try {
-            return DB::transaction(function () use ($revisionId) {
+            return DB::transaction(function () use ($revisionId, $request) {
                 $revision = Schedule::with('shifts.users')->find($revisionId);
 
                 if (!$revision) {
@@ -710,7 +712,8 @@ class ScheduleController extends Controller
 
                 $original = Schedule::findOrFail($revision->parent_id);
 
-                $validationError = $this->validateScheduleIntegrity($revision);
+                $force = filter_var($request->input('force', false), FILTER_VALIDATE_BOOLEAN);
+                $validationError = $this->validateScheduleIntegrity($revision, $force);
                 if ($validationError)
                     return $validationError;
 
@@ -784,11 +787,16 @@ class ScheduleController extends Controller
         return abs($revision->shifts()->count() - $original->shifts()->count()) + 1;
     }
 
-    private function validateScheduleIntegrity(Schedule $schedule): ?JsonResponse
+    private function validateScheduleIntegrity(Schedule $schedule, bool $force = false): ?JsonResponse
     {
         \Carbon\Carbon::setLocale('pt');
         if (!Shift::where('schedule_id', $schedule->id)->exists()) {
             return response()->json(['message' => 'O horário não pode ser publicado sem turnos atribuídos.'], 422);
+        }
+
+        // If the publication is forced, ignore all remaining operational validations
+        if ($force) {
+            return null;
         }
 
         $scheduleShifts = Shift::with(['users:id,name', 'shiftType'])->where('schedule_id', $schedule->id)->get();
@@ -813,10 +821,15 @@ class ScheduleController extends Controller
             foreach ($nurseIds as $nurseId) {
                 if (!$assignedByDateAndNurse->has($dateString . '_' . $nurseId)) {
                     return response()->json([
-                        'message' => "Existem dias no horário sem turnos atribuídos a enfermeiros."
+                        'message' => "Existem dias no horário sem turnos atribuídos a enfermeiros.",
                     ], 422);
                 }
             }
+        }
+
+        // If the publishing is forced (force = true), ignore only the operational validations below
+        if ($force) {
+            return null;
         }
 
         // Validates the minimum number of nurses per shift
@@ -838,7 +851,8 @@ class ScheduleController extends Controller
             $shiftType = $group->first()->shiftType;
             if ($group->count() < ($shiftType->min_nurses ?? 0)) {
                 return response()->json([
-                    'message' => "O número mínimo de enfermeiros exigido para cada turno não está a ser cumprido."
+                    'message' => "O número mínimo de enfermeiros exigido para cada turno não está a ser cumprido.",
+                    'bypassable' => true
                 ], 422);
             }
         }
@@ -878,23 +892,26 @@ class ScheduleController extends Controller
         // Filter only the shift IDs corresponding to morning, afternoon and night
         $activeTypeIds = ShiftType::whereIn('name', ['morning', 'afternoon', 'night'])->pluck('id')->all();
 
+        // Gather the active shifts per nurse and date for daily limit validation
+        $nurseActiveShiftsPerDate = [];
+        foreach ($scheduleShifts as $shift) {
+            if (!in_array($shift->shift_type_id, $activeTypeIds)) {
+                continue;
+            }
+            $dateStr = $shift->shift_date->toDateString();
+            foreach ($shift->users as $user) {
+                $nurseActiveShiftsPerDate[$user->id][$dateStr][] = $shift->shift_type_id;
+            }
+        }
+        // Validate that no nurse has more than one active shift on the same day
         foreach ($nurseIds as $nurseId) {
-            $shiftsOfNurse = $nurseShifts[$nurseId] ?? [];
-            for ($date = $startDate->copy(); $date->lt($endDate); $date->addDay()) {
-                $d1Str = $date->toDateString();
-                $d2Str = $date->copy()->addDay()->toDateString();
-                $shift1 = $shiftsOfNurse[$d1Str] ?? null;
-                $shift2 = $shiftsOfNurse[$d2Str] ?? null;
-                if ($shift1 && $shift2) {
-                    if (!in_array($shift1->shift_type_id, $activeTypeIds) || !in_array($shift2->shift_type_id, $activeTypeIds)) {
-                        continue;
-                    }
-                    $gap = $restGapAfterPreviousShift($shift1->shiftType, $shift2->shiftType);
-                    if ($gap !== null && $gap < 11 * 60) {
-                        return response()->json([
-                            'message' => "Existem turnos com menos de 11h de diferença."
-                        ], 422);
-                    }
+            $datesWithActiveShifts = $nurseActiveShiftsPerDate[$nurseId] ?? [];
+            foreach ($datesWithActiveShifts as $dateStr => $shiftTypeIds) {
+                if (count($shiftTypeIds) > 1) {
+                    return response()->json([
+                        'message' => "Não é permitido ter mais do que um turno ativo no mesmo dia.",
+                        'bypassable' => true
+                    ], 422);
                 }
             }
         }
@@ -961,7 +978,8 @@ class ScheduleController extends Controller
                         return response()->json([
                             'message' => "Não pode ter mais de 2 dias de folga seguidos",
                             'nurse_id' => $nurseId,
-                            'invalid_dates' => array_slice($dayOffDates, $i - ($consecutive - 1), $consecutive)
+                            'invalid_dates' => array_slice($dayOffDates, $i - ($consecutive - 1), $consecutive),
+                            'bypassable' => true
                         ], 422);
                     }
                 } else {
@@ -996,12 +1014,14 @@ class ScheduleController extends Controller
                         $hasSpecialAbsence = true;
                     }
                 }
+
                 // Only validates if we have the 7 days mapped and no special absence (vacations, sick leave, etc)
                 if ($hasAllDays && !$hasSpecialAbsence && $dayOffCount !== 2) {
                     return response()->json([
                         'message' => "Obrigatorio 2 dias de folga por semana",
                         'nurse_id' => $nurseId,
-                        'invalid_dates' => $weekDayOffDates
+                        'invalid_dates' => $weekDayOffDates,
+                        'bypassable' => true
                     ], 422);
                 }
             }
