@@ -804,8 +804,8 @@
   border-radius: 12px;
   display: grid;
   place-items: center;
-  color: #f45fb3; /* A cor do ícone */
-  background: rgba(244, 95, 179, 0.12); /* Fundo suave usando RGB */
+  color: #f45fb3; 
+  background: rgba(244, 95, 179, 0.12); 
   margin-bottom: 4px;
 }
 
@@ -959,10 +959,11 @@
     gap: 16px; 
   }
 
-  .nav-controls { 
-    flex-wrap: wrap; 
+    .nav-controls { 
+    flex-wrap: nowrap; 
+    align-items: center;
     justify-content: flex-start; 
-    gap: 12px; 
+    gap: 8px; 
     width: 100%;
   }
 
@@ -976,11 +977,12 @@
   }
 
   .week-range-label { 
-    width: 100%; 
-    margin-left: 0; 
-    margin-top: 8px; 
-    font-size: 1.1rem; 
+    width: auto; 
+    margin-left: 10px; 
+    margin-top: 0; 
+    font-size: 0.95rem; 
     font-weight: 700;
+    white-space: nowrap;
   }
 
   .view-actions { 
@@ -1002,7 +1004,7 @@
   .view-actions > *:nth-child(2) {
     order: 2 !important;
     flex: 1 0 auto !important;
-    margin-left: 0 !important; /* Anula o margin-left de 8px inline no telemóvel */
+    margin-left: 0 !important; 
     justify-content: center !important;
   }
 
@@ -1013,7 +1015,7 @@
     justify-content: center !important;
   }
 
-  /* Toggle Pessonal/Global view*/
+  /* Toggle Personal/Global view*/
   .view-actions > .view-toggle {
     order: 4 !important;
     width: 100% !important;
@@ -1035,11 +1037,111 @@
 
 
 
+.print-summary-section {
+  margin-top: 32px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+
+.print-summary-title {
+  margin: 0 0 20px 0;
+  font-size: 1.25rem;
+  color: var(--text);
+  font-weight: 800;
+  border-left: 4px solid var(--primary-strong);
+  padding-left: 12px;
+  line-height: 1.2;
+}
+
+.print-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.print-summary-day-box {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.print-summary-day-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(102, 67, 155, 0.08);
+}
+
+.print-summary-day-title {
+  color: var(--text);
+  display: block;
+  border-bottom: 1.5px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.print-summary-shifts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.print-summary-shift-item {
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+
+.print-summary-shift-bullet {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.print-summary-shift-name {
+  font-weight: 700;
+  color: var(--text);
+  margin-right: 6px;
+}
+
+.print-summary-shift-hours {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-left: 2px;
+}
+
+.print-summary-shift-users {
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.print-summary-no-shifts {
+  color: var(--muted);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+
 /* Print */
 @media print {
-  /* Removes the default headers and footers from the browser (Date, Link, Page) */
+  /* Removes browser default margins and defines the A4 page size */
   @page {
-    margin: 0; 
+    margin: 0;
+    size: A4 portrait;
   }
 
   * {
@@ -1047,39 +1149,87 @@
     print-color-adjust: exact !important;
   }
 
-  .back-link, .uc-top-bar, .schedule-controls-row,
-  .schedule-legend, .ical-export-banner,
-  header, nav, .dashboard-header, .dashboard-greeting,
-  .dashboard-actions-group, 
-  .time-indicator { 
-    display: none !important; 
-  }
-
-  body, .dashboard-layout, .dashboard-content, .hr-content {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: white !important;
-    box-shadow: none !important;
-  }
-
   .dashboard-layout {
-    padding: 60px 50px !important;
-    box-sizing: border-box !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    background: white !important;
   }
 
-  .dashboard-logo-img {
-    height: 40px !important;
-    margin-bottom: 20px !important;
+  /* hide the iterative content of the main page */
+  header, nav, .dashboard-header, .dashboard-greeting, .dashboard-actions-group,
+  .back-link, .uc-top-bar, .schedule-controls-row, .schedule-legend, .ical-export-banner,
+  .dashboard-content, AppNavbar, .dashboard-top-row {
+    display: none !important;
   }
+
+ 
+  .monthly-pdf-container, #pdf-content {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    z-index: auto !important;
+    background: white !important;
+  }
+
+  
+  .pdf-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 297mm !important;
+    padding: 8mm 12mm !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important; 
+    break-inside: avoid !important;
+    background: white !important;
+    display: block !important; 
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+
+  #pdf-content > div:not(:last-child) .pdf-page {
+    page-break-after: always !important;
+    break-after: always !important;
+  }
+
+
+  .pdf-page-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 2px solid #f1f5f9 !important;
+    width: 100% !important;
+  }
+  .pdf-page-header img {
+    height: 28px !important;
+  }
+  .pdf-page-header h2 {
+    font-size: 1.15rem !important;
+  }
+  .pdf-page-header span {
+    font-size: 0.8rem !important;
+  }
+
 
   .weekly-grid-container {
     border: 1px solid #cbd5e1 !important;
-    border-radius: 0 !important;
+    border-radius: 8px !important;
     background: white !important;
     width: 100% !important;
     overflow: visible !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   .weekly-grid-header,
@@ -1089,6 +1239,26 @@
     max-height: none !important;
     overflow: visible !important;
     padding-right: 0 !important;
+  }
+
+  .day-header {
+    padding: 5px 2px !important;
+  }
+  .day-name {
+    font-size: 0.65rem !important;
+  }
+  .day-date {
+    font-size: 0.9rem !important;
+  }
+
+  .weekly-grid-allday {
+    min-height: 32px !important;
+  }
+  .allday-label-spacer {
+    padding: 3px 2px !important;
+  }
+  .allday-column {
+    padding: 2px !important;
   }
 
   .days-grid { 
@@ -1102,30 +1272,106 @@
   .shift-card { 
     box-shadow: none !important; 
     border: 1px solid rgba(0,0,0,0.15) !important; 
+    border-radius: 4px !important;
+    padding: 4px 6px !important;
+  }
+  .shift-name {
+    font-size: 0.75rem !important;
+  }
+  .shift-time {
+    font-size: 0.65rem !important;
   }
 
-  .allday-column {
-    padding: 2px !important;
-  }
   .allday-badge {
     padding: 2px 4px !important;
     font-size: 0.65rem !important;
     height: auto !important; 
     align-items: flex-start !important;
+    border-radius: 4px !important;
   }
+
   .allday-badge-name {
     white-space: normal !important; 
     word-break: break-word !important; 
     line-height: 1.2 !important; 
   }
+
   .allday-badge-count {
     font-size: 0.65rem !important;
     margin-left: 2px !important;
     flex-shrink: 0 !important; 
   }
+
+  
+  .pdf-page h3 {
+    margin-top: 0 !important;
+    margin-bottom: 12px !important;
+    font-size: 1.05rem !important;
+  }
+
+  .pdf-page div[style*="column-count: 2"] {
+    column-gap: 24px !important;
+  }
+
+  .pdf-page div[style*="break-inside: avoid"] {
+    margin-bottom: 10px !important;
+    padding: 10px 12px !important;
+    border-radius: 6px !important;
+  }
+
+  .pdf-page strong[style*="display: block"] {
+    font-size: 0.88rem !important;
+    margin-bottom: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  
+  .pdf-personal-summary {
+    margin-top: 12px !important;
+    padding-top: 12px !important;
+  }
+
+  .pdf-personal-summary h3 {
+    font-size: 0.95rem !important;
+    margin-bottom: 8px !important;
+  }
+
+  .pdf-personal-summary div[style*="column-count: 2"] {
+    column-count: 3 !important;
+    column-gap: 15px !important;
+  }
+
+  .pdf-personal-summary div[style*="break-inside: avoid"] {
+    margin-bottom: 5px !important;
+    padding: 5px 8px !important;
+    border-radius: 5px !important;
+  }
+
+  .pdf-personal-summary strong[style*="display: block"] {
+    font-size: 0.78rem !important;
+    margin-bottom: 3px !important;
+    padding-bottom: 2px !important;
+  }
+
+  .pdf-personal-summary div[style*="display: flex; flex-direction: column"] {
+    gap: 3px !important;
+  }
+
+  .pdf-personal-summary div[style*="display: flex; align-items: flex-start"] {
+    line-height: 1.25 !important;
+  }
+
+  .pdf-personal-summary span[style*="font-weight: 700"],
+  .pdf-personal-summary span[style*="color: #475569"] {
+    font-size: 0.72rem !important;
+  }
+
+  .pdf-personal-summary span[style*="display: inline-block; width: 8px"] {
+    width: 6px !important;
+    height: 6px !important;
+    margin-top: 4px !important;
+  }
 }
-
-
 
 /* Banner modified schedule */
 .schedule-alert-banner {
@@ -1173,7 +1419,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #f5d9b5; /* Fundo branco alinhado com o estilo .nav-btn */
+  background: #f5d9b5; 
   color: #a8660a; 
   border: 1px solid rgba(247, 155, 50, 0.4);
   border-radius: 10px;
@@ -1185,7 +1431,7 @@
   box-shadow: 0 2px 6px rgba(247, 155, 50, 0.05);
 }
 .alert-btn:hover {
-  background: rgba(247, 155, 50, 0.08); /* Efeito hover em tom pêssego suave */
+  background: rgba(247, 155, 50, 0.08); 
   border-color: var(--danger);
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(247, 155, 50, 0.12);

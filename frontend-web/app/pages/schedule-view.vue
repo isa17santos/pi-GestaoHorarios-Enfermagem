@@ -441,7 +441,64 @@ const getAllNursesList = (users: any[], fallback = 'Sem enfermeiros'): string =>
   return users.map(u => u.name).join(', ')
 }
 
-const printSchedule = () => { if (process.client) window.print() }
+const printSchedule = async () => {
+  if (isGeneratingPdf.value) return
+  isGeneratingPdf.value = true // Reuses the loading state to avoid double clicks
+  
+  const queryDate = new Date(startOfWeek.value)
+  const view = currentView.value
+  const year = queryDate.getFullYear()
+  const month = queryDate.getMonth()
+  
+  const weeks = []
+  let d = new Date(year, month, 1)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  d.setDate(diff)
+  
+  while (d.getMonth() === month || d < new Date(year, month + 1, 0)) {
+    weeks.push(new Date(d))
+    d.setDate(d.getDate() + 7)
+  }
+
+  const config = useRuntimeConfig()
+  try {
+    const promises = weeks.map(wDate => 
+      $fetch<{ data: { shifts: any[] } }>(`${config.public.apiBase}/schedules/weekly`, {
+        headers: { Authorization: `Bearer ${token.value}` },
+        query: { date: getLocalDateStr(wDate), view },
+      })
+    )
+    const responses = await Promise.all(promises)
+    
+    monthlyWeeks.value = weeks.map((weekStartDate, i) => {
+      return {
+        startDate: weekStartDate,
+        weekDays: Array.from({ length: 7 }, (_, idx) => {
+          const wd = new Date(weekStartDate)
+          wd.setDate(weekStartDate.getDate() + idx)
+          return wd
+        }),
+        shifts: responses[i]?.data?.shifts || []
+      }
+    })
+
+    await nextTick()
+    
+    setTimeout(() => {
+      if (process.client) {
+        window.print()
+      }
+      isGeneratingPdf.value = false
+      monthlyWeeks.value = [] // Cleans the memory after closing the print dialog
+    }, 500)
+
+  } catch (err) {
+    console.error("Erro ao preparar impressão mensal:", err)
+    isGeneratingPdf.value = false
+    monthlyWeeks.value = []
+  }
+}
 
 
 // ------------------- Lifecycle -------------------
@@ -667,7 +724,7 @@ const generateMonthlyPdf = async () => {
 </script>
 
 <template>
-  <main class="dashboard-layout schedule-view-page">
+    <main class="dashboard-layout schedule-view-page" :class="{ 'is-personal-view': currentView === 'personal', 'is-global-view': currentView === 'global' }">
     <AppNavbar />
 
     <section class="dashboard-content">
@@ -979,6 +1036,47 @@ const generateMonthlyPdf = async () => {
             </div>
           </div>
         </div>
+
+        <!-- Print -->
+        <div class="print-summary-section" :class="{ 'print-summary--global': currentView === 'global', 'print-summary--personal': currentView === 'personal' }">
+          <h3 class="print-summary-title">
+            {{ currentLocale === 'pt' ? 'Distribuição de Turnos por Dia' : 'Daily Shift Distribution' }}
+          </h3>
+          <div class="print-summary-grid">
+            <div v-for="day in weekDays" :key="'print-legend-' + getLocalDateStr(day)" class="print-summary-day-box">
+              <strong class="print-summary-day-title">
+                {{ getDayOfWeekName(day) }}, {{ getDayOfMonth(day) }}
+              </strong>
+              
+              <div class="print-summary-shifts-list">
+                <div v-for="(group, idx) in getPrintDayAllDayGroups(getLocalDateStr(day), weeklyShifts)" :key="'print-leg-all-' + idx" class="print-summary-shift-item">
+                  <span class="print-summary-shift-bullet" :style="{ backgroundColor: group.shift_type.color || '#cbd5e1' }"></span>
+                  <div>
+                    <span class="print-summary-shift-name">{{ getShiftName(group.shift_type) }}:</span>
+                    <span class="print-summary-shift-users">{{ group.users.length > 0 ? getAllNursesList(group.users, '-') : '-' }}</span>
+                  </div>
+                </div>
+                
+                <div v-for="seg in getPrintDayTimedSegments(getLocalDateStr(day), weeklyShifts)" :key="'print-leg-timed-' + seg.id" class="print-summary-shift-item">
+                  <span class="print-summary-shift-bullet" :style="{ backgroundColor: seg.shift.shift_type.color || '#cbd5e1' }"></span>
+                  <div>
+                    <span class="print-summary-shift-name">
+                      {{ getShiftName(seg.shift.shift_type) }}
+                      <span v-if="currentView === 'global'" class="print-summary-shift-hours">
+                        ({{ formatShiftTime(seg.shift.shift_type) }})
+                      </span>:
+                    </span>
+                    <span class="print-summary-shift-users">{{ seg.shift.users.length > 0 ? getAllNursesList(seg.shift.users, 'Sem enfermeiros') : 'Sem enfermeiros' }}</span>
+                  </div>
+                </div>
+                
+                <div v-if="getPrintDayAllDayGroups(getLocalDateStr(day), weeklyShifts).length === 0 && getPrintDayTimedSegments(getLocalDateStr(day), weeklyShifts).length === 0" class="print-summary-no-shifts">
+                  {{ currentLocale === 'pt' ? 'Sem turnos registados' : 'No shifts scheduled' }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
     </section>
 
@@ -1117,15 +1215,15 @@ const generateMonthlyPdf = async () => {
       </div>
     </transition>
 
-    <!-- PDF  -->
-    <div v-if="monthlyWeeks.length > 0" style="position: absolute; left: -9999px; top: 0; width: 1200px; z-index: -1;">
+        <!-- PDF  -->
+    <div v-if="monthlyWeeks.length > 0" class="monthly-pdf-container" style="position: absolute; left: -9999px; top: 0; width: 1200px; z-index: -1;">
       <div id="pdf-content" style="background: white; padding: 0; margin: 0; width: 1200px; box-sizing: border-box;">
         <div v-for="(weekData, index) in monthlyWeeks" :key="index">
           
-          <!-- Shifts per week -->
-          <div class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
+          <!-- Personal view -->
+          <div v-if="currentView === 'personal'" class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
             <!-- Header -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 25px;">
+            <div class="pdf-page-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 25px;">
               <img src="~/assets/images/logotipo.png" alt="ShiftCare" style="height: 42px;" />
               <div style="text-align: right;">
                 <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800; color: #0f172a; font-family: inherit;">
@@ -1179,9 +1277,9 @@ const generateMonthlyPdf = async () => {
                 </div>
               </div>
 
-              <!-- grids main boday -->
+              <!-- grids main body -->
               <div class="weekly-grid-body" style="background: #ffffff; border: none; height: 624px; max-height: 624px; overflow: hidden;">
-                <!-- Coluna das Horas -->
+                <!-- hour column -->
                 <div class="time-column" style="border-right: 1px solid #cbd5e1; background: #f8fafc; height: 624px;">
                   <div v-for="hour in hoursList" :key="hour" class="time-slot-label" style="border-bottom: none; display: flex; align-items: flex-start; justify-content: center; height: 26px; font-weight: 700; color: #64748b;">{{ hour }}</div>
                 </div>
@@ -1227,29 +1325,66 @@ const generateMonthlyPdf = async () => {
                 </div>
               </div>
             </div>
+
+            <!-- personal view - nurses per shift -->
+            <div class="pdf-personal-summary" style="margin-top: 35px; border-top: 2px solid #f1f5f9; padding-top: 25px;">
+              <h3 style="margin: 0 0 15px 0; font-size: 1.2rem; color: #1e293b; font-weight: 700; border-left: 4px solid #7c3aed; padding-left: 12px; line-height: 1.2; font-family: inherit;">
+                {{ currentLocale === 'pt' ? 'Distribuição de Turnos por Dia' : 'Daily Shift Distribution' }}
+              </h3>
+              <div style="column-count: 2; column-gap: 30px; font-size: 0.85rem; color: #334155;">
+                <div v-for="day in weekData.weekDays" :key="'legend-personal-' + getLocalDateStr(day)" 
+                  style="break-inside: avoid; margin-bottom: 15px; background: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.01);">
+                  <strong style="color: #0f172a; display: block; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px; font-size: 0.92rem; font-weight: 800;">
+                    {{ getDayOfWeekName(day) }}, {{ getDayOfMonth(day) }}
+                  </strong>
+                  
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div v-for="(group, idx) in getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts)" :key="'leg-all-pers-' + idx" 
+                      style="display: flex; align-items: flex-start; line-height: 1.35;">
+                      <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
+                        :style="{ backgroundColor: group.shift_type.color || '#cbd5e1' }"></span>
+                      <div>
+                        <span style="font-weight: 700; color: #1e293b; margin-right: 6px;">{{ getShiftName(group.shift_type) }}:</span>
+                        <span style="color: #475569;">{{ group.users.length > 0 ? getAllNursesList(group.users, '-') : '-' }}</span>
+                      </div>
+                    </div>
+                    <div v-for="seg in getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts)" :key="'leg-pers-' + seg.id" 
+                      style="display: flex; align-items: flex-start; line-height: 1.35;">
+                      <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
+                        :style="{ backgroundColor: seg.shift.shift_type.color || '#cbd5e1' }"></span>
+                      <div>
+                        <span style="font-weight: 700; color: #1e293b; margin-right: 6px;">{{ getShiftName(seg.shift.shift_type) }}:</span>
+                        <span style="color: #475569;">{{ seg.shift.users.length > 0 ? getAllNursesList(seg.shift.users, 'Sem enfermeiros') : 'Sem enfermeiros' }}</span>
+                      </div>
+                    </div>
+                    
+                    <div v-if="getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts).length === 0 && getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts).length === 0" 
+                      style="color: #94a3b8; font-style: italic; padding: 2px 0;">
+                      {{ currentLocale === 'pt' ? 'Sem turnos registados' : 'No shifts scheduled' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- nurses table -->
-          <div class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
-            <!-- Header da Página -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 30px;">
+          <!-- global view -->
+          <div v-if="currentView === 'global'" class="pdf-page" style="width: 1200px; height: 1600px; box-sizing: border-box; padding: 45px 50px; background: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; margin: 0;">
+            <!-- Header -->
+            <div class="pdf-page-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px;">
               <img src="~/assets/images/logotipo.png" alt="ShiftCare" style="height: 42px;" />
               <div style="text-align: right;">
                 <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800; color: #0f172a; font-family: inherit;">
-                  {{ currentLocale === 'pt' ? 'Resumo da Equipa' : 'Weekly Team Summary' }}
+                  {{ currentLocale === 'pt' ? 'Resumo de Turnos da Equipa' : 'Weekly Team Shifts Summary' }}
                 </h2>
                 <span style="font-size: 0.95rem; font-weight: 600; color: #64748b; display: block; margin-top: 2px; font-family: inherit;">
                   {{ getWeekRangeLabel(weekData.startDate) }}
                 </span>
               </div>
             </div>
-
-            <div style="flex-grow: 1; display: flex; flex-direction: column;">
-              <h3 style="margin: 0 0 20px 0; font-size: 1.25rem; color: #1e293b; font-weight: 700; border-left: 4px solid #7c3aed; padding-left: 12px; line-height: 1.2; font-family: inherit;">
-                {{ currentLocale === 'pt' ? 'Distribuição de Turnos por Dia' : 'Daily Shift Distribution' }}
-              </h3>
+            <div style="flex-grow: 1; display: flex; flex-direction: column; margin-top: 0px;">
               <div style="column-count: 2; column-gap: 30px; font-size: 0.9rem; color: #334155;">
-                <div v-for="day in weekData.weekDays" :key="'legend-' + getLocalDateStr(day)" 
+                <div v-for="day in weekData.weekDays" :key="'legend-global-' + getLocalDateStr(day)" 
                   style="break-inside: avoid; margin-bottom: 20px; background: #f8fafc; padding: 15px; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                   
                   <strong style="color: #0f172a; display: block; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 10px; font-size: 1rem; font-weight: 800;">
@@ -1257,8 +1392,7 @@ const generateMonthlyPdf = async () => {
                   </strong>
                   
                   <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <!-- All day shifts -->
-                    <div v-for="(group, idx) in getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts)" :key="'leg-all-' + idx" 
+                    <div v-for="(group, idx) in getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts)" :key="'leg-all-glob-' + idx" 
                       style="display: flex; align-items: flex-start; line-height: 1.4;">
                       <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
                         :style="{ backgroundColor: group.shift_type.color || '#cbd5e1' }"></span>
@@ -1267,19 +1401,21 @@ const generateMonthlyPdf = async () => {
                         <span style="color: #475569;">{{ group.users.length > 0 ? getAllNursesList(group.users, '-') : '-' }}</span>
                       </div>
                     </div>
-                    
-                    <!-- Shifts per hour -->
-                    <div v-for="seg in getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts)" :key="'leg-' + seg.id" 
+                    <div v-for="seg in getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts)" :key="'leg-glob-' + seg.id" 
                       style="display: flex; align-items: flex-start; line-height: 1.4;">
                       <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;" 
                         :style="{ backgroundColor: seg.shift.shift_type.color || '#cbd5e1' }"></span>
                       <div>
-                        <span style="font-weight: 700; color: #1e293b; margin-right: 6px;">{{ getShiftName(seg.shift.shift_type) }}:</span>
+                        <span style="font-weight: 700; color: #1e293b; margin-right: 6px;">
+                          {{ getShiftName(seg.shift.shift_type) }}
+                          <span style="font-weight: 600; color: #64748b; font-size: 0.8rem; margin-left: 2px;">
+                            ({{ formatShiftTime(seg.shift.shift_type) }})
+                          </span>:
+                        </span>
                         <span style="color: #475569;">{{ seg.shift.users.length > 0 ? getAllNursesList(seg.shift.users, 'Sem enfermeiros') : 'Sem enfermeiros' }}</span>
                       </div>
                     </div>
                     
-                    <!-- No Shifts -->
                     <div v-if="getPrintDayAllDayGroups(getLocalDateStr(day), weekData.shifts).length === 0 && getPrintDayTimedSegments(getLocalDateStr(day), weekData.shifts).length === 0" 
                       style="color: #94a3b8; font-style: italic; padding: 4px 0;">
                       {{ currentLocale === 'pt' ? 'Sem turnos registados' : 'No shifts scheduled' }}

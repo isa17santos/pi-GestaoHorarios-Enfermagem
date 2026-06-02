@@ -352,9 +352,6 @@ const getBackendErrorMessage = (error: unknown) => {
   return message
 }
 
-
-
-
 const normalizeErrorMessage = (message: string) => {
   return message
     .normalize('NFD')
@@ -606,6 +603,8 @@ const hasCellRestWarning = (nurseId: number, dateIso: string) => {
 
   return hasRestWarningForAssignment(nurseId, dateIso, shiftTypeId)
 }
+
+
 
 // ==================== Fill Validation ====================
 
@@ -1129,6 +1128,103 @@ const closeWarningModal = () => {
   isPublishing.value = false
 }
 
+const populateValidationErrors = (data: any, errorMessage: string) => {
+  validationErrorCells.value = []
+  if (!errorMessage) return
+
+  const msg = errorMessage.toLowerCase()
+  const isWeeklyFolgasRule = msg.includes('obrigatorio') || msg.includes('folga por semana') || msg.includes('required') || msg.includes('days off per week')
+  const isMinNursesRule = msg.includes('numero minimo') || msg.includes('número mínimo') || msg.includes('minimum number') || msg.includes('não está a ser cumprido')
+
+  if (isWeeklyFolgasRule && data && data.nurse_id && Array.isArray(data.invalid_dates)) {
+    const nurseId = Number(data.nurse_id)
+    const errorCells: { nurseId: number, dateIso: string }[] = []
+    
+    const isDayOff = (shiftTypeId: number | null): boolean => {
+      if (!shiftTypeId) return false
+      const name = getShiftTypeNameById(shiftTypeId).trim().toLowerCase()
+      return name.includes('off') || name.includes('folga')
+    }
+
+    const processedWeeks = new Set<string>()
+
+    for (const dateIso of data.invalid_dates) {
+      const date = new Date(`${dateIso}T00:00:00`)
+      const dayOfWeek = date.getDay()
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      const monday = new Date(date)
+      monday.setDate(date.getDate() + diffToMonday)
+      
+      const mondayStr = monday.toISOString().slice(0, 10)
+      if (processedWeeks.has(mondayStr)) continue
+      processedWeeks.add(mondayStr)
+
+      const weekDays: string[] = []
+      let dayOffCount = 0
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const dStr = `${y}-${m}-${day}`
+        weekDays.push(dStr)
+
+        const shiftTypeId = getCellShiftTypeId(nurseId, dStr)
+        if (isDayOff(shiftTypeId)) {
+          dayOffCount++
+        }
+      }
+
+      for (const dStr of weekDays) {
+        if (!isDateWithinScheduleRange(dStr)) continue
+
+        const shiftTypeId = getCellShiftTypeId(nurseId, dStr)
+        const isCurrentDayoff = isDayOff(shiftTypeId)
+
+        if (dayOffCount < 2) {
+          if (!isCurrentDayoff && shiftTypeId !== null) {
+            errorCells.push({ nurseId, dateIso: dStr })
+          }
+        } else if (dayOffCount > 2) {
+          if (isCurrentDayoff) {
+            errorCells.push({ nurseId, dateIso: dStr })
+          }
+        }
+      }
+    }
+    validationErrorCells.value = errorCells
+  } else if (isMinNursesRule) {
+    const errorCells: { nurseId: number, dateIso: string }[] = []
+
+    for (const day of monthDays.value) {
+      for (const st of shiftTypes.value) {
+        const minN = st.min_nurses ?? 0
+        if (minN > 0) {
+          const assignedNurses = nurses.value.filter(n => {
+            const key = getCellKey(n.id, day.dateIso)
+            return getCellShiftTypeId(n.id, day.dateIso) === st.id
+          })
+
+          if (assignedNurses.length > 0 && assignedNurses.length < minN) {
+            for (const n of assignedNurses) {
+              errorCells.push({ nurseId: n.id, dateIso: day.dateIso })
+            }
+          }
+        }
+      }
+    }
+    validationErrorCells.value = errorCells
+  } else if (data && data.nurse_id && Array.isArray(data.invalid_dates)) {
+    const nurseId = Number(data.nurse_id)
+    validationErrorCells.value = data.invalid_dates.map((date: string) => ({
+      nurseId,
+      dateIso: date
+    }))
+  }
+}
+
 const executePublishFlow = async (force = false) => {
   localError.value = ''
   localWarning.value = ''
@@ -1197,24 +1293,25 @@ const executePublishFlow = async (force = false) => {
     }, 4000)  
   } catch (error: unknown) {
     const data = (error as any)?.data
+    const errorMessage = getBackendErrorMessage(error)
+
+    // Save the original error so we can translate it in real time
+    rawError.value = error
+    rawValidationError.value = error
+
+    // Populates the error cells first so they appear in the grid
+    populateValidationErrors(data, errorMessage)
+    validationErrorMessage.value = errorMessage
     
     if (data && data.bypassable) {
-      // Abre o modal integrado em vez de usar window.confirm
-      warningMessage.value = getBackendErrorMessage(error)
+      warningMessage.value = errorMessage
       isWarningModalOpen.value = true
       return
     }
 
     rawError.value = error                
-    localError.value = getBackendErrorMessage(error)
-    rawValidationError.value = error         
-    validationErrorMessage.value = localError.value
-    if (data && data.nurse_id && Array.isArray(data.invalid_dates)) {
-      validationErrorCells.value = data.invalid_dates.map((date: string) => ({
-        nurseId: data.nurse_id,
-        dateIso: date
-      }))
-    }
+    localError.value = errorMessage
+    rawValidationError.value = error 
   } finally {
     if (!isWarningModalOpen.value) {
       isPublishing.value = false
@@ -1251,7 +1348,6 @@ const deleteDraftSchedule = async () => {
 }
 
 // Generic confirmation modal control for draft deletion.
-
 const closeDeleteDraftModal = () => {
   if (isDeletingDraft.value) return
   isDeleteDraftModalOpen.value = false
@@ -1281,7 +1377,7 @@ const confirmDeleteDraftSchedule = async () => {
   }
 }
 
-// Fecha o modal de confirmação com a tecla Escape.
+// Closes the confirmation modal with the Escape key
 const handleDeleteDraftModalEscape = (event: KeyboardEvent) => {
   if (event.key !== 'Escape') return
   closeDeleteDraftModal()
@@ -1304,7 +1400,7 @@ const handleBackClick = () => {
   targetRoute.value = null
   isBackModalOpen.value = true
 }
-// Interceta todo e qualquer movimento de saída da página (incluindo swipe)
+// Intercepts all exit movements from the page (including swipe)
 onBeforeRouteLeave((to, from, next) => {
   if (isConfirmedLeave.value) {
     next()
@@ -1312,7 +1408,7 @@ onBeforeRouteLeave((to, from, next) => {
   }
   targetRoute.value = to.fullPath
   isBackModalOpen.value = true
-  next(false) // Cancela a navegação de imediato
+  next(false) 
 })
 const confirmLeave = () => {
   isConfirmedLeave.value = true
@@ -1334,10 +1430,7 @@ const confirmSaveAndLeave = async () => {
   }
 }
 
-
-
 // ==================== Lifecycle ====================
-
 onMounted(async () => {
   if (process.client) {
     window.addEventListener('mouseup', handleGlobalMouseUp)
