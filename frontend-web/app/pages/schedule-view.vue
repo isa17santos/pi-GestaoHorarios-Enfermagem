@@ -907,8 +907,9 @@ const generateMonthlyPdf = async () => {
               :style="getColorVars(type.color)"
             >
               {{ getShiftName(type) }}
-              <span v-if="type.start_time && type.start_time !== '00:00:00'" class="legend-time">
-                ({{ type.start_time.slice(0, 5) }} - {{ type.end_time.slice(0, 5) }})
+              <span v-if="type.start_time && type.start_time !== '00:00:00'" class="legend-time"></span>
+              <span v-if="type.start_time && !isAllDay(type)" class="legend-time">
+                  ({{ type.start_time.slice(0, 5) }} - {{ type.end_time.slice(0, 5) }})
               </span>
             </div>
           </div>
