@@ -240,6 +240,35 @@
     flex: 0 0 auto;
     width: 42px;
   }
+
+
+  .schedule-month-nav {
+    display: flex !important;
+    flex-wrap: wrap !important; 
+    justify-content: center !important;
+    gap: 12px !important; 
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .schedule-month-label {
+    order: 1 !important;
+    width: 100% !important;
+    flex-basis: 100% !important;
+    min-width: auto !important; 
+    text-align: center !important;
+    margin-bottom: 8px !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+  }
+  .schedule-month-nav .schedule-secondary-button {
+    order: 2 !important; 
+    flex: 0 1 auto !important;
+    flex-shrink: 0 !important; 
+    white-space: nowrap !important; 
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
 }
 
 /* ==================== Navegação Mensal ==================== */

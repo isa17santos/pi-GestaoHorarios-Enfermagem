@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 class ScheduleController extends Controller
@@ -378,10 +379,12 @@ class ScheduleController extends Controller
 
         \Carbon\Carbon::setLocale('pt');
 
-        $validationError = $this->validateScheduleIntegrity($schedule);
+        $force = filter_var($request->input('force', false), FILTER_VALIDATE_BOOLEAN);
+        $validationError = $this->validateScheduleIntegrity($schedule, $force);
         if ($validationError) {
             return $validationError;
         }
+
         $schedule->status = 'published';
         $schedule->save();
 
@@ -598,13 +601,13 @@ class ScheduleController extends Controller
             }
 
 
-            // 1. Clone the Schedule
+            // Clone the Schedule
             $revision = $original->replicate();
             $revision->status = 'revision';
             $revision->parent_id = $original->id;
             $revision->save();
 
-            // 2. Clone shifts and assignments
+            // Clone shifts and assignments
             foreach ($original->shifts as $shift) {
                 $newShift = $shift->replicate();
                 $newShift->schedule_id = $revision->id;
@@ -696,7 +699,7 @@ class ScheduleController extends Controller
 
 
         try {
-            return DB::transaction(function () use ($revisionId) {
+            return DB::transaction(function () use ($revisionId, $request) {
                 $revision = Schedule::with('shifts.users')->find($revisionId);
 
                 if (!$revision) {
@@ -709,7 +712,8 @@ class ScheduleController extends Controller
 
                 $original = Schedule::findOrFail($revision->parent_id);
 
-                $validationError = $this->validateScheduleIntegrity($revision);
+                $force = filter_var($request->input('force', false), FILTER_VALIDATE_BOOLEAN);
+                $validationError = $this->validateScheduleIntegrity($revision, $force);
                 if ($validationError)
                     return $validationError;
 
@@ -731,7 +735,7 @@ class ScheduleController extends Controller
                     $original->refresh();
 
                     // Get the IDs of all users who have shifts in this schedule
-                    $notifiableUserIds = \DB::table('user_shifts')
+                    $notifiableUserIds = DB::table('user_shifts')
                         ->whereIn('shift_id', function($query) use ($original) {
                             $query->select('id')
                                   ->from('shifts')
@@ -761,7 +765,7 @@ class ScheduleController extends Controller
                     }
                 } catch (\Exception $e) {
                     // Only log the warning if the email fails, so that the user doesn't receive a 500 error
-                    \Log::warning("Failed to send update emails: " . $e->getMessage());
+                    Log::warning("Failed to send update emails: " . $e->getMessage());
                 }
 
                 return response()->json([
@@ -777,17 +781,22 @@ class ScheduleController extends Controller
     }
 
 
-    private function calculateChanges($original, $revision): int
+    private function calculateChanges(Schedule $original, Schedule $revision): int
     {
         // count how many shifts in the revision are different from the original
         return abs($revision->shifts()->count() - $original->shifts()->count()) + 1;
     }
 
-    private function validateScheduleIntegrity(Schedule $schedule): ?JsonResponse
+    private function validateScheduleIntegrity(Schedule $schedule, bool $force = false): ?JsonResponse
     {
         \Carbon\Carbon::setLocale('pt');
         if (!Shift::where('schedule_id', $schedule->id)->exists()) {
             return response()->json(['message' => 'O horário não pode ser publicado sem turnos atribuídos.'], 422);
+        }
+
+        // If the publication is forced, ignore all remaining operational validations
+        if ($force) {
+            return null;
         }
 
         $scheduleShifts = Shift::with(['users:id,name', 'shiftType'])->where('schedule_id', $schedule->id)->get();
@@ -812,10 +821,15 @@ class ScheduleController extends Controller
             foreach ($nurseIds as $nurseId) {
                 if (!$assignedByDateAndNurse->has($dateString . '_' . $nurseId)) {
                     return response()->json([
-                        'message' => "Existem dias no horário sem turnos atribuídos a enfermeiros."
+                        'message' => "Existem dias no horário sem turnos atribuídos a enfermeiros.",
                     ], 422);
                 }
             }
+        }
+
+        // If the publishing is forced (force = true), ignore only the operational validations below
+        if ($force) {
+            return null;
         }
 
         // Validates the minimum number of nurses per shift
@@ -837,7 +851,8 @@ class ScheduleController extends Controller
             $shiftType = $group->first()->shiftType;
             if ($group->count() < ($shiftType->min_nurses ?? 0)) {
                 return response()->json([
-                    'message' => "O número mínimo de enfermeiros exigido para cada turno não está a ser cumprido."
+                    'message' => "O número mínimo de enfermeiros exigido para cada turno não está a ser cumprido.",
+                    'bypassable' => true
                 ], 422);
             }
         }
@@ -877,23 +892,26 @@ class ScheduleController extends Controller
         // Filter only the shift IDs corresponding to morning, afternoon and night
         $activeTypeIds = ShiftType::whereIn('name', ['morning', 'afternoon', 'night'])->pluck('id')->all();
 
+        // Gather the active shifts per nurse and date for daily limit validation
+        $nurseActiveShiftsPerDate = [];
+        foreach ($scheduleShifts as $shift) {
+            if (!in_array($shift->shift_type_id, $activeTypeIds)) {
+                continue;
+            }
+            $dateStr = $shift->shift_date->toDateString();
+            foreach ($shift->users as $user) {
+                $nurseActiveShiftsPerDate[$user->id][$dateStr][] = $shift->shift_type_id;
+            }
+        }
+        // Validate that no nurse has more than one active shift on the same day
         foreach ($nurseIds as $nurseId) {
-            $shiftsOfNurse = $nurseShifts[$nurseId] ?? [];
-            for ($date = $startDate->copy(); $date->lt($endDate); $date->addDay()) {
-                $d1Str = $date->toDateString();
-                $d2Str = $date->copy()->addDay()->toDateString();
-                $shift1 = $shiftsOfNurse[$d1Str] ?? null;
-                $shift2 = $shiftsOfNurse[$d2Str] ?? null;
-                if ($shift1 && $shift2) {
-                    if (!in_array($shift1->shift_type_id, $activeTypeIds) || !in_array($shift2->shift_type_id, $activeTypeIds)) {
-                        continue;
-                    }
-                    $gap = $restGapAfterPreviousShift($shift1->shiftType, $shift2->shiftType);
-                    if ($gap !== null && $gap < 11 * 60) {
-                        return response()->json([
-                            'message' => "Existem turnos com menos de 11h de diferença."
-                        ], 422);
-                    }
+            $datesWithActiveShifts = $nurseActiveShiftsPerDate[$nurseId] ?? [];
+            foreach ($datesWithActiveShifts as $dateStr => $shiftTypeIds) {
+                if (count($shiftTypeIds) > 1) {
+                    return response()->json([
+                        'message' => "Não é permitido ter mais do que um turno ativo no mesmo dia.",
+                        'bypassable' => true
+                    ], 422);
                 }
             }
         }
@@ -960,7 +978,8 @@ class ScheduleController extends Controller
                         return response()->json([
                             'message' => "Não pode ter mais de 2 dias de folga seguidos",
                             'nurse_id' => $nurseId,
-                            'invalid_dates' => array_slice($dayOffDates, $i - ($consecutive - 1), $consecutive)
+                            'invalid_dates' => array_slice($dayOffDates, $i - ($consecutive - 1), $consecutive),
+                            'bypassable' => true
                         ], 422);
                     }
                 } else {
@@ -995,12 +1014,14 @@ class ScheduleController extends Controller
                         $hasSpecialAbsence = true;
                     }
                 }
+
                 // Only validates if we have the 7 days mapped and no special absence (vacations, sick leave, etc)
                 if ($hasAllDays && !$hasSpecialAbsence && $dayOffCount !== 2) {
                     return response()->json([
                         'message' => "Obrigatorio 2 dias de folga por semana",
                         'nurse_id' => $nurseId,
-                        'invalid_dates' => $weekDayOffDates
+                        'invalid_dates' => $weekDayOffDates,
+                        'bypassable' => true
                     ], 422);
                 }
             }
@@ -1151,10 +1172,28 @@ class ScheduleController extends Controller
                 $q->where('status', 'published');
             });
 
-        // If it's a personal view, filter only shifts where the authenticated user is scheduled
         if ($view === 'personal') {
-            $shiftsQuery->whereHas('users', function ($q) use ($user) {
-                $q->where('users.id', $user->id);
+            $userCombinations = Shift::whereHas('users', function ($q) use ($user) {
+                    $q->where('users.id', $user->id);
+                })
+                ->whereBetween('shift_date', [
+                    $startDate->toDateString(),
+                    $endDate->toDateString(),
+                ])
+                ->whereHas('schedule', function ($q) {
+                    $q->where('status', 'published');
+                })
+                ->select('shift_date', 'shift_type_id')
+                ->distinct()
+                ->get();
+
+            $shiftsQuery->where(function ($query) use ($userCombinations) {
+                foreach ($userCombinations as $combo) {
+                    $query->orWhere(function ($q) use ($combo) {
+                        $q->where('shift_date', $combo->shift_date)
+                        ->where('shift_type_id', $combo->shift_type_id);
+                    });
+                }
             });
         }
 
@@ -1164,10 +1203,10 @@ class ScheduleController extends Controller
                 return $shift->shift_date?->toDateString() . '_' . ($shift->shiftType?->id ?? 'null');
             })
             ->map(function ($groupedShifts): array {
-                // Usamos o primeiro turno do grupo para extrair os dados gerais do turno
+                // We use the first shift in the group to extract the general shift data
                 $firstShift = $groupedShifts->first();
 
-                // Agrupa todos os utilizadores associados a todos os turnos deste grupo
+                // Gathers all users associated with all shifts in this group
                 $users = $groupedShifts->flatMap(function (Shift $shift) {
                     return $shift->users;
                 })
@@ -1206,7 +1245,119 @@ class ScheduleController extends Controller
     }
 
 
+    #[OA\Get(
+        path: '/api/schedules/ical',
+        summary: 'Exporta os turnos do utilizador no formato iCal',
+        tags: ['Schedules'],
+        parameters: [
+            new OA\Parameter(
+                name: 'token',
+                in: 'query',
+                description: 'Personal Access Token do utilizador',
+                required: true,
+                schema: new OA\Schema(type: 'string')
+            )
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Ficheiro iCal gerado e descarregado com sucesso.'
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Não autenticado.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Token inválido ou não autorizado.')
+                    ]
+                )
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'Acesso proibido.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Sem permissão para exportar horários.')
+                    ]
+                )
+            )
+        ]
+    )]
+    public function ical(Request $request): \Illuminate\Http\Response|\Illuminate\Http\JsonResponse
+    {
+        $token = $request->query('token') ?? $request->bearerToken();
 
+        if (!$token) {
+            return response()->json(['message' => 'Token não fornecido.'], 401);
+        }
+
+        // clean the word "Bearer " in case it came accidently in the string
+        $token = str_replace('Bearer ', '', $token);
+
+        // Find the Personal Access Token sent in the query string
+        $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+        if (!$accessToken || !$accessToken->tokenable) {
+            return response()->json(['message' => 'Token inválido ou não autorizado.'], 401);
+        }
+
+        $user = $accessToken->tokenable;
+        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        // Role validation
+        if (!in_array($role, [\App\Enums\UserRole::Nurse->value, \App\Enums\UserRole::HeadNurse->value])) {
+            return response()->json(['message' => 'Sem permissão para exportar horários.'], 403);
+        }
+
+
+        // Get all shifts for the user that belong to already published schedules
+        $shifts = \App\Models\Shift::with('shiftType')
+            ->whereHas('users', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })
+            ->whereHas('schedule', function ($q) {
+                $q->where('status', 'published');
+            })
+            ->get();
+
+        // Build the iCalendar file
+        $ical = "BEGIN:VCALENDAR\r\n";
+        $ical .= "VERSION:2.0\r\n";
+        $ical .= "PRODID:-//GestaoHorarios//PT\r\n";
+        $ical .= "CALSCALE:GREGORIAN\r\n";
+
+        foreach ($shifts as $shift) {
+            if (!$shift->shiftType) continue;
+
+            $ical .= "BEGIN:VEVENT\r\n";
+            $ical .= "UID:shift-{$shift->id}@gestaohorarios\r\n";
+
+            // Combine the shift date with the start and end times of the shift type
+            $start = \Carbon\Carbon::parse($shift->shift_date->format('Y-m-d') . ' ' . $shift->shiftType->start_time);
+            $end = \Carbon\Carbon::parse($shift->shift_date->format('Y-m-d') . ' ' . $shift->shiftType->end_time);
+
+            // If the end time is less than the start time, it means the shift ends on the next day (crosses midnight)
+            if ($end <= $start) {
+                $end->addDay();
+            }
+
+            // The format for iCal must be in UTC, the Z at the end indicates this
+            $ical .= "DTSTAMP:" . now()->timezone('UTC')->format('Ymd\THis\Z') . "\r\n";
+            $ical .= "DTSTART:" . $start->format('Ymd\THis') . "\r\n";
+            $ical .= "DTEND:" . $end->format('Ymd\THis') . "\r\n";
+
+            $summary = "Turno " . $shift->shiftType->name;
+            $ical .= "SUMMARY:" . $summary . "\r\n";
+            $ical .= "END:VEVENT\r\n";
+        }
+
+        $ical .= "END:VCALENDAR\r\n";
+
+        // Return with the appropriate headers to be recognized as a calendar file
+        return response($ical)
+            ->header('Content-Type', 'text/calendar; charset=utf-8')
+            ->header('Content-Disposition', 'attachment; filename="horario.ics"');
+    }
 }
 
 

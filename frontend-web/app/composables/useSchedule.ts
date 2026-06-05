@@ -46,6 +46,7 @@ type ShiftType = {
   start_time: string
   end_time: string
   min_nurses?: number
+  color?: string | null
 }
 
 // Response shape for fetching multiple nurses

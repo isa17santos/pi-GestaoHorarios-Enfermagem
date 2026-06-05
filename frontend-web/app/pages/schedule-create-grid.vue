@@ -160,6 +160,10 @@ const isDeletingDraft = ref(false)
 // Controls the custom delete confirmation modal.
 const isDeleteDraftModalOpen = ref(false)
 
+// Controls the custom warning confirmation modal.
+const isWarningModalOpen = ref(false)
+const warningMessage = ref('')
+
 // Currently selected shift type in the toolbar.
 const selectedShiftTypeId = ref<number | null>(null)
 
@@ -347,9 +351,6 @@ const getBackendErrorMessage = (error: unknown) => {
 
   return message
 }
-
-
-
 
 const normalizeErrorMessage = (message: string) => {
   return message
@@ -585,44 +586,8 @@ const restGapAfterPreviousShift = (
   return (nextStartMinutes + 24 * 60) - previousEndAbsolute
 }
 
-// Returns true when assigning a shift would violate the 11h rest rule with adjacent days.
+// Returns true when assigning a shift would violate the rest rules.
 const hasRestViolation = (nurseId: number, dateIso: string, shiftTypeId: number): boolean => {
-  if (blockingShiftTypeIds.value.has(shiftTypeId)) return false
-
-  const previousDateIso = getRelativeDateIso(dateIso, -1)
-  if (previousDateIso) {
-    const previousShiftTypeId = getCellShiftTypeId(nurseId, previousDateIso)
-
-    if (previousShiftTypeId && !blockingShiftTypeIds.value.has(previousShiftTypeId)) {
-      const previousShiftType = shiftTypes.value.find((item) => item.id === previousShiftTypeId)
-      const currentShiftType = shiftTypes.value.find((item) => item.id === shiftTypeId)
-
-      if (previousShiftType && currentShiftType) {
-        const gap = restGapAfterPreviousShift(previousShiftType, currentShiftType)
-        if (gap !== null && gap < 11 * 60) {
-          return true
-        }
-      }
-    }
-  }
-
-  const nextDateIso = getRelativeDateIso(dateIso, 1)
-  if (nextDateIso) {
-    const nextShiftTypeId = getCellShiftTypeId(nurseId, nextDateIso)
-
-    if (nextShiftTypeId && !blockingShiftTypeIds.value.has(nextShiftTypeId)) {
-      const currentShiftType = shiftTypes.value.find((item) => item.id === shiftTypeId)
-      const nextShiftType = shiftTypes.value.find((item) => item.id === nextShiftTypeId)
-
-      if (currentShiftType && nextShiftType) {
-        const gap = restGapAfterPreviousShift(currentShiftType, nextShiftType)
-        if (gap !== null && gap < 11 * 60) {
-          return true
-        }
-      }
-    }
-  }
-
   return false
 }
 
@@ -638,6 +603,8 @@ const hasCellRestWarning = (nurseId: number, dateIso: string) => {
 
   return hasRestWarningForAssignment(nurseId, dateIso, shiftTypeId)
 }
+
+
 
 // ==================== Fill Validation ====================
 
@@ -1148,6 +1115,117 @@ const saveGridAssignments = async (isSilent = false) => {
 
 
 const publishSchedule = async () => {
+  await executePublishFlow(false)
+}
+
+const confirmPublishWithWarnings = async () => {
+  isWarningModalOpen.value = false
+  await executePublishFlow(true)
+}
+
+const closeWarningModal = () => {
+  isWarningModalOpen.value = false
+  isPublishing.value = false
+}
+
+const populateValidationErrors = (data: any, errorMessage: string) => {
+  validationErrorCells.value = []
+  if (!errorMessage) return
+
+  const msg = errorMessage.toLowerCase()
+  const isWeeklyFolgasRule = msg.includes('obrigatorio') || msg.includes('folga por semana') || msg.includes('required') || msg.includes('days off per week')
+  const isMinNursesRule = msg.includes('numero minimo') || msg.includes('número mínimo') || msg.includes('minimum number') || msg.includes('não está a ser cumprido')
+
+  if (isWeeklyFolgasRule && data && data.nurse_id && Array.isArray(data.invalid_dates)) {
+    const nurseId = Number(data.nurse_id)
+    const errorCells: { nurseId: number, dateIso: string }[] = []
+    
+    const isDayOff = (shiftTypeId: number | null): boolean => {
+      if (!shiftTypeId) return false
+      const name = getShiftTypeNameById(shiftTypeId).trim().toLowerCase()
+      return name.includes('off') || name.includes('folga')
+    }
+
+    const processedWeeks = new Set<string>()
+
+    for (const dateIso of data.invalid_dates) {
+      const date = new Date(`${dateIso}T00:00:00`)
+      const dayOfWeek = date.getDay()
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      const monday = new Date(date)
+      monday.setDate(date.getDate() + diffToMonday)
+      
+      const mondayStr = monday.toISOString().slice(0, 10)
+      if (processedWeeks.has(mondayStr)) continue
+      processedWeeks.add(mondayStr)
+
+      const weekDays: string[] = []
+      let dayOffCount = 0
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const dStr = `${y}-${m}-${day}`
+        weekDays.push(dStr)
+
+        const shiftTypeId = getCellShiftTypeId(nurseId, dStr)
+        if (isDayOff(shiftTypeId)) {
+          dayOffCount++
+        }
+      }
+
+      for (const dStr of weekDays) {
+        if (!isDateWithinScheduleRange(dStr)) continue
+
+        const shiftTypeId = getCellShiftTypeId(nurseId, dStr)
+        const isCurrentDayoff = isDayOff(shiftTypeId)
+
+        if (dayOffCount < 2) {
+          if (!isCurrentDayoff && shiftTypeId !== null) {
+            errorCells.push({ nurseId, dateIso: dStr })
+          }
+        } else if (dayOffCount > 2) {
+          if (isCurrentDayoff) {
+            errorCells.push({ nurseId, dateIso: dStr })
+          }
+        }
+      }
+    }
+    validationErrorCells.value = errorCells
+  } else if (isMinNursesRule) {
+    const errorCells: { nurseId: number, dateIso: string }[] = []
+
+    for (const day of monthDays.value) {
+      for (const st of shiftTypes.value) {
+        const minN = st.min_nurses ?? 0
+        if (minN > 0) {
+          const assignedNurses = nurses.value.filter(n => {
+            const key = getCellKey(n.id, day.dateIso)
+            return getCellShiftTypeId(n.id, day.dateIso) === st.id
+          })
+
+          if (assignedNurses.length > 0 && assignedNurses.length < minN) {
+            for (const n of assignedNurses) {
+              errorCells.push({ nurseId: n.id, dateIso: day.dateIso })
+            }
+          }
+        }
+      }
+    }
+    validationErrorCells.value = errorCells
+  } else if (data && data.nurse_id && Array.isArray(data.invalid_dates)) {
+    const nurseId = Number(data.nurse_id)
+    validationErrorCells.value = data.invalid_dates.map((date: string) => ({
+      nurseId,
+      dateIso: date
+    }))
+  }
+}
+
+const executePublishFlow = async (force = false) => {
   localError.value = ''
   localWarning.value = ''
   localSuccess.value = ''
@@ -1187,16 +1265,15 @@ const publishSchedule = async () => {
     }
 
     const isRevision = schedule.value?.status === 'revision'
-    // Choose the correct endpoint based on the state
-    // If it's a revision, use 'publish-edit'. If it's a draft, use 'publish'.
     const endpoint = isRevision 
       ? `${config.public.apiBase}/schedules/${scheduleId.value}/publish-edit`
       : `${config.public.apiBase}/schedules/${scheduleId.value}/publish`
-    // The publish-edit is always POST, the publish normal can be PATCH
     const method = isRevision ? 'POST' : 'PATCH'
+    
     await $fetch(endpoint, {
       method,
       headers: authHeaders,
+      body: { force }
     })
 
     // Success
@@ -1215,22 +1292,32 @@ const publishSchedule = async () => {
       await navigateTo('/dashboard')
     }, 4000)  
   } catch (error: unknown) {
-    rawError.value = error                
-    localError.value = getBackendErrorMessage(error)
-    rawValidationError.value = error         
-    validationErrorMessage.value = localError.value
     const data = (error as any)?.data
-    if (data && data.nurse_id && Array.isArray(data.invalid_dates)) {
-      validationErrorCells.value = data.invalid_dates.map((date: string) => ({
-        nurseId: data.nurse_id,
-        dateIso: date
-      }))
+    const errorMessage = getBackendErrorMessage(error)
+
+    // Save the original error so we can translate it in real time
+    rawError.value = error
+    rawValidationError.value = error
+
+    // Populates the error cells first so they appear in the grid
+    populateValidationErrors(data, errorMessage)
+    validationErrorMessage.value = errorMessage
+    
+    if (data && data.bypassable) {
+      warningMessage.value = errorMessage
+      isWarningModalOpen.value = true
+      return
     }
+
+    rawError.value = error                
+    localError.value = errorMessage
+    rawValidationError.value = error 
   } finally {
-    isPublishing.value = false
+    if (!isWarningModalOpen.value) {
+      isPublishing.value = false
+    }
   }
 }
-
     
 
 const deleteDraftSchedule = async () => {
@@ -1261,7 +1348,6 @@ const deleteDraftSchedule = async () => {
 }
 
 // Generic confirmation modal control for draft deletion.
-
 const closeDeleteDraftModal = () => {
   if (isDeletingDraft.value) return
   isDeleteDraftModalOpen.value = false
@@ -1291,7 +1377,7 @@ const confirmDeleteDraftSchedule = async () => {
   }
 }
 
-// Fecha o modal de confirmação com a tecla Escape.
+// Closes the confirmation modal with the Escape key
 const handleDeleteDraftModalEscape = (event: KeyboardEvent) => {
   if (event.key !== 'Escape') return
   closeDeleteDraftModal()
@@ -1314,7 +1400,7 @@ const handleBackClick = () => {
   targetRoute.value = null
   isBackModalOpen.value = true
 }
-// Interceta todo e qualquer movimento de saída da página (incluindo swipe)
+// Intercepts all exit movements from the page (including swipe)
 onBeforeRouteLeave((to, from, next) => {
   if (isConfirmedLeave.value) {
     next()
@@ -1322,7 +1408,7 @@ onBeforeRouteLeave((to, from, next) => {
   }
   targetRoute.value = to.fullPath
   isBackModalOpen.value = true
-  next(false) // Cancela a navegação de imediato
+  next(false) 
 })
 const confirmLeave = () => {
   isConfirmedLeave.value = true
@@ -1344,10 +1430,7 @@ const confirmSaveAndLeave = async () => {
   }
 }
 
-
-
 // ==================== Lifecycle ====================
-
 onMounted(async () => {
   if (process.client) {
     window.addEventListener('mouseup', handleGlobalMouseUp)
@@ -1592,6 +1675,33 @@ onBeforeUnmount(() => {
                 <button type="button" class="modal-btn confirm" @click="confirmSaveAndLeave"
                   style="flex: 1; font-size: 14px; white-space: nowrap;">
                   {{ currentLocale === 'pt' ? 'Guardar alterações' : 'Save changes' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </transition>
+
+        <transition name="fade">
+          <div v-if="isWarningModalOpen" class="modal-overlay" @click.self="closeWarningModal">
+            <div class="modal-card">
+              <div class="modal-icon" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.28); background: rgba(245, 158, 11, 0.1);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+              <h2>{{ currentLocale === 'pt' ? 'Casos Críticos Detetados' : 'Critical Issues Detected' }}</h2>
+              <p style="text-align: center; white-space: pre-line; font-weight: 500; margin-bottom: 12px;">
+                {{ warningMessage }}
+              </p>
+              <p style="text-align: center; font-size: 14px; opacity: 0.85; margin-bottom: 24px;">
+                {{ currentLocale === 'pt' ? 'Tem a certeza de que deseja prosseguir com a publicação mesmo com estes casos críticos ou prefere corrigir?' : 'Are you sure you want to proceed with publishing even with these critical cases, or do you prefer to correct them?' }}
+              </p>
+              <div class="modal-actions" style="display: flex; gap: 12px; justify-content: center; width: 100%;">
+                <button type="button" class="modal-btn cancel" @click="closeWarningModal" style="flex: 1;">
+                  {{ currentLocale === 'pt' ? 'Corrigir' : 'Correct' }}
+                </button>
+                <button type="button" class="modal-btn confirm" @click="confirmPublishWithWarnings" style="flex: 1;">
+                  {{ currentLocale === 'pt' ? 'Prosseguir' : 'Proceed' }}
                 </button>
               </div>
             </div>
