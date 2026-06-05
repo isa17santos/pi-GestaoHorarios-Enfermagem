@@ -97,6 +97,11 @@ class ShiftController extends Controller
             });
         }
 
+        // Exclude shifts assigned exclusively to head nurses.
+        $query->whereHas('users', function ($q): void {
+            $q->where('users.role', '!=', UserRole::HeadNurse->value);
+        });
+
         if ($request->filled('from')) {
             // Return only shifts on or after the provided start date.
             $query->whereDate('shift_date', '>=', (string) $request->query('from'));

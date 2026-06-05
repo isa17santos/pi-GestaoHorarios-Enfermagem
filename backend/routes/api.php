@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\ShiftSwapRequestController;
 use App\Http\Controllers\SwapRequestController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
 	Route::get('/swaps/{swapRequest}', [SwapRequestController::class, 'show']);
 	Route::post('/swaps', [SwapRequestController::class, 'store']);
 	Route::post('/swaps/{swapRequest}/accept', [SwapRequestController::class, 'accept']);
-	Route::post('/swaps/{swapRequest}/reject', [SwapRequestController::class, 'reject']);
+	Route::post('/swaps/{swapRequest}/reject', [ShiftSwapRequestController::class, 'reject']);
 	Route::post('/swaps/{swapRequest}/cancel', [SwapRequestController::class, 'cancel']);
 });
