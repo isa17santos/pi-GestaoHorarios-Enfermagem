@@ -238,9 +238,24 @@ class SwapRequestController extends Controller
     {
         $this->authorize('accept', $swapRequest);
 
-        $swapRequest->update([
-            'status' => ShiftSwapStatus::Accepted,
-        ]);
+        DB::transaction(function () use ($swapRequest): void {
+            $swapRequest->update([
+                'status' => ShiftSwapStatus::Accepted,
+            ]);
+
+            $acceptedShiftId = $swapRequest->requestShifts()
+                ->where('type', ShiftSwapRequestShiftType::Offered->value)
+                ->value('shift_id');
+
+            ShiftSwapRequest::query()
+                ->where('id', '!=', $swapRequest->id)
+                ->where('status', ShiftSwapStatus::Pending)
+                ->whereHas('requestShifts', function ($q) use ($acceptedShiftId): void {
+                    $q->where('shift_id', $acceptedShiftId)
+                        ->where('type', ShiftSwapRequestShiftType::Offered->value);
+                })
+                ->update(['status' => ShiftSwapStatus::Cancelled]);
+        });
 
         $headNurses = User::query()
             ->where('role', UserRole::HeadNurse->value)

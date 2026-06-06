@@ -18,10 +18,11 @@ type ShiftOption = {
 
 const { user } = useAuth()
 const { fetchShifts, createSwap, errorSwaps } = useSwap()
+const route = useRoute()
 
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
-const selectedOfferedShift = ref<ShiftOption | null>(null)
+const selectedOfferedShift = ref<ShiftOption[]>([])
 const selectedRequestedShift = ref<ShiftOption | null>(null)
 const myShifts = ref<ShiftOption[]>([])
 const availableShifts = ref<ShiftOption[]>([])
@@ -134,10 +135,9 @@ const availableShiftTypes = computed(() => {
 const filteredAvailableShifts = computed(() => {
   return availableShifts.value.filter((shift) => {
     // Never show the exact same day + shift-type combination as the offered shift.
-    const isSameDayAndType = Boolean(
-      selectedOfferedShift.value
-      && normalizeDate(shift.date) === normalizeDate(selectedOfferedShift.value.date)
-      && shift.shift_type.id === selectedOfferedShift.value.shift_type.id
+    const isSameDayAndType = selectedOfferedShift.value.some((offeredShift) =>
+      normalizeDate(shift.date) === normalizeDate(offeredShift.date)
+      && shift.shift_type.id === offeredShift.shift_type.id,
     )
     if (isSameDayAndType) return false
 
@@ -170,16 +170,15 @@ const loadMyShifts = async () => {
 }
 
 // Cache the available shifts list and only fetch once (or again if list is empty).
-watch(selectedOfferedShift, async (newShift) => {
+watch(() => selectedOfferedShift.value.length, async (newLength) => {
   selectedRequestedShift.value = null
   notes.value = ''
   submitSuccess.value = false
   filterNurse.value = ''
   activeShiftTypeFilters.value = []
-  // Date input uses YYYY-MM-DD, so mirror the selected offered shift date in that format.
-  filterDate.value = newShift ? normalizeDate(newShift.date) : ''
+  filterDate.value = ''
 
-  if (!newShift) return
+  if (newLength === 0) return
   if (availableShifts.value.length > 0) return
 
   loadingAvailable.value = true
@@ -209,7 +208,7 @@ const submitCreateSwap = async () => {
   submitError.value = null
   submitSuccess.value = false
 
-  if (!selectedOfferedShift.value || !selectedRequestedShift.value) {
+  if (selectedOfferedShift.value.length === 0 || !selectedRequestedShift.value) {
     submitError.value = texts.value.invalidForm
     return
   }
@@ -223,12 +222,16 @@ const submitCreateSwap = async () => {
   submitting.value = true
 
   try {
-    await createSwap({
-      offered_shift_ids: [selectedOfferedShift.value.id],
-      requested_shift_ids: [selectedRequestedShift.value.id],
-      target_user_id: targetUserId,
-      notes: notes.value.trim() || undefined,
-    })
+    await Promise.all(
+      selectedOfferedShift.value.map((offeredShift) =>
+        createSwap({
+          offered_shift_ids: [offeredShift.id],
+          requested_shift_ids: [selectedRequestedShift.value!.id],
+          target_user_id: targetUserId,
+          notes: notes.value.trim() || undefined,
+        }),
+      ),
+    )
 
     submitSuccess.value = true
     setTimeout(async () => {
@@ -257,6 +260,17 @@ const clearShiftTypeFilters = () => {
 
 onMounted(async () => {
   await loadMyShifts()
+
+  const shiftIdParam = Array.isArray(route.query.shift_id)
+    ? route.query.shift_id[0]
+    : route.query.shift_id
+
+  if (!shiftIdParam) return
+
+  const matchedShift = myShifts.value.find((shift) => shift.id === Number(shiftIdParam))
+  if (matchedShift) {
+    selectedOfferedShift.value = [matchedShift]
+  }
 })
 </script>
 
@@ -288,8 +302,8 @@ onMounted(async () => {
             <button
               v-for="shift in myShifts"
               :key="`my-${shift.id}`"
-              :class="['swc-shift-card', { 'swc-shift-card--selected': selectedOfferedShift?.id === shift.id }]"
-              @click="selectedOfferedShift = shift"
+              :class="['swc-shift-card', { 'swc-shift-card--selected': selectedOfferedShift.some((item) => item.id === shift.id) }]"
+              @click="selectedOfferedShift = selectedOfferedShift.some((item) => item.id === shift.id) ? selectedOfferedShift.filter((item) => item.id !== shift.id) : [...selectedOfferedShift, shift]"
             >
               <span :class="['swc-shift-dot', toColorClass(shift.shift_type.color)]"></span>
               <div>
@@ -301,7 +315,7 @@ onMounted(async () => {
           </div>
         </section>
 
-        <section v-if="selectedOfferedShift" class="swc-panel-right">
+        <section v-if="selectedOfferedShift.length > 0" class="swc-panel-right">
           <h2 class="swc-panel-title">{{ texts.rightTitle }}</h2>
 
           <div class="swc-filter-bar">
