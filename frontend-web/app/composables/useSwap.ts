@@ -69,6 +69,14 @@ type CreateSwapPayload = {
   notes?: string
 }
 
+type ValidateShiftWarning = {
+  nurse_name?: string
+  nurse?: {
+    name?: string
+  }
+  message?: string
+}
+
 export const useSwap = () => {
   const config = useRuntimeConfig()
   const { token, user } = useAuth()
@@ -203,6 +211,31 @@ export const useSwap = () => {
     }
   }
 
+  const validateShift = async (offeredShiftId: number, requestedShiftId: number): Promise<ValidateShiftWarning[]> => {
+    const authToken = requireAuthToken()
+
+    const query = new URLSearchParams({
+      offered_shift_id: String(offeredShiftId),
+      requested_shift_id: String(requestedShiftId),
+    })
+
+    const response = await $fetch<ValidateShiftWarning[] | { data?: ValidateShiftWarning[]; warnings?: ValidateShiftWarning[] }>(
+      `${config.public.apiBase}/swaps/validate?${query.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      }
+    )
+
+    if (Array.isArray(response)) {
+      return response
+    }
+
+    return response.data ?? response.warnings ?? []
+  }
+
   const acceptSwap = async (id: number): Promise<SwapRequest> => {
     loadingSwaps.value = true
     errorSwaps.value = null
@@ -291,6 +324,7 @@ export const useSwap = () => {
     fetchSwaps,
     fetchShifts,
     createSwap,
+    validateShift,
     acceptSwap,
     rejectSwap,
     cancelSwap,
