@@ -136,9 +136,11 @@ class AuthController extends Controller
                             property: 'user',
                             type: 'object',
                             properties: [
+                                new OA\Property(property: 'id', type: 'integer', example: 1),
                                 new OA\Property(property: 'name', type: 'string', example: 'Miguel Ferreira'),
                                 new OA\Property(property: 'email', type: 'string', format: 'email', example: 'miguel.ferreira@example.pt'),
                                 new OA\Property(property: 'role', type: 'string', example: 'admin'),
+                                new OA\Property(property: 'must_change_password', type: 'boolean', example: false),
                             ]
                         ),
                     ]
@@ -169,6 +171,7 @@ class AuthController extends Controller
         // forced-password-change flow after page reloads
         return response()->json([
             'user' => [
+                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role instanceof \BackedEnum ? $user->role->value : $user->role,

@@ -74,18 +74,19 @@ type ValidateShiftWarning = {
   nurse?: {
     name?: string
   }
+  type?: 'rest_hours' | 'days_off'
   message?: string
+  text?: string
 }
+
+// Module-level shared state — created once, shared across all useSwap() calls
+const swapRequests = ref<SwapRequest[]>([])
+const loadingSwaps = ref(false)
+const errorSwaps = ref<string | null>(null)
 
 export const useSwap = () => {
   const config = useRuntimeConfig()
   const { token, user } = useAuth()
-
-  const swapRequests = useState<SwapRequest[]>('swap.requests', () => [])
-
-  const loadingSwaps = useState<boolean>('swap.loadingSwaps', () => false)
-
-  const errorSwaps = useState<string | null>('swap.errorSwaps', () => null)
 
   const requireAuthToken = () => {
     if (!token.value) {

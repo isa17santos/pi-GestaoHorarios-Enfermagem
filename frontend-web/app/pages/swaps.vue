@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({
   middleware: 'auth',
+  ssr: false,
 })
 
 type SwapStatusFilter = '' | 'pending' | 'accepted' | 'rejected' | 'cancelled'
@@ -9,15 +10,7 @@ type SwapDirectionFilter = '' | 'sent' | 'received'
 type ActionType = 'accept' | 'reject' | 'cancel'
 
 const { user } = useAuth()
-const {
-  swapRequests,
-  loadingSwaps,
-  errorSwaps,
-  fetchSwaps,
-  acceptSwap,
-  rejectSwap,
-  cancelSwap,
-} = useSwap()
+const { swapRequests, loadingSwaps, errorSwaps, fetchSwaps, acceptSwap, rejectSwap, cancelSwap } = useSwap()
 
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
@@ -101,7 +94,7 @@ const texts = computed(() => ({
   },
 }))
 
-const authUserId = computed(() => Number((user.value as { id?: unknown } | null)?.id ?? 0))
+const authUserId = computed(() => Number(user.value?.id ?? 0))
 
 const formatDate = (value: string) => {
   const date = new Date(value)
@@ -112,6 +105,24 @@ const formatDate = (value: string) => {
     month: '2-digit',
     day: '2-digit',
   }).format(date)
+}
+
+// Maps raw shift type names from the API (e.g. 'morning', 'dayoff') to
+// localised display labels, falling back to the raw name when no mapping exists.
+const getShiftName = (shiftType: any) => {
+  if (!shiftType?.name) return '-'
+  const name = (shiftType.name || '').toLowerCase()
+  const pt: Record<string, string> = {
+    morning: 'Manhã', afternoon: 'Tarde', night: 'Noite',
+    dayoff: 'Folga', 'day off': 'Folga', holidays: 'Férias',
+    'sick leave': 'Baixa Médica', 'parental leave': 'Licença Parental',
+  }
+  const en: Record<string, string> = {
+    morning: 'Morning', afternoon: 'Afternoon', night: 'Night',
+    dayoff: 'Day Off', 'day off': 'Day Off', holidays: 'Holidays',
+    'sick leave': 'Sick Leave', 'parental leave': 'Parental Leave',
+  }
+  return currentLocale.value === 'pt' ? (pt[name] || shiftType.name) : (en[name] || shiftType.name)
 }
 
 const getRequesterId = (swap: any) => {
@@ -145,12 +156,30 @@ const statusLabel = (status: string) => {
 
 const getPrimaryShift = (shifts: any[]) => (Array.isArray(shifts) && shifts.length > 0 ? shifts[0] : null)
 
-const sentSwaps = computed(() => swapRequests.value.filter((swap) => isSentSwap(swap)))
-const receivedSwaps = computed(() => swapRequests.value.filter((swap) => isReceivedSwap(swap)))
+const sentSwaps = computed(() => {
+  if (authUserId.value === 0) return []
+  return swapRequests.value.filter((req) => isSentSwap(req))
+})
+const receivedSwaps = computed(() => {
+  if (authUserId.value === 0) return []
+  return swapRequests.value.filter((req) => isReceivedSwap(req))
+})
 
 const listToRender = computed(() => {
   if (!selectedDirection.value) return swapRequests.value
   return selectedDirection.value === 'sent' ? sentSwaps.value : receivedSwaps.value
+})
+
+// Groups swaps into display sections. Without a direction filter the list splits
+// into named "Sent" and "Received" sections; with a filter it's a single flat list.
+const sections = computed(() => {
+  if (selectedDirection.value) {
+    return [{ key: 'filtered', title: null as string | null, items: listToRender.value }]
+  }
+  return [
+    { key: 'sent', title: texts.value.sentSection, items: sentSwaps.value },
+    { key: 'received', title: texts.value.receivedSection, items: receivedSwaps.value },
+  ]
 })
 
 const updateSwapInState = (updatedSwap: any) => {
@@ -234,12 +263,18 @@ const executeAction = async () => {
   }
 }
 
-watch([selectedDirection, selectedStatus], async () => {
-  await loadSwaps()
+onMounted(async () => {
+  await fetchSwaps(
+    selectedDirection.value || undefined,
+    selectedStatus.value || undefined
+  )
 })
 
-onMounted(async () => {
-  await fetchSwaps()
+watch([selectedDirection, selectedStatus], async () => {
+  await fetchSwaps(
+    selectedDirection.value || undefined,
+    selectedStatus.value || undefined
+  )
 })
 </script>
 
@@ -348,182 +383,82 @@ onMounted(async () => {
           <p>{{ errorSwaps }}</p>
         </div>
 
-        <div v-else-if="swapRequests.length === 0" class="sw-state-msg">
+        <div v-else-if="!swapRequests?.length" class="sw-state-msg">
           <p>{{ texts.noRequests }}</p>
         </div>
 
         <div v-else class="sw-list-shell">
-          <template v-if="!selectedDirection">
-            <div class="sw-section">
-              <h2 class="sw-section-title">{{ texts.sentSection }}</h2>
-              <div v-if="sentSwaps.length === 0" class="sw-empty-section">{{ texts.noRequests }}</div>
-              <div v-else class="sw-list">
-                <article
-                  v-for="swap in sentSwaps"
-                  :key="`sent-${swap.id}`"
-                  :class="['sw-item', { 'sw-item--resolved': swap.status !== 'pending' }]"
-                >
-                  <div class="sw-item-header">
-                    <div class="sw-item-top-row">
-                      <span class="sw-counterparty">Com {{ getOtherParticipantName(swap) }}</span>
-                      <span :class="['sw-status-badge', `status-${swap.status}`]">{{ statusLabel(swap.status) }}</span>
-                    </div>
-                    <p class="sw-item-date">{{ formatDate(swap.created_at) }}</p>
-                  </div>
-
-                  <div class="sw-shifts-grid">
-                    <div class="sw-shift-block">
-                      <h3>{{ texts.card.offered }}</h3>
-                      <p class="sw-shift-date">{{ formatDate(getPrimaryShift(swap.offered_shifts)?.date || '-') }}</p>
-                      <p class="sw-shift-type">{{ getPrimaryShift(swap.offered_shifts)?.shift_type?.name || '-' }}</p>
-                      <p class="sw-shift-owner">{{ texts.card.by }} {{ getPrimaryShift(swap.offered_shifts)?.owner?.name || '-' }}</p>
-                    </div>
-
-                    <div class="sw-shift-block">
-                      <h3>{{ texts.card.requested }}</h3>
-                      <p class="sw-shift-date">{{ formatDate(getPrimaryShift(swap.requested_shifts)?.date || '-') }}</p>
-                      <p class="sw-shift-type">{{ getPrimaryShift(swap.requested_shifts)?.shift_type?.name || '-' }}</p>
-                      <p class="sw-shift-owner">{{ texts.card.by }} {{ getPrimaryShift(swap.requested_shifts)?.owner?.name || '-' }}</p>
-                    </div>
-                  </div>
-
-                  <p v-if="swap.notes" class="sw-notes"><strong>{{ texts.card.notes }}:</strong> {{ swap.notes }}</p>
-
-                  <div class="sw-actions-row">
-                    <button
-                      v-if="isSentSwap(swap) && swap.status === 'pending'"
-                      class="sw-action-btn cancel"
-                      @click="openActionModal('cancel', swap.id)"
-                    >
-                      {{ texts.actions.cancel }}
-                    </button>
-
-                    <template v-if="isReceivedSwap(swap) && swap.status === 'pending'">
-                      <button class="sw-action-btn accept" @click="openActionModal('accept', swap.id)">
-                        {{ texts.actions.accept }}
-                      </button>
-                      <button class="sw-action-btn reject" @click="openActionModal('reject', swap.id)">
-                        {{ texts.actions.reject }}
-                      </button>
-                    </template>
-                  </div>
-                </article>
-              </div>
-            </div>
-
-            <div class="sw-section">
-              <h2 class="sw-section-title">{{ texts.receivedSection }}</h2>
-              <div v-if="receivedSwaps.length === 0" class="sw-empty-section">{{ texts.noRequests }}</div>
-              <div v-else class="sw-list">
-                <article
-                  v-for="swap in receivedSwaps"
-                  :key="`received-${swap.id}`"
-                  :class="['sw-item', { 'sw-item--resolved': swap.status !== 'pending' }]"
-                >
-                  <div class="sw-item-header">
-                    <div class="sw-item-top-row">
-                      <span class="sw-counterparty">Com {{ getOtherParticipantName(swap) }}</span>
-                      <span :class="['sw-status-badge', `status-${swap.status}`]">{{ statusLabel(swap.status) }}</span>
-                    </div>
-                    <p class="sw-item-date">{{ formatDate(swap.created_at) }}</p>
-                  </div>
-
-                  <div class="sw-shifts-grid">
-                    <div class="sw-shift-block">
-                      <h3>{{ texts.card.offered }}</h3>
-                      <p class="sw-shift-date">{{ formatDate(getPrimaryShift(swap.offered_shifts)?.date || '-') }}</p>
-                      <p class="sw-shift-type">{{ getPrimaryShift(swap.offered_shifts)?.shift_type?.name || '-' }}</p>
-                      <p class="sw-shift-owner">{{ texts.card.by }} {{ getPrimaryShift(swap.offered_shifts)?.owner?.name || '-' }}</p>
-                    </div>
-
-                    <div class="sw-shift-block">
-                      <h3>{{ texts.card.requested }}</h3>
-                      <p class="sw-shift-date">{{ formatDate(getPrimaryShift(swap.requested_shifts)?.date || '-') }}</p>
-                      <p class="sw-shift-type">{{ getPrimaryShift(swap.requested_shifts)?.shift_type?.name || '-' }}</p>
-                      <p class="sw-shift-owner">{{ texts.card.by }} {{ getPrimaryShift(swap.requested_shifts)?.owner?.name || '-' }}</p>
-                    </div>
-                  </div>
-
-                  <p v-if="swap.notes" class="sw-notes"><strong>{{ texts.card.notes }}:</strong> {{ swap.notes }}</p>
-
-                  <div class="sw-actions-row">
-                    <button
-                      v-if="isSentSwap(swap) && swap.status === 'pending'"
-                      class="sw-action-btn cancel"
-                      @click="openActionModal('cancel', swap.id)"
-                    >
-                      {{ texts.actions.cancel }}
-                    </button>
-
-                    <template v-if="isReceivedSwap(swap) && swap.status === 'pending'">
-                      <button class="sw-action-btn accept" @click="openActionModal('accept', swap.id)">
-                        {{ texts.actions.accept }}
-                      </button>
-                      <button class="sw-action-btn reject" @click="openActionModal('reject', swap.id)">
-                        {{ texts.actions.reject }}
-                      </button>
-                    </template>
-                  </div>
-                </article>
-              </div>
-            </div>
-          </template>
-
-          <template v-else>
-            <div v-if="listToRender.length === 0" class="sw-empty-section">{{ texts.noRequests }}</div>
+          <!--
+            v-else-if="!swapRequests?.length"  → swapRequests (destructured ref, auto-unwrapped in template)
+            v-for="section in sections"        → sections computed: Array<{ key, title, items: SwapRequest[] }>
+              v-for="swapItem in section.items"  → section.items: SwapRequest[]
+          -->
+          <div v-for="section in sections" :key="section.key" class="sw-section">
+            <h2 v-if="section.title" class="sw-section-title">{{ section.title }}</h2>
+            <div v-if="section.items.length === 0" class="sw-empty-section">{{ texts.noRequests }}</div>
             <div v-else class="sw-list">
               <article
-                v-for="swap in listToRender"
-                :key="swap.id"
-                :class="['sw-item', { 'sw-item--resolved': swap.status !== 'pending' }]"
+                v-for="swapItem in section.items"
+                :key="swapItem.id"
+                :class="['sw-item', { 'sw-item--resolved': swapItem.status !== 'pending' }]"
               >
                 <div class="sw-item-header">
                   <div class="sw-item-top-row">
-                    <span class="sw-counterparty">Com {{ getOtherParticipantName(swap) }}</span>
-                    <span :class="['sw-status-badge', `status-${swap.status}`]">{{ statusLabel(swap.status) }}</span>
+                    <span class="sw-counterparty">Com {{ getOtherParticipantName(swapItem) }}</span>
+                    <span :class="['sw-status-badge', `status-${swapItem.status}`]">{{ statusLabel(swapItem.status) }}</span>
                   </div>
-                  <p class="sw-item-date">{{ formatDate(swap.created_at) }}</p>
+                  <p class="sw-item-date">{{ formatDate(swapItem.created_at) }}</p>
                 </div>
 
-                <div class="sw-shifts-grid">
-                  <div class="sw-shift-block">
-                    <h3>{{ texts.card.offered }}</h3>
-                    <p class="sw-shift-date">{{ formatDate(getPrimaryShift(swap.offered_shifts)?.date || '-') }}</p>
-                    <p class="sw-shift-type">{{ getPrimaryShift(swap.offered_shifts)?.shift_type?.name || '-' }}</p>
-                    <p class="sw-shift-owner">{{ texts.card.by }} {{ getPrimaryShift(swap.offered_shifts)?.owner?.name || '-' }}</p>
+                <!-- Option B swap header: offered and requested panels flanking a centre swap icon. -->
+                <div class="sw-swap-header">
+                  <div class="sw-swap-header__panel">
+                    <span class="sw-swap-header__badge">{{ texts.card.offered }}</span>
+                    <p class="sw-swap-header__date">{{ formatDate(getPrimaryShift(swapItem.offered_shifts)?.date || '-') }}</p>
+                    <p class="sw-swap-header__type">{{ getShiftName(getPrimaryShift(swapItem.offered_shifts)?.shift_type) }}</p>
+                    <p class="sw-swap-header__owner">{{ texts.card.by }} {{ getPrimaryShift(swapItem.offered_shifts)?.owner?.name || '-' }}</p>
                   </div>
 
-                  <div class="sw-shift-block">
-                    <h3>{{ texts.card.requested }}</h3>
-                    <p class="sw-shift-date">{{ formatDate(getPrimaryShift(swap.requested_shifts)?.date || '-') }}</p>
-                    <p class="sw-shift-type">{{ getPrimaryShift(swap.requested_shifts)?.shift_type?.name || '-' }}</p>
-                    <p class="sw-shift-owner">{{ texts.card.by }} {{ getPrimaryShift(swap.requested_shifts)?.owner?.name || '-' }}</p>
+                  <div class="sw-swap-header__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                      <path d="M20 7h-4V3"></path>
+                      <path d="M20 7a8 8 0 0 0-14-3"></path>
+                      <path d="M4 17h4v4"></path>
+                      <path d="M4 17a8 8 0 0 0 14 3"></path>
+                    </svg>
+                  </div>
+
+                  <div class="sw-swap-header__panel">
+                    <span class="sw-swap-header__badge">{{ texts.card.requested }}</span>
+                    <p class="sw-swap-header__date">{{ formatDate(getPrimaryShift(swapItem.requested_shifts)?.date || '-') }}</p>
+                    <p class="sw-swap-header__type">{{ getShiftName(getPrimaryShift(swapItem.requested_shifts)?.shift_type) }}</p>
+                    <p class="sw-swap-header__owner">{{ texts.card.by }} {{ getPrimaryShift(swapItem.requested_shifts)?.owner?.name || '-' }}</p>
                   </div>
                 </div>
 
-                <p v-if="swap.notes" class="sw-notes"><strong>{{ texts.card.notes }}:</strong> {{ swap.notes }}</p>
+                <p v-if="swapItem.notes" class="sw-notes"><strong>{{ texts.card.notes }}:</strong> {{ swapItem.notes }}</p>
 
                 <div class="sw-actions-row">
                   <button
-                    v-if="isSentSwap(swap) && swap.status === 'pending'"
+                    v-if="isSentSwap(swapItem) && swapItem.status === 'pending'"
                     class="sw-action-btn cancel"
-                    @click="openActionModal('cancel', swap.id)"
+                    @click="openActionModal('cancel', swapItem.id)"
                   >
                     {{ texts.actions.cancel }}
                   </button>
 
-                  <template v-if="isReceivedSwap(swap) && swap.status === 'pending'">
-                    <button class="sw-action-btn accept" @click="openActionModal('accept', swap.id)">
+                  <template v-if="isReceivedSwap(swapItem) && swapItem.status === 'pending'">
+                    <button class="sw-action-btn accept" @click="openActionModal('accept', swapItem.id)">
                       {{ texts.actions.accept }}
                     </button>
-                    <button class="sw-action-btn reject" @click="openActionModal('reject', swap.id)">
+                    <button class="sw-action-btn reject" @click="openActionModal('reject', swapItem.id)">
                       {{ texts.actions.reject }}
                     </button>
                   </template>
                 </div>
               </article>
             </div>
-          </template>
+          </div>
         </div>
       </div>
     </section>
