@@ -65,6 +65,8 @@ const viewTexts = computed(() => {
     chooseShiftType: isPt ? 'Escolhe o tipo de turno' : 'Choose the shift type',
     noAssignedNurses: isPt ? 'Nenhum enfermeiro escalado.' : 'No nurses assigned.',
     errorLoading: isPt ? 'Erro ao carregar horário. Tente novamente.' : 'Error loading schedule. Please try again.',
+    legendClickShift: isPt ? 'Clica num turno de trabalho para iniciar um pedido de troca.' : 'Click a work shift to start a swap request.',
+    legendClickDayOff: isPt ? 'Clica numa folga para trocar por outra folga.' : 'Click a day off to swap for another day off.',
   }
 })
 
@@ -351,7 +353,10 @@ const chooseSwapIntent = async (intent: 'shift' | 'dayoff') => {
   if (intent === 'dayoff') {
     const ownShiftId = await resolveOwnShiftId(pendingShift.value.date, pendingShift.value.shift_type.id)
     if (!ownShiftId) return
-    await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=dayoff`)
+    // dayoff mode: offering a folga in exchange for another folga.
+    // shift_for_dayoff mode: offering a work shift in exchange for a folga.
+    const mode = isDayOffType(pendingShift.value.shift_type) ? 'dayoff' : 'shift_for_dayoff'
+    await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=${mode}`)
     return
   }
 
@@ -533,6 +538,18 @@ onBeforeUnmount(() => {
           </div>
           <p class="uc-subtitle">{{ viewTexts.pageSubtitle }}</p>
         </div>
+      </div>
+
+      <!-- Contextual hint bar: explains which elements are clickable and what they trigger. -->
+      <div class="schedule-hint-bar">
+        <span class="schedule-hint-bar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"></path></svg>
+          {{ viewTexts.legendClickShift }}
+        </span>
+        <span class="schedule-hint-bar__item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"></path></svg>
+          {{ viewTexts.legendClickDayOff }}
+        </span>
       </div>
 
       <div v-if="loading && weeklyShifts.length === 0" class="schedule-view-state hr-card">

@@ -166,6 +166,13 @@ const statusLabel = (status: string) => {
 
 const getPrimaryShift = (shifts: any[]) => (Array.isArray(shifts) && shifts.length > 0 ? shifts[0] : null)
 
+// True when a swap was created in shift_for_dayoff mode — the requester offered both
+// their work shift and a day-off in exchange, so offered_shifts contains two entries.
+const isMultiOfferedSwap = (swap: any) => (swap.offered_shifts?.length ?? 0) > 1
+
+// True when requested_shifts contains more than one entry (shift_for_dayoff: day-off + target work shift).
+const isMultiRequestedSwap = (swap: any) => (swap.requested_shifts?.length ?? 0) > 1
+
 const sentSwaps = computed(() => {
   if (authUserId.value === 0) return []
   return swapRequests.value.filter((req) => isSentSwap(req))
@@ -458,13 +465,37 @@ watch(totalPages, (newTotalPages) => {
                   <p class="sw-item-date">{{ formatDate(swapItem.created_at) }}</p>
                 </div>
 
-                <!-- Option B swap header: offered and requested panels flanking a centre swap icon. -->
+                <!-- Option B swap header: offered and requested panels flanking a centre swap icon.
+                     shift_for_dayoff swaps have two offered shifts (work + day-off); those use the
+                     multi-offered layout which stacks both rows inside a single left panel. -->
                 <div class="sw-swap-header">
-                  <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${getPrimaryShift(swapItem.offered_shifts)?.shift_type?.color || 'transparent'}` }">
+                  <!-- Single offered shift (normal shift or dayoff swap). -->
+                  <div
+                    v-if="!isMultiOfferedSwap(swapItem)"
+                    class="sw-swap-header__panel"
+                    :style="{ borderInlineStart: `3px solid ${getPrimaryShift(swapItem.offered_shifts)?.shift_type?.color || 'transparent'}` }"
+                  >
                     <span class="sw-swap-header__badge">{{ texts.card.offered }}</span>
                     <p class="sw-swap-header__date">{{ formatDate(getPrimaryShift(swapItem.offered_shifts)?.date || '-') }}</p>
                     <p class="sw-swap-header__type">{{ getShiftName(getPrimaryShift(swapItem.offered_shifts)?.shift_type) }}</p>
                     <p class="sw-swap-header__owner">{{ texts.card.by }} {{ getPrimaryShift(swapItem.offered_shifts)?.owner?.name || '-' }}</p>
+                  </div>
+
+                  <!-- Two offered shifts (shift_for_dayoff): work shift + offered day-off stacked. -->
+                  <div v-else class="sw-swap-header__panel sw-swap-header__panel--multi">
+                    <div
+                      v-for="(offeredShift, index) in swapItem.offered_shifts"
+                      :key="`offered-${offeredShift.id ?? index}`"
+                      class="sw-swap-header__panel"
+                      :style="{ borderInlineStart: `3px solid ${offeredShift.shift_type?.color || 'transparent'}` }"
+                    >
+                      <span class="sw-swap-header__badge">
+                        {{ index === 0 ? texts.card.offered : (currentLocale === 'pt' ? 'Folga oferecida' : 'Offered day off') }}
+                      </span>
+                      <p class="sw-swap-header__date">{{ formatDate(offeredShift.date || '-') }}</p>
+                      <p class="sw-swap-header__type">{{ getShiftName(offeredShift.shift_type) }}</p>
+                      <p class="sw-swap-header__owner">{{ texts.card.by }} {{ offeredShift.owner?.name || '-' }}</p>
+                    </div>
                   </div>
 
                   <div class="sw-swap-header__icon" aria-hidden="true">
@@ -476,11 +507,33 @@ watch(totalPages, (newTotalPages) => {
                     </svg>
                   </div>
 
-                  <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${getPrimaryShift(swapItem.requested_shifts)?.shift_type?.color || 'transparent'}` }">
+                  <!-- Single requested shift (normal swap). -->
+                  <div
+                    v-if="!isMultiRequestedSwap(swapItem)"
+                    class="sw-swap-header__panel"
+                    :style="{ borderInlineStart: `3px solid ${getPrimaryShift(swapItem.requested_shifts)?.shift_type?.color || 'transparent'}` }"
+                  >
                     <span class="sw-swap-header__badge">{{ texts.card.requested }}</span>
                     <p class="sw-swap-header__date">{{ formatDate(getPrimaryShift(swapItem.requested_shifts)?.date || '-') }}</p>
                     <p class="sw-swap-header__type">{{ getShiftName(getPrimaryShift(swapItem.requested_shifts)?.shift_type) }}</p>
                     <p class="sw-swap-header__owner">{{ texts.card.by }} {{ getPrimaryShift(swapItem.requested_shifts)?.owner?.name || '-' }}</p>
+                  </div>
+
+                  <!-- Two requested shifts (shift_for_dayoff): target day-off + work shift to receive stacked. -->
+                  <div v-else class="sw-swap-header__panel sw-swap-header__panel--multi">
+                    <div
+                      v-for="(requestedShift, index) in swapItem.requested_shifts"
+                      :key="`requested-${requestedShift.id ?? index}`"
+                      class="sw-swap-header__panel"
+                      :style="{ borderInlineStart: `3px solid ${requestedShift.shift_type?.color || 'transparent'}` }"
+                    >
+                      <span class="sw-swap-header__badge">
+                        {{ index === 0 ? texts.card.requested : (currentLocale === 'pt' ? 'Turno a receber' : 'Shift to receive') }}
+                      </span>
+                      <p class="sw-swap-header__date">{{ formatDate(requestedShift.date || '-') }}</p>
+                      <p class="sw-swap-header__type">{{ getShiftName(requestedShift.shift_type) }}</p>
+                      <p class="sw-swap-header__owner">{{ texts.card.by }} {{ requestedShift.owner?.name || '-' }}</p>
+                    </div>
                   </div>
                 </div>
 

@@ -320,6 +320,7 @@
   gap: 6px;
 }
 
+
 .swc-swap-header__badge {
   display: inline-flex;
   align-items: center;
@@ -369,6 +370,69 @@
   border: 1px solid var(--line);
   background: #fff;
   color: var(--primary-strong);
+}
+
+/* shift_for_dayoff header: stacked left panel with two shift rows. */
+.swc-swap-header__panel--multi {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.swc-swap-header__panel--requested {
+  height: 100%;
+}
+
+.swc-swap-header__multi-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.swc-swap-header__multi-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Mini swap layout inside a result card for shift_for_dayoff mode. */
+.swc-result-mini-swap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.swc-result-mini-swap__panel {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.swc-result-mini-swap__panel--right {
+  justify-content: flex-start;
+}
+
+.swc-result-mini-swap__icon {
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  color: var(--primary-strong);
+}
+
+.swc-result-mini-swap__badge {
+  margin-bottom: 2px;
+}
+
+.swc-result-mini-swap__badge--spaced {
+  margin-top: 8px;
 }
 
 .swc-panel-right,

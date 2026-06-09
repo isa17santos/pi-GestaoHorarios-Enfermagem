@@ -238,12 +238,70 @@ class SwapRequestController extends Controller
     {
         $this->authorize('accept', $swapRequest);
 
-        DB::transaction(function () use ($swapRequest): void {
+        // Load shift rows before entering the transaction so the collection
+        // is available inside the closure without triggering lazy loads.
+        $requestShifts = $swapRequest->requestShifts()->get();
+
+        DB::transaction(function () use ($swapRequest, $requestShifts): void {
             $swapRequest->update([
                 'status' => ShiftSwapStatus::Accepted,
             ]);
 
-            $acceptedShiftId = $swapRequest->requestShifts()
+            // Resolve participant user ids from the participants table.
+            $participants = DB::table('shift_swap_participants')
+                ->where('swap_request_id', $swapRequest->id)
+                ->pluck('user_id', 'role'); // keyed by role string
+
+            $requesterId = $participants[ShiftSwapParticipantRole::Requester->value] ?? null;
+            $targetId    = $participants[ShiftSwapParticipantRole::Target->value] ?? null;
+
+            $now = now();
+
+            // For each offered shift: the current owner (the requester) is replaced by the target.
+            foreach ($requestShifts->where('type', ShiftSwapRequestShiftType::Offered->value) as $entry) {
+                DB::table('user_shifts')
+                    ->where('shift_id', $entry->shift_id)
+                    ->where('user_id', $entry->owner_user_id)
+                    ->delete();
+
+                DB::table('user_shifts')->insertOrIgnore([
+                    'user_id'    => $targetId,
+                    'shift_id'   => $entry->shift_id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            // For each requested shift: the current owner (the target) is replaced by the requester.
+            foreach ($requestShifts->where('type', ShiftSwapRequestShiftType::Requested->value) as $entry) {
+                DB::table('user_shifts')
+                    ->where('shift_id', $entry->shift_id)
+                    ->where('user_id', $entry->owner_user_id)
+                    ->delete();
+
+                DB::table('user_shifts')->insertOrIgnore([
+                    'user_id'    => $requesterId,
+                    'shift_id'   => $entry->shift_id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            // Reflect the new ownership in shift_swap_request_shifts so the history
+            // records who actually ended up with each shift after the swap.
+            DB::table('shift_swap_request_shifts')
+                ->where('swap_request_id', $swapRequest->id)
+                ->where('type', ShiftSwapRequestShiftType::Offered->value)
+                ->update(['owner_user_id' => $targetId]);
+
+            DB::table('shift_swap_request_shifts')
+                ->where('swap_request_id', $swapRequest->id)
+                ->where('type', ShiftSwapRequestShiftType::Requested->value)
+                ->update(['owner_user_id' => $requesterId]);
+
+            // Cancel every other pending request that shares the same offered shift,
+            // since that shift now belongs to the target and can no longer be traded.
+            $acceptedShiftId = $requestShifts
                 ->where('type', ShiftSwapRequestShiftType::Offered->value)
                 ->value('shift_id');
 

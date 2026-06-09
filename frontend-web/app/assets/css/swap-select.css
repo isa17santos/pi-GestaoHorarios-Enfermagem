@@ -158,3 +158,19 @@
 .weekly-grid-container {
   backdrop-filter: none;
 }
+
+.schedule-hint-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.schedule-hint-bar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-weight: 600;
+}
