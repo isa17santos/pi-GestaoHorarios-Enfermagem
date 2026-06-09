@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { nextTick, watch } from 'vue'
+
 definePageMeta({
   middleware: 'auth',
 })
@@ -25,14 +27,20 @@ type ValidationWarning = {
   text?: string
 }
 
+type SwapMode = 'shift' | 'dayoff'
+
 const { user } = useAuth()
-const { fetchShifts, createSwap, validateShift, errorSwaps } = useSwap()
+const { fetchShifts, fetchShiftAvailability, createSwap, validateShift, errorSwaps } = useSwap()
+const { shiftTypes, fetchShiftTypes } = useSchedule()
 const route = useRoute()
 
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
-const selectedOfferedShift = ref<ShiftOption[]>([])
-const selectedRequestedShift = ref<ShiftOption | null>(null)
+const swapMode = ref<SwapMode>('shift')
+const requestedShiftTypeId = ref<number | null>(null)
+const sourceShiftId = ref<number | null>(null)
+const offeredShift = ref<ShiftOption | null>(null)
+const selectedResults = ref<Set<number>>(new Set())
 const myShifts = ref<ShiftOption[]>([])
 const availableShifts = ref<ShiftOption[]>([])
 const validationWarnings = ref<Record<number, ValidationWarning[]>>({})
@@ -41,69 +49,268 @@ const loadingAvailable = ref(false)
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const submitSuccess = ref(false)
+const showConfirmModal = ref(false)
 const notes = ref('')
-const filterDate = ref('')
-const filterNurse = ref('')
-const activeShiftTypeFilters = ref<number[]>([])
-let validationDebounceId: ReturnType<typeof setTimeout> | null = null
+const searchQuery = ref('')
+const resultsPerPage = 10
+const currentPage = ref(1)
+
+// --- Day-off two-step flow state ---
+// Step 1: monthly calendar with availability counts per day.
+// Step 2: list of people on the selected date.
+const selectedDate = ref<string | null>(null)
+const availabilityData = ref<Record<string, number>>({})
+const calendarMonth = ref<string>(new Date().toISOString().slice(0, 7)) // YYYY-MM
+const loadingAvailability = ref(false)
+const loadingDayShifts = ref(false)
+
+const dayOffShiftNames = ['dayoff', 'day off', 'folga']
 
 const isDayOffShift = (shift: ShiftOption | null | undefined) => {
   if (!shift?.shift_type?.name) return false
   const name = shift.shift_type.name.toLowerCase()
-  return ['dayoff', 'day off', 'folga'].includes(name)
+  return dayOffShiftNames.includes(name)
 }
 
-const isDayOffSwap = computed(() => isDayOffShift(selectedRequestedShift.value))
-const shouldLockRequestedShift = computed(() => Boolean(route.query.requested_shift_id))
+const isDayOffMode = computed(() => swapMode.value === 'dayoff')
 
-const displayMyShifts = computed(() => {
-  if (!isDayOffSwap.value) return myShifts.value
-  return myShifts.value.filter((shift) => isDayOffShift(shift))
-})
+const normalizeDateKey = (value: string | null | undefined) => {
+  if (!value) return ''
+  return String(value).slice(0, 10)
+}
 
-const leftPanelTitle = computed(() => {
-  if (isDayOffSwap.value) {
-    return currentLocale.value === 'pt' ? 'A minha folga' : 'My day off'
+const resultShifts = computed(() => {
+  if (swapMode.value === 'dayoff') {
+    // In dayoff mode, availableShifts is populated per selected date (step 2).
+    return availableShifts.value
   }
 
-  return texts.value.leftTitle
+  const originDate = normalizeDateKey(offeredShift.value?.date)
+  if (!originDate) return []
+
+  return availableShifts.value.filter((shift) => {
+    if (normalizeDateKey(shift.date) !== originDate) return false
+    if (requestedShiftTypeId.value !== null && Number(shift.shift_type.id) !== Number(requestedShiftTypeId.value)) return false
+    return true
+  })
 })
 
-const leftEmptyMessage = computed(() => {
-  if (isDayOffSwap.value) {
-    return currentLocale.value === 'pt'
-      ? 'Não tens folgas disponíveis para oferecer.'
-      : 'You do not have any day off shifts available to offer.'
-  }
+const filteredResultShifts = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return resultShifts.value
+  return resultShifts.value.filter((shift) => {
+    const nurseName = (shift.users[0]?.name || '').toLowerCase()
+    return nurseName.includes(query)
+  })
+})
 
-  return texts.value.leftEmpty
+const totalPages = computed(() => Math.ceil(filteredResultShifts.value.length / 10))
+
+const paginatedResultShifts = computed(() => {
+  const start = (currentPage.value - 1) * resultsPerPage
+  return filteredResultShifts.value.slice(start, start + resultsPerPage)
+})
+
+const allVisibleSelected = computed(() => {
+  if (paginatedResultShifts.value.length === 0) return false
+  return paginatedResultShifts.value.every((shift) => selectedResults.value.has(shift.id))
+})
+
+const visibleSelectionCount = computed(() => {
+  return paginatedResultShifts.value.filter((shift) => selectedResults.value.has(shift.id)).length
+})
+
+const canGoPreviousPage = computed(() => currentPage.value > 1)
+const canGoNextPage = computed(() => currentPage.value < totalPages.value)
+
+const confirmSummaryLine = computed(() => {
+  const count = selectedResults.value.size
+  return currentLocale.value === 'pt'
+    ? `Serão criados ${count} pedidos de troca.`
+    : `${count} swap requests will be created.`
+})
+
+const rightPanelTitle = computed(() => {
+  if (swapMode.value === 'dayoff') {
+    return currentLocale.value === 'pt' ? 'Folgas disponíveis' : 'Available day offs'
+  }
+  return currentLocale.value === 'pt' ? 'Pessoas disponíveis' : 'Available people'
+})
+
+const requestedShiftType = computed(() => {
+  if (requestedShiftTypeId.value === null) return null
+  return shiftTypes.value.find((type) => Number(type.id) === Number(requestedShiftTypeId.value)) || null
+})
+
+const requestedShiftTypeLabel = computed(() => {
+  if (!requestedShiftType.value) return '—'
+  return getShiftName(requestedShiftType.value as ShiftOption['shift_type'])
 })
 
 const texts = computed(() => ({
   back: currentLocale.value === 'pt' ? 'Voltar' : 'Back',
   title: currentLocale.value === 'pt' ? 'Novo Pedido de Troca' : 'New Swap Request',
-  leftTitle: currentLocale.value === 'pt' ? 'O meu turno' : 'My shift',
-  rightTitle: currentLocale.value === 'pt' ? 'Turno pretendido' : 'Requested shift',
-  leftLoading: currentLocale.value === 'pt' ? 'A carregar...' : 'Loading...',
   rightLoading: currentLocale.value === 'pt' ? 'A carregar...' : 'Loading...',
-  leftEmpty: currentLocale.value === 'pt' ? 'Sem turnos futuros disponíveis.' : 'No future shifts available.',
-  rightEmpty: currentLocale.value === 'pt' ? 'Sem turnos disponíveis para pedido.' : 'No shifts available to request.',
-  noResults: currentLocale.value === 'pt' ? 'Sem resultados para os filtros atuais.' : 'No results for current filters.',
-  filters: {
-    date: currentLocale.value === 'pt' ? 'Data' : 'Date',
-    shiftType: currentLocale.value === 'pt' ? 'Tipo de turno' : 'Shift type',
-    nurse: currentLocale.value === 'pt' ? 'Enfermeiro' : 'Nurse',
-    allTypes: currentLocale.value === 'pt' ? 'Todos' : 'All types',
-    nursePlaceholder: currentLocale.value === 'pt' ? 'Pesquisar por nome...' : 'Search by nurse name...',
-  },
-  notes: currentLocale.value === 'pt' ? 'Notas' : 'Notes',
-  notesPlaceholder: currentLocale.value === 'pt' ? 'Opcional' : 'Optional',
+  rightEmpty: currentLocale.value === 'pt' ? 'Sem resultados disponíveis.' : 'No results available.',
+  searchPlaceholder: currentLocale.value === 'pt' ? 'Procurar enfermeiro...' : 'Search nurse...',
+  selectAllPeople: currentLocale.value === 'pt' ? 'Selecionar todas as pessoas' : 'Select all people',
+  previousPage: currentLocale.value === 'pt' ? 'Anterior' : 'Previous',
+  nextPage: currentLocale.value === 'pt' ? 'Seguinte' : 'Next',
+  paginationPage: currentLocale.value === 'pt' ? 'Página' : 'Page',
+  paginationOf: currentLocale.value === 'pt' ? 'de' : 'of',
+  creating: currentLocale.value === 'pt' ? 'A criar...' : 'Creating...',
+  actionNotePlaceholder: currentLocale.value === 'pt' ? 'Adicionar nota...' : 'Add note...',
+  noteOptional: currentLocale.value === 'pt' ? 'Nota (opcional)' : 'Note (optional)',
   submit: currentLocale.value === 'pt' ? 'Criar pedido' : 'Create request',
   submitSuccess: currentLocale.value === 'pt' ? 'Pedido criado com sucesso!' : 'Request created successfully!',
   submitErrorFallback: currentLocale.value === 'pt' ? 'Não foi possível criar o pedido.' : 'Failed to create request.',
-  by: currentLocale.value === 'pt' ? 'Por' : 'By',
-  invalidForm: currentLocale.value === 'pt' ? 'Seleciona os dois turnos para continuar.' : 'Please select both shifts to continue.',
+  invalidForm: currentLocale.value === 'pt' ? 'Seleciona os resultados para continuar.' : 'Please select results to continue.',
+  backToCalendar: currentLocale.value === 'pt' ? '← Voltar ao calendário' : '← Back to calendar',
+  calendarSelectDay: currentLocale.value === 'pt' ? 'Seleciona um dia' : 'Select a day',
+  calendarAvailable: currentLocale.value === 'pt' ? 'Disponíveis' : 'Available',
+  confirmModal: {
+    title: currentLocale.value === 'pt' ? 'Confirmar pedido de troca' : 'Confirm swap request',
+    cancel: currentLocale.value === 'pt' ? 'Cancelar' : 'Cancel',
+    confirm: currentLocale.value === 'pt' ? 'Confirmar' : 'Confirm',
+  },
 }))
+
+// --- Calendar helpers ---
+
+/** Returns YYYY-MM-DD string for the 1st of the given month string (YYYY-MM). */
+const monthStart = computed(() => `${calendarMonth.value}-01`)
+
+/** All calendar cells for the current month view, padded to start on Monday. */
+const calendarCells = computed(() => {
+  const [year, month] = calendarMonth.value.split('-').map(Number)
+  const firstDay = new Date(year, month - 1, 1)
+  const lastDay = new Date(year, month, 0)
+
+  // ISO week starts on Monday (1). Sunday = 0 → remap to 6.
+  const startPad = (firstDay.getDay() + 6) % 7
+  const cells: Array<{ date: string | null; day: number | null; count: number; available: boolean }> = []
+
+  for (let i = 0; i < startPad; i++) cells.push({ date: null, day: null, count: 0, available: false })
+
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dateStr = `${calendarMonth.value}-${String(d).padStart(2, '0')}`
+    const count = availabilityData.value[dateStr] ?? 0
+    cells.push({
+      date: dateStr,
+      day: d,
+      count,
+      available: count > 0 && !isCellPast(dateStr) && !isOfferedShiftDate(dateStr),
+    })
+  }
+
+  return cells
+})
+
+const calendarMonthLabel = computed(() => {
+  const [year, month] = calendarMonth.value.split('-').map(Number)
+  const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-US'
+  const label = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1))
+  // pt-PT Intl returns title-case ("Junho De 2026"); lowercase words after the first, preserving digits.
+  return label.replace(/(\S+)/g, (word, _m, offset) =>
+    offset === 0 ? word : (/^\d/.test(word) ? word : word.toLowerCase()),
+  )
+})
+
+const calendarWeekDays = computed(() => {
+  return currentLocale.value === 'pt'
+    ? ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+})
+
+const todayStr = new Date().toISOString().slice(0, 10)
+
+// Block today and all past days — a nurse can't swap a day off for a day that's already here.
+const isCellPast = (date: string) => date <= todayStr
+
+// True when the cell date matches the shift the nurse is offering — can't swap to the same day.
+const isOfferedShiftDate = (date: string) => date === normalizeDateKey(offeredShift.value?.date)
+
+const isCellAvailable = (date: string) => {
+  return !isCellPast(date) && (availabilityData.value[date] ?? 0) > 0
+}
+
+/** Shift type id used for day-off availability fetches — read from the offered shift. */
+const dayOffShiftTypeId = computed(() => {
+  return offeredShift.value?.shift_type?.id ?? null
+})
+
+const goToPreviousMonth = () => {
+  const [year, month] = calendarMonth.value.split('-').map(Number)
+  const prev = new Date(year, month - 2, 1)
+  calendarMonth.value = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`
+}
+
+const goToNextMonth = () => {
+  const [year, month] = calendarMonth.value.split('-').map(Number)
+  const next = new Date(year, month, 1)
+  calendarMonth.value = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** Fetch availability counts for the current calendar month. */
+const fetchAvailability = async () => {
+  if (!dayOffShiftTypeId.value) return
+
+  loadingAvailability.value = true
+  try {
+    availabilityData.value = await fetchShiftAvailability({
+      shift_type_id: dayOffShiftTypeId.value,
+      month: calendarMonth.value,
+      exclude_mine: true,
+    })
+  } catch (error) {
+    console.error('Error fetching availability:', error)
+  } finally {
+    loadingAvailability.value = false
+  }
+}
+
+/** Fetch the list of people available on the selected date (step 2). */
+const fetchDayShifts = async (date: string) => {
+  if (!dayOffShiftTypeId.value) return
+
+  loadingDayShifts.value = true
+  availableShifts.value = []
+  selectedResults.value = new Set()
+  validationWarnings.value = {}
+
+  try {
+    availableShifts.value = await fetchShifts({
+      exclude_mine: true,
+      shift_type_id: dayOffShiftTypeId.value,
+      date,
+    })
+    await runAllValidations()
+  } catch (error) {
+    console.error('Error fetching day shifts:', error)
+  } finally {
+    loadingDayShifts.value = false
+  }
+}
+
+const selectCalendarDay = async (date: string) => {
+  if (!isCellAvailable(date)) return
+  selectedDate.value = date
+  await fetchDayShifts(date)
+}
+
+const backToCalendar = () => {
+  selectedDate.value = null
+  availableShifts.value = []
+  selectedResults.value = new Set()
+  validationWarnings.value = {}
+}
+
+// Re-fetch availability whenever the month changes in dayoff mode.
+watch(calendarMonth, () => {
+  if (isDayOffMode.value) fetchAvailability()
+})
+
+// --- End calendar helpers ---
 
 const toColorClass = (color: string) => {
   const normalized = (color || '').toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -112,39 +319,32 @@ const toColorClass = (color: string) => {
 
 const allShiftColors = computed(() => {
   const unique = new Set<string>()
-
-  for (const shift of myShifts.value) {
-    if (shift.shift_type.color) unique.add(shift.shift_type.color)
-  }
-
-  for (const shift of availableShifts.value) {
-    if (shift.shift_type.color) unique.add(shift.shift_type.color)
-  }
-
+  for (const shift of myShifts.value) { if (shift.shift_type.color) unique.add(shift.shift_type.color) }
+  for (const shift of availableShifts.value) { if (shift.shift_type.color) unique.add(shift.shift_type.color) }
   return Array.from(unique)
 })
 
-// Build dynamic dot classes from backend shift colors while keeping template free of inline styles.
 useHead(() => ({
-  style: [
-    {
-      children: allShiftColors.value
-        .filter((color) => /^[#(),.%\sa-zA-Z0-9-]+$/.test(color))
-        .map((color) => `.${toColorClass(color)} { background: ${color}; }`)
-        .join('\n'),
-    },
-  ],
+  style: [{
+    children: allShiftColors.value
+      .filter((color) => /^[#(),.%\sa-zA-Z0-9-]+$/.test(color))
+      .map((color) => `.${toColorClass(color)} { background: ${color}; }`)
+      .join('\n'),
+  }],
 }))
 
 const formatDate = (value: string) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('pt-PT', {
+  const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-US'
+  const formatted = new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   }).format(date)
+  const normalized = formatted.replace('.', '')
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
 }
 
 const formatTime = (value: string) => {
@@ -152,225 +352,275 @@ const formatTime = (value: string) => {
   return value.slice(0, 5)
 }
 
-const normalizeDate = (value: string) => {
-  return String(value).slice(0, 10)
+const getShiftName = (shiftType: ShiftOption['shift_type'] | null | undefined) => {
+  if (!shiftType) return ''
+  const name = (shiftType.name || '').toLowerCase()
+  const pt: Record<string, string> = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite', dayoff: 'Folga', 'day off': 'Folga', holidays: 'Férias', 'sick leave': 'Baixa Médica', 'parental leave': 'Licença Parental' }
+  const en: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', night: 'Night', dayoff: 'Day Off', 'day off': 'Day Off', holidays: 'Holidays', 'sick leave': 'Sick Leave', 'parental leave': 'Parental Leave' }
+  return currentLocale.value === 'pt' ? (pt[name] || shiftType.name) : (en[name] || shiftType.name)
 }
 
-const availableShiftTypes = computed(() => {
-  const map = new Map<number, { id: number; name: string; color: string }>()
-
-  for (const shift of availableShifts.value) {
-    const type = shift.shift_type
-    if (!type) continue
-
-    if (!map.has(type.id)) {
-      map.set(type.id, {
-        id: type.id,
-        name: type.name,
-        color: type.color,
-      })
-    }
-  }
-
-  return Array.from(map.values())
-})
-
-const filteredAvailableShifts = computed(() => {
-  return availableShifts.value.filter((shift) => {
-    // Never show the exact same day + shift-type combination as the offered shift.
-    const isSameDayAndType = selectedOfferedShift.value.some((offeredShift) =>
-      normalizeDate(shift.date) === normalizeDate(offeredShift.date)
-      && shift.shift_type.id === offeredShift.shift_type.id,
-    )
-    if (isSameDayAndType) return false
-
-    const matchesDate = !filterDate.value || normalizeDate(shift.date) === filterDate.value
-
-    const matchesType = activeShiftTypeFilters.value.length === 0
-      || activeShiftTypeFilters.value.includes(shift.shift_type.id)
-
-    const nurseName = shift.users[0]?.name || ''
-    const matchesNurse = !filterNurse.value
-      || nurseName.toLowerCase().includes(filterNurse.value.trim().toLowerCase())
-
-    return matchesDate && matchesType && matchesNurse
-  })
-})
-
-const getWarningName = (warning: any) => {
-  return warning?.nurse_name || warning?.nurse?.name || warning?.name || ''
+const isAllDayShift = (shiftType: ShiftOption['shift_type']) => {
+  const name = (shiftType.name || '').toLowerCase()
+  return dayOffShiftNames.includes(name)
+    || (shiftType.start_time === '00:00:00' && shiftType.end_time === '00:00:00')
+    || name === 'holidays'
+    || name === 'sick leave'
+    || name === 'parental leave'
 }
 
-const queueValidation = (requestedShift: ShiftOption) => {
-  if (validationDebounceId) {
-    clearTimeout(validationDebounceId)
+const formatShiftLabel = (shift: ShiftOption) => {
+  const timeLabel = isAllDayShift(shift.shift_type)
+    ? (currentLocale.value === 'pt' ? 'Dia inteiro' : 'All day')
+    : `${formatTime(shift.shift_type.start_time)} - ${formatTime(shift.shift_type.end_time)}`
+  return { typeName: getShiftName(shift.shift_type), timeLabel }
+}
+
+const getShiftAvatarInitial = (shift: ShiftOption) => {
+  return shift.users[0]?.name?.trim()?.[0]?.toUpperCase() || shift.shift_type.name.trim()[0]?.toUpperCase() || '?'
+}
+
+const isResultSelected = (shiftId: number) => selectedResults.value.has(shiftId)
+
+const getWarningName = (warning: ValidationWarning) => warning?.nurse_name || warning?.nurse?.name || ''
+
+const runAllValidations = async () => {
+  if (!sourceShiftId.value) return
+  const results = resultShifts.value
+  if (results.length === 0) return
+
+  await Promise.all(
+    results.map(async (shift) => {
+      try {
+        const warnings = await validateShift(sourceShiftId.value as number, shift.id)
+        validationWarnings.value = { ...validationWarnings.value, [shift.id]: warnings }
+      } catch {
+        validationWarnings.value = { ...validationWarnings.value, [shift.id]: [] }
+      }
+    }),
+  )
+}
+
+const toggleResultSelection = async (shift: ShiftOption) => {
+  const next = new Set(selectedResults.value)
+  next.has(shift.id) ? next.delete(shift.id) : next.add(shift.id)
+  selectedResults.value = next
+  await runAllValidations()
+}
+
+const toggleSelectAllVisible = async () => {
+  const next = new Set(selectedResults.value)
+  if (allVisibleSelected.value) {
+    for (const shift of paginatedResultShifts.value) next.delete(shift.id)
+  } else {
+    for (const shift of paginatedResultShifts.value) next.add(shift.id)
   }
-
-  const offeredShiftId = selectedOfferedShift.value[0]?.id
-  if (!offeredShiftId) return
-
-  validationDebounceId = setTimeout(async () => {
-    try {
-      const warnings = await validateShift(offeredShiftId, requestedShift.id)
-      validationWarnings.value = {
-        ...validationWarnings.value,
-        [requestedShift.id]: warnings,
-      }
-    } catch (error) {
-      console.error('Error validating shift swap:', error)
-      validationWarnings.value = {
-        ...validationWarnings.value,
-        [requestedShift.id]: [],
-      }
-    }
-  }, 300)
+  selectedResults.value = next
+  await runAllValidations()
 }
 
 const loadAvailableShifts = async () => {
   if (loadingAvailable.value || availableShifts.value.length > 0) return
-
   loadingAvailable.value = true
   submitError.value = null
 
   try {
-    const all = await fetchShifts({ exclude_mine: true, future: true })
-
-    availableShifts.value = all.filter((shift) => {
-      const isNotDayOff = shift.shift_type.name !== 'dayOff'
-      const hasOtherUser = shift.users.some((nurse) => nurse.id !== user.value?.id)
-      return isNotDayOff && hasOtherUser
-    })
+    let all = await fetchShifts({ exclude_mine: true })
+    if (all.length === 0) {
+      const anyShifts = await fetchShifts({})
+      const authUserId = Number(user.value?.id)
+      all = anyShifts.filter((shift) => !shift.users.some((nurse) => Number(nurse.id) === authUserId))
+    }
+    availableShifts.value = all
+    await runAllValidations()
   } catch (error) {
     console.error('Error loading available shifts:', error)
     submitError.value = error instanceof Error ? error.message : 'Failed to load shifts.'
+    await nextTick()
+    document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } finally {
     loadingAvailable.value = false
+  }
+}
+
+const loadShiftTypes = async () => {
+  try {
+    await fetchShiftTypes()
+  } catch (error) {
+    console.warn('Error loading shift types:', error)
   }
 }
 
 const loadMyShifts = async () => {
   loadingMyShifts.value = true
   submitError.value = null
-
   try {
-    const all = await fetchShifts({ mine: true, future: true })
-    myShifts.value = all
+    myShifts.value = await fetchShifts({ mine: true, future: true })
   } catch (error) {
     console.error('Error loading my shifts:', error)
     submitError.value = error instanceof Error ? error.message : 'Failed to load shifts.'
+    await nextTick()
+    document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } finally {
     loadingMyShifts.value = false
   }
-}
-
-// Cache the available shifts list and only fetch once (or again if list is empty).
-watch(() => selectedOfferedShift.value.length, async (newLength) => {
-  if (!shouldLockRequestedShift.value) {
-    selectedRequestedShift.value = null
-  }
-  notes.value = ''
-  submitSuccess.value = false
-  filterNurse.value = ''
-  activeShiftTypeFilters.value = []
-  filterDate.value = ''
-  validationWarnings.value = {}
-
-  if (newLength === 0) return
-
-  await loadAvailableShifts()
-})
-
-const goBack = async () => {
-  await navigateTo('/swaps')
 }
 
 const submitCreateSwap = async () => {
   submitError.value = null
   submitSuccess.value = false
 
-  if (selectedOfferedShift.value.length === 0 || !selectedRequestedShift.value) {
+  const selectedRequestIds = Array.from(selectedResults.value)
+  if (selectedRequestIds.length === 0) {
     submitError.value = texts.value.invalidForm
+    await nextTick()
+    document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     return
   }
 
-  const targetUserId = selectedRequestedShift.value.users[0]?.id
-  if (!targetUserId) {
+  if (swapMode.value === 'shift' && !sourceShiftId.value) {
     submitError.value = texts.value.invalidForm
+    await nextTick()
+    document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
+
+  const selectedRequestShifts = selectedRequestIds
+    .map((id) => availableShifts.value.find((s) => s.id === id))
+    .filter((s): s is ShiftOption => Boolean(s))
+
+  if (selectedRequestShifts.length !== selectedRequestIds.length) {
+    submitError.value = texts.value.invalidForm
+    await nextTick()
+    document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
+
+  if (selectedRequestShifts.some((s) => s.users.length === 0)) {
+    submitError.value = 'Turno sem enfermeiro atribuído. Não é possível criar o pedido.'
+    await nextTick()
+    document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     return
   }
 
   submitting.value = true
-
   try {
     await Promise.all(
-      selectedOfferedShift.value.map((offeredShift) =>
+      selectedRequestShifts.map((requestedShift) =>
         createSwap({
-          offered_shift_ids: [offeredShift.id],
-          requested_shift_ids: [selectedRequestedShift.value!.id],
-          target_user_id: targetUserId,
+          offered_shift_ids: [sourceShiftId.value as number],
+          requested_shift_ids: [requestedShift.id],
+          target_user_id: requestedShift.users[0]?.id as number,
           notes: notes.value.trim() || undefined,
         }),
       ),
     )
-
     submitSuccess.value = true
-    setTimeout(async () => {
-      await navigateTo('/swaps')
-    }, 1500)
+    setTimeout(async () => { await navigateTo('/swaps') }, 1500)
   } catch (error) {
-    console.error('Create swap error:', error)
+    const apiError = error as { data?: unknown; response?: { _data?: unknown; data?: unknown } }
+    console.error('Create swap error:', { error, responseBody: apiError?.data ?? apiError?.response?._data ?? null })
     submitError.value = errorSwaps.value || texts.value.submitErrorFallback
+    await nextTick()
+    document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } finally {
     submitting.value = false
   }
 }
 
-const toggleShiftTypeFilter = (typeId: number) => {
-  if (activeShiftTypeFilters.value.includes(typeId)) {
-    activeShiftTypeFilters.value = activeShiftTypeFilters.value.filter((id) => id !== typeId)
-    return
-  }
+const goBack = async () => { await navigateTo('/swap-select') }
 
-  activeShiftTypeFilters.value.push(typeId)
+const goToPreviousPage = () => { if (canGoPreviousPage.value) currentPage.value -= 1 }
+const goToNextPage = () => { if (canGoNextPage.value) currentPage.value += 1 }
+const setPage = (page: number) => { if (page >= 1 && page <= totalPages.value) currentPage.value = page }
+
+const openConfirmModal = () => {
+  submitError.value = null
+  submitSuccess.value = false
+  showConfirmModal.value = true
 }
 
-const clearShiftTypeFilters = () => {
-  activeShiftTypeFilters.value = []
+const closeConfirmModal = () => {
+  if (submitting.value) return
+  showConfirmModal.value = false
 }
 
-onMounted(async () => {
-  await loadMyShifts()
-
-  const shiftIdParam = Array.isArray(route.query.shift_id)
-    ? route.query.shift_id[0]
-    : route.query.shift_id
-
-  const requestedShiftIdParam = Array.isArray(route.query.requested_shift_id)
-    ? route.query.requested_shift_id[0]
-    : route.query.requested_shift_id
-
-  if (requestedShiftIdParam) {
-    await loadAvailableShifts()
-  }
-
-  if (shiftIdParam) {
-    const matchedShift = myShifts.value.find((shift) => shift.id === Number(shiftIdParam))
-    if (matchedShift) {
-      selectedOfferedShift.value = [matchedShift]
-    }
-  }
-
-  if (requestedShiftIdParam) {
-    const matchedRequestedShift = availableShifts.value.find((shift) => shift.id === Number(requestedShiftIdParam))
-    if (matchedRequestedShift) {
-      selectedRequestedShift.value = matchedRequestedShift
-    }
-  }
+watch(filteredResultShifts, () => {
+  if (totalPages.value > 0 && currentPage.value > totalPages.value) currentPage.value = totalPages.value
 })
 
-onBeforeUnmount(() => {
-  if (validationDebounceId) {
-    clearTimeout(validationDebounceId)
+watch(searchQuery, () => { currentPage.value = 1 })
+
+onMounted(async () => {
+  const modeParam = Array.isArray(route.query.mode) ? route.query.mode[0] : route.query.mode
+  swapMode.value = modeParam === 'dayoff' ? 'dayoff' : 'shift'
+
+  const shiftTypeParam = Array.isArray(route.query.shift_type_id) ? route.query.shift_type_id[0] : route.query.shift_type_id
+  const parsedShiftTypeId = shiftTypeParam ? Number(shiftTypeParam) : NaN
+  requestedShiftTypeId.value = Number.isNaN(parsedShiftTypeId) ? null : parsedShiftTypeId
+
+  const shiftIdParam = Array.isArray(route.query.shift_id) ? route.query.shift_id[0] : route.query.shift_id
+  const parsedShiftId = shiftIdParam ? Number(shiftIdParam) : NaN
+  sourceShiftId.value = Number.isNaN(parsedShiftId) ? null : parsedShiftId
+
+  if (swapMode.value === 'dayoff') {
+    // Dayoff mode: offered shift may be today or in the past, so skip future:true.
+    await Promise.all([loadShiftTypes()])
+  } else {
+    await Promise.all([loadMyShifts(), loadAvailableShifts(), loadShiftTypes()])
+  }
+
+  if (sourceShiftId.value) {
+    // In dayoff mode loadMyShifts used future:true and may have missed today's shift;
+    // always try mine (no future filter) first so today's folga is found.
+    if (swapMode.value === 'dayoff') {
+      const allMine = await fetchShifts({ mine: true })
+      offeredShift.value = allMine.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
+      if (offeredShift.value) myShifts.value = allMine
+    } else {
+      offeredShift.value = myShifts.value.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
+    }
+
+    if (!offeredShift.value) {
+      try {
+        if (swapMode.value !== 'dayoff') {
+          // Already tried mine without future above in dayoff mode; skip duplicate call.
+          const allMine = await fetchShifts({ mine: true })
+          offeredShift.value = allMine.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
+          if (offeredShift.value) myShifts.value = allMine
+        }
+
+        if (!offeredShift.value && user.value?.id) {
+          const byUser = await fetchShifts({ user_id: Number(user.value.id) })
+          offeredShift.value = byUser.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
+          if (offeredShift.value) myShifts.value = byUser
+        }
+
+        if (!offeredShift.value) {
+          const allShifts = await fetchShifts({})
+          offeredShift.value = allShifts.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
+        }
+      } catch (error) {
+        console.warn('Fallback load for source shift failed:', error)
+      }
+    }
+
+    if (offeredShift.value && !myShifts.value.some((s) => Number(s.id) === Number(sourceShiftId.value))) {
+      const ownedVersion = myShifts.value.find(
+        (s) => s.date === offeredShift.value?.date && Number(s.shift_type?.id) === Number(offeredShift.value?.shift_type?.id),
+      )
+      if (ownedVersion) {
+        offeredShift.value = ownedVersion
+        sourceShiftId.value = ownedVersion.id
+      }
+    }
+  }
+
+  // After offeredShift is resolved, start availability fetch in dayoff mode.
+  if (swapMode.value === 'dayoff') {
+    await fetchAvailability()
+  } else {
+    await runAllValidations()
   }
 })
 </script>
@@ -388,182 +638,305 @@ onBeforeUnmount(() => {
           </svg>
           {{ texts.back }}
         </button>
-
         <h1 class="swc-title">{{ texts.title }}</h1>
       </header>
 
-      <div class="swc-panels">
-        <section class="swc-panel-left">
-          <h2 class="swc-panel-title">{{ leftPanelTitle }}</h2>
+      <!-- Swap header: two panels with a swap icon in between. -->
+      <section v-if="offeredShift" class="hr-card swc-swap-header" aria-label="Swap header">
+        <!-- Left panel: offered (current) shift info. -->
+        <article class="swc-swap-header__panel">
+          <span class="swc-swap-header__badge">
+            <span
+              class="swc-swap-header__badge-dot"
+              :style="{ backgroundColor: offeredShift.shift_type.color || 'var(--primary-soft)' }"
+            ></span>
+            {{ isDayOffMode ? (currentLocale === 'pt' ? 'Folga actual' : 'Current day off') : (currentLocale === 'pt' ? 'Turno actual' : 'Current shift') }}
+          </span>
+          <p class="swc-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
+          <p class="swc-swap-header__meta">
+            <template v-if="isDayOffMode">
+              {{ getShiftName(offeredShift.shift_type) }} · {{ currentLocale === 'pt' ? 'Dia inteiro' : 'All day' }}
+            </template>
+            <template v-else>
+              {{ getShiftName(offeredShift.shift_type) }} · {{ formatTime(offeredShift.shift_type.start_time) }} - {{ formatTime(offeredShift.shift_type.end_time) }}
+            </template>
+          </p>
+        </article>
 
-          <div v-if="loadingMyShifts" class="swc-loading">{{ texts.leftLoading }}</div>
-          <div v-else-if="displayMyShifts.length === 0" class="swc-empty">{{ leftEmptyMessage }}</div>
+        <div class="swc-swap-header__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+            <path d="M20 7h-4V3"></path>
+            <path d="M20 7a8 8 0 0 0-14-3"></path>
+            <path d="M4 17h4v4"></path>
+            <path d="M4 17a8 8 0 0 0 14 3"></path>
+          </svg>
+        </div>
 
-          <div v-else class="swc-shift-list">
-            <button
-              v-for="shift in displayMyShifts"
-              :key="`my-${shift.id}`"
-              :class="['swc-shift-card', { 'swc-shift-card--selected': selectedOfferedShift.some((item) => item.id === shift.id) }]"
-              @click="selectedOfferedShift = selectedOfferedShift.some((item) => item.id === shift.id) ? selectedOfferedShift.filter((item) => item.id !== shift.id) : [...selectedOfferedShift, shift]"
-            >
-              <span :class="['swc-shift-dot', toColorClass(shift.shift_type.color)]"></span>
-              <div>
-                <p class="swc-shift-date">{{ formatDate(shift.date) }}</p>
-                <p class="swc-shift-type">{{ shift.shift_type.name }}</p>
-                <p class="swc-shift-time">{{ formatTime(shift.shift_type.start_time) }}-{{ formatTime(shift.shift_type.end_time) }}</p>
-              </div>
+        <!-- Right panel: target info. In dayoff mode shows the selected date or a placeholder. -->
+        <article class="swc-swap-header__panel swc-swap-header__panel--requested">
+          <span class="swc-swap-header__badge">
+            {{ isDayOffMode ? (currentLocale === 'pt' ? 'Folga pretendida' : 'Requested day off') : (currentLocale === 'pt' ? 'Turno pretendido' : 'Requested shift') }}
+          </span>
+          <template v-if="isDayOffMode">
+            <p class="swc-swap-header__date">
+              {{ selectedDate ? formatDate(selectedDate) : texts.calendarSelectDay }}
+            </p>
+            <p class="swc-swap-header__meta">
+              {{ selectedDate ? (currentLocale === 'pt' ? 'Folga · Dia inteiro' : 'Day off · All day') : '—' }}
+            </p>
+          </template>
+          <template v-else>
+            <p class="swc-swap-header__date">{{ requestedShiftTypeLabel }}</p>
+            <p class="swc-swap-header__meta">
+              {{ requestedShiftType ? `${formatTime(requestedShiftType.start_time)} - ${formatTime(requestedShiftType.end_time)}` : '—' }}
+            </p>
+          </template>
+        </article>
+      </section>
+
+      <!-- Day-off two-step flow -->
+      <template v-if="isDayOffMode">
+        <!-- STEP 1: Monthly calendar for picking a target day. -->
+        <section v-if="!selectedDate" class="hr-card swc-panel-right">
+          <h2 class="swc-panel-title">{{ currentLocale === 'pt' ? 'Escolhe um dia' : 'Pick a day' }}</h2>
+
+          <div class="swc-cal-nav">
+            <button class="swc-cal-nav-btn" @click="goToPreviousMonth" :aria-label="currentLocale === 'pt' ? 'Mês anterior' : 'Previous month'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <span class="swc-cal-month-label">{{ calendarMonthLabel }}</span>
+            <button class="swc-cal-nav-btn" @click="goToNextMonth" :aria-label="currentLocale === 'pt' ? 'Mês seguinte' : 'Next month'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
           </div>
-        </section>
 
-        <section v-if="selectedOfferedShift.length > 0 || selectedRequestedShift" class="swc-panel-right">
-          <h2 class="swc-panel-title">{{ texts.rightTitle }}</h2>
-
-          <div v-if="isDayOffSwap" class="swc-static-requested-shift">
-            <div class="swc-shift-card swc-shift-card--selected swc-shift-card--static">
-              <span :class="['swc-shift-dot', toColorClass(selectedRequestedShift?.shift_type.color || '')]"></span>
-              <div>
-                <p class="swc-shift-date">{{ selectedRequestedShift ? formatDate(selectedRequestedShift.date) : '-' }}</p>
-                <p class="swc-shift-type">{{ selectedRequestedShift?.shift_type.name || '-' }}</p>
-                <p class="swc-shift-time">
-                  {{ selectedRequestedShift ? `${formatTime(selectedRequestedShift.shift_type.start_time)}-${formatTime(selectedRequestedShift.shift_type.end_time)}` : '-' }}
-                </p>
-                <p class="swc-shift-nurse">{{ selectedRequestedShift?.users[0]?.name || '-' }}</p>
-                <div v-if="selectedRequestedShift && validationWarnings[selectedRequestedShift.id]?.length" class="swc-validation-notices">
-                  <span
-                    v-for="(warning, warningIndex) in validationWarnings[selectedRequestedShift.id]"
-                    :key="`warning-static-${selectedRequestedShift.id}-${warningIndex}`"
-                    class="swc-validation-notice"
-                  >
-                    <strong>{{ getWarningName(warning) || '-' }}</strong>
-                    <span>{{ warning?.message || warning?.text || warning }}</span>
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div v-if="loadingAvailability" class="swc-state-msg">
+            <div class="swc-spinner"></div>
+            <p>{{ texts.rightLoading }}</p>
           </div>
+          <div v-else class="swc-cal-grid">
+            <!-- Week day headers -->
+            <div v-for="wd in calendarWeekDays" :key="wd" class="swc-cal-weekday">{{ wd }}</div>
 
-          <div v-else class="swc-filter-bar">
-            <div class="swc-filter-group">
-              <label class="swc-filter-label">{{ texts.filters.date }}</label>
-              <input v-model="filterDate" class="swc-date-input" type="date" />
-            </div>
-
-            <div class="swc-filter-group">
-              <label class="swc-filter-label">{{ texts.filters.shiftType }}</label>
-              <div class="swc-type-list">
-                <button
-                  :class="['swc-type-btn', { 'swc-type-btn--active': activeShiftTypeFilters.length === 0 }]"
-                  @click="clearShiftTypeFilters"
-                >
-                  {{ texts.filters.allTypes }}
-                </button>
-
-                <button
-                  v-for="type in availableShiftTypes"
-                  :key="`type-${type.id}`"
-                  :class="['swc-type-btn', { 'swc-type-btn--active': activeShiftTypeFilters.includes(type.id) }]"
-                  @click="toggleShiftTypeFilter(type.id)"
-                >
-                  {{ type.name }}
-                </button>
-              </div>
-            </div>
-
-            <div class="swc-filter-group">
-              <label class="swc-filter-label">{{ texts.filters.nurse }}</label>
-              <input
-                v-model="filterNurse"
-                class="swc-nurse-input"
-                type="text"
-                :placeholder="texts.filters.nursePlaceholder"
-              />
-            </div>
-          </div>
-
-          <div v-if="!isDayOffSwap">
-            <div v-if="loadingAvailable" class="swc-loading">{{ texts.rightLoading }}</div>
-            <div v-else-if="availableShifts.length === 0" class="swc-empty">{{ texts.rightEmpty }}</div>
-            <div v-else-if="filteredAvailableShifts.length === 0" class="swc-empty">{{ texts.noResults }}</div>
-
-            <div v-else class="swc-shift-list">
-            <button
-              v-for="shift in filteredAvailableShifts"
-              :key="`available-${shift.id}`"
-              :class="['swc-shift-card', { 'swc-shift-card--selected': selectedRequestedShift?.id === shift.id }]"
-              @mouseenter="queueValidation(shift)"
-              @click="selectedRequestedShift = shift; queueValidation(shift)"
-            >
-              <span :class="['swc-shift-dot', toColorClass(shift.shift_type.color)]"></span>
-              <div>
-                <p class="swc-shift-date">{{ formatDate(shift.date) }}</p>
-                <p class="swc-shift-type">{{ shift.shift_type.name }}</p>
-                <p class="swc-shift-time">{{ formatTime(shift.shift_type.start_time) }}-{{ formatTime(shift.shift_type.end_time) }}</p>
-                <p class="swc-shift-nurse">{{ shift.users[0]?.name || '-' }}</p>
-                <div v-if="validationWarnings[shift.id]?.length" class="swc-validation-notices">
-                  <span
-                    v-for="(warning, warningIndex) in validationWarnings[shift.id]"
-                    :key="`warning-${shift.id}-${warningIndex}`"
-                    class="swc-validation-notice"
-                  >
-                    <strong>{{ getWarningName(warning) || '-' }}</strong>
-                    <span>{{ warning?.message || warning?.text || warning }}</span>
-                  </span>
-                </div>
-              </div>
-            </button>
-            </div>
-          </div>
-
-          <div v-if="selectedRequestedShift" class="swc-notes-area">
-            <label class="swc-filter-label">{{ texts.notes }}</label>
-            <textarea v-model="notes" rows="4" class="swc-textarea" :placeholder="texts.notesPlaceholder"></textarea>
-
-            <div class="swc-submit-area">
-              <button class="swc-submit-btn" :disabled="submitting" @click="submitCreateSwap">
-                {{ texts.submit }}
+            <!-- Calendar cells: empty padding + actual day cells. -->
+            <template v-for="(cell, i) in calendarCells" :key="cell.date ?? `pad-${i}`">
+              <div v-if="!cell.date" class="swc-cal-cell swc-cal-cell--empty"></div>
+              <button
+                v-else
+                class="swc-cal-cell"
+                :class="{
+                  'swc-cal-cell--available': cell.available,
+                  'swc-cal-cell--unavailable': !cell.available,
+                  'swc-cal-cell--past': isCellPast(cell.date) || isOfferedShiftDate(cell.date),
+                }"
+                :disabled="!cell.available"
+                @click="selectCalendarDay(cell.date)"
+              >
+                <span class="swc-cal-day">{{ cell.day }}</span>
+                <!-- Availability badge: "N disponíveis" on a single line, shown only on clickable days. -->
+                <span v-if="cell.available" class="swc-cal-count">{{ cell.count }} {{ texts.calendarAvailable }}</span>
               </button>
-
-              <p v-if="submitError" class="swc-submit-error">{{ submitError }}</p>
-              <p v-if="submitSuccess" class="swc-submit-success">{{ texts.submitSuccess }}</p>
-            </div>
+            </template>
           </div>
         </section>
-      </div>
+
+        <!-- STEP 2: People list for the selected date. -->
+        <section v-else class="hr-card swc-panel-right">
+          <div class="swc-results-toolbar">
+            <button class="swc-back-to-cal-btn" @click="backToCalendar">{{ texts.backToCalendar }}</button>
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="swc-search-input"
+              :placeholder="texts.searchPlaceholder"
+            />
+            <button
+              class="swc-submit-btn swc-submit-btn--inline"
+              :disabled="selectedResults.size === 0"
+              @click="openConfirmModal"
+            >
+              {{ texts.submit }}
+            </button>
+          </div>
+
+          <div v-if="loadingDayShifts" class="swc-state-msg">
+            <div class="swc-spinner"></div>
+            <p>{{ texts.rightLoading }}</p>
+          </div>
+          <div v-else-if="resultShifts.length === 0" class="swc-empty">{{ texts.rightEmpty }}</div>
+          <div v-else class="swc-results-list">
+            <div v-if="filteredResultShifts.length === 0" class="swc-empty">{{ texts.rightEmpty }}</div>
+            <template v-else>
+              <label class="swc-select-all-row">
+                <input type="checkbox" :checked="allVisibleSelected" @change="toggleSelectAllVisible" />
+                <span>{{ texts.selectAllPeople }} ({{ visibleSelectionCount }}/{{ paginatedResultShifts.length }})</span>
+              </label>
+
+              <article
+                v-for="shift in paginatedResultShifts"
+                :key="`result-${shift.id}`"
+                class="swc-result-card"
+                :class="{ 'swc-result-card--selected': isResultSelected(shift.id) }"
+              >
+                <div class="swc-result-card__row" @click="toggleResultSelection(shift)">
+                  <div class="swc-result-avatar">{{ getShiftAvatarInitial(shift) }}</div>
+                  <div class="swc-result-content">
+                    <div class="swc-result-topline">
+                      <p class="swc-result-nurse">{{ shift.users[0]?.name || '-' }}</p>
+                      <p class="swc-result-meta">
+                        {{ formatDate(shift.date) }} · {{ formatShiftLabel(shift).typeName }} · {{ formatShiftLabel(shift).timeLabel }}
+                      </p>
+                    </div>
+                    <div class="swc-result-warning-stack">
+                      <span
+                        v-for="(warning, warningIndex) in validationWarnings[shift.id] || []"
+                        :key="`warning-${shift.id}-${warningIndex}`"
+                        class="swc-result-warning"
+                      >
+                        <svg class="swc-result-warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3l-8.47-14.14a2 2 0 0 0-3.42 0z"></path>
+                          <line x1="12" y1="9" x2="12" y2="13"></line>
+                          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <strong class="swc-result-warning-name">{{ getWarningName(warning) || '-' }}</strong>
+                        <span class="swc-result-warning-text">{{ warning.message || warning.text || '' }}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <label class="swc-result-check">
+                    <input type="checkbox" :checked="isResultSelected(shift.id)" @click.stop @change.stop="toggleResultSelection(shift)" />
+                  </label>
+                </div>
+              </article>
+
+              <div v-if="filteredResultShifts.length > 0" class="sw-pagination">
+                <button class="pagination-btn" :disabled="!canGoPreviousPage" @click="goToPreviousPage">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <div class="pagination-numbers">
+                  <button v-for="p in totalPages" :key="p" :class="['page-num', { active: p === currentPage }]" @click="setPage(p)">{{ p }}</button>
+                </div>
+                <button class="pagination-btn" :disabled="!canGoNextPage" @click="goToNextPage">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+            </template>
+          </div>
+        </section>
+      </template>
+
+      <!-- Shift mode: flat list of candidates (unchanged flow). -->
+      <template v-else>
+        <section class="swc-panel-right hr-card">
+          <h2 class="swc-panel-title">{{ rightPanelTitle }}</h2>
+
+          <div class="swc-results-toolbar">
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="swc-search-input"
+              :placeholder="texts.searchPlaceholder"
+            />
+            <button
+              class="swc-submit-btn swc-submit-btn--inline"
+              :disabled="selectedResults.size === 0"
+              @click="openConfirmModal"
+            >
+              {{ texts.submit }}
+            </button>
+          </div>
+
+          <div v-if="loadingAvailable" class="swc-state-msg">
+            <div class="swc-spinner"></div>
+            <p>{{ texts.rightLoading }}</p>
+          </div>
+          <div v-else-if="resultShifts.length === 0" class="swc-empty">{{ texts.rightEmpty }}</div>
+          <div v-else class="swc-results-list">
+            <div v-if="filteredResultShifts.length === 0" class="swc-empty">{{ texts.rightEmpty }}</div>
+
+            <template v-else>
+              <label class="swc-select-all-row">
+                <input type="checkbox" :checked="allVisibleSelected" @change="toggleSelectAllVisible" />
+                <span>{{ texts.selectAllPeople }} ({{ visibleSelectionCount }}/{{ paginatedResultShifts.length }})</span>
+              </label>
+
+              <article
+                v-for="shift in paginatedResultShifts"
+                :key="`result-${shift.id}`"
+                class="swc-result-card"
+                :class="{ 'swc-result-card--selected': isResultSelected(shift.id) }"
+              >
+                <div class="swc-result-card__row" @click="toggleResultSelection(shift)">
+                  <div class="swc-result-avatar">{{ getShiftAvatarInitial(shift) }}</div>
+                  <div class="swc-result-content">
+                    <div class="swc-result-topline">
+                      <p class="swc-result-nurse">{{ shift.users[0]?.name || '-' }}</p>
+                      <p class="swc-result-meta">
+                        {{ formatDate(shift.date) }} · {{ formatShiftLabel(shift).typeName }} · {{ formatShiftLabel(shift).timeLabel }}
+                      </p>
+                    </div>
+                    <div class="swc-result-warning-stack">
+                      <span
+                        v-for="(warning, warningIndex) in validationWarnings[shift.id] || []"
+                        :key="`warning-${shift.id}-${warningIndex}`"
+                        class="swc-result-warning"
+                      >
+                        <svg class="swc-result-warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3l-8.47-14.14a2 2 0 0 0-3.42 0z"></path>
+                          <line x1="12" y1="9" x2="12" y2="13"></line>
+                          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <strong class="swc-result-warning-name">{{ getWarningName(warning) || '-' }}</strong>
+                        <span class="swc-result-warning-text">{{ warning.message || warning.text || '' }}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <label class="swc-result-check">
+                    <input type="checkbox" :checked="isResultSelected(shift.id)" @click.stop @change.stop="toggleResultSelection(shift)" />
+                  </label>
+                </div>
+              </article>
+
+              <div v-if="filteredResultShifts.length > 0" class="sw-pagination">
+                <button class="pagination-btn" :disabled="!canGoPreviousPage" @click="goToPreviousPage">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <div class="pagination-numbers">
+                  <button v-for="p in totalPages" :key="p" :class="['page-num', { active: p === currentPage }]" @click="setPage(p)">{{ p }}</button>
+                </div>
+                <button class="pagination-btn" :disabled="!canGoNextPage" @click="goToNextPage">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+            </template>
+          </div>
+        </section>
+      </template>
+
+      <!-- Confirmation modal: final review before creating swap requests. -->
+      <transition name="fade">
+        <div v-if="showConfirmModal" class="sw-modal-overlay" @click.self="closeConfirmModal">
+          <div class="sw-modal-card sw-create-modal">
+            <h2>{{ texts.confirmModal.title }}</h2>
+            <p>{{ confirmSummaryLine }}</p>
+            <div class="sw-form">
+              <div class="sw-field">
+                <label>{{ texts.noteOptional }}</label>
+                <textarea v-model="notes" rows="4" :placeholder="texts.actionNotePlaceholder"></textarea>
+              </div>
+              <p v-if="submitError" class="swc-submit-error">{{ submitError }}</p>
+              <div class="sw-modal-actions">
+                <button class="sw-modal-btn cancel" :disabled="submitting" @click="closeConfirmModal">{{ texts.confirmModal.cancel }}</button>
+                <button class="sw-modal-btn confirm" :disabled="submitting" @click="submitCreateSwap">
+                  {{ submitting ? texts.creating : texts.confirmModal.confirm }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
     </section>
   </main>
 </template>
 
-<style scoped>
-.swc-validation-notices {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.swc-validation-notice {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
-  font-size: 0.72rem;
-  line-height: 1.2;
-}
-
-.swc-validation-notice strong {
-  font-weight: 700;
-}
-
-.swc-shift-card--static {
-  cursor: default;
-}
-
-.swc-static-requested-shift {
-  margin-bottom: 16px;
-}
-</style>
+<style scoped src="~/assets/css/swap-create.css"></style>

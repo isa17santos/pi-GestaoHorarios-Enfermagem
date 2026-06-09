@@ -54,10 +54,13 @@ class SwapRequestResource extends JsonResource
                     'id' => (int) $entry->shift?->id,
                     'date' => $entry->shift?->shift_date?->toDateString(),
                     'shift_type' => [
-                        'id' => (int) $entry->shift?->shiftType?->id,
-                        'name' => $entry->shift?->shiftType?->name instanceof BackedEnum
+                        'id'         => (int) $entry->shift?->shiftType?->id,
+                        'name'       => $entry->shift?->shiftType?->name instanceof BackedEnum
                             ? $entry->shift?->shiftType?->name->value
                             : $entry->shift?->shiftType?->name,
+                        'color'      => $entry->shift?->shiftType?->color,
+                        'start_time' => $entry->shift?->shiftType?->start_time,
+                        'end_time'   => $entry->shift?->shiftType?->end_time,
                     ],
                     'owner' => [
                         'id' => (int) $entry->owner?->id,

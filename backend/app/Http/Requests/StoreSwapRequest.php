@@ -56,14 +56,41 @@ class StoreSwapRequest extends FormRequest
                 return;
             }
 
-            $minimumAllowedDate = Carbon::today()->addDays(2);
-            $tooSoonExists = DB::table('shifts')
-                ->whereIn('id', $offeredShiftIds)
-                ->whereDate('shift_date', '<=', $minimumAllowedDate)
+$tooSoonExists = DB::table('shifts')
+                    ->whereIn('id', $offeredShiftIds)
+                    ->whereDate('shift_date', '<=', Carbon::today())
                 ->exists();
 
             if ($tooSoonExists) {
                 $validator->errors()->add('offered_shift_ids', __('swap.offered_shift_too_soon'));
+            }
+
+            // Check for duplicate pending swap request with the same offered and requested shifts
+            $offeredShiftId = $offeredShiftIds[0];
+            $requestedShiftIds = array_map('intval', (array) $this->input('requested_shift_ids', []));
+            $requestedShiftId = $requestedShiftIds[0];
+
+            $duplicateExists = DB::table('shift_swap_requests')
+                ->where('created_by', $user->id)
+                ->where('status', 'pending')
+                ->whereExists(function ($query) use ($offeredShiftId) {
+                    $query->select(DB::raw(1))
+                        ->from('shift_swap_request_shifts')
+                        ->whereColumn('shift_swap_request_shifts.swap_request_id', 'shift_swap_requests.id')
+                        ->where('shift_swap_request_shifts.shift_id', $offeredShiftId)
+                        ->where('shift_swap_request_shifts.type', 'offered');
+                })
+                ->whereExists(function ($query) use ($requestedShiftId) {
+                    $query->select(DB::raw(1))
+                        ->from('shift_swap_request_shifts')
+                        ->whereColumn('shift_swap_request_shifts.swap_request_id', 'shift_swap_requests.id')
+                        ->where('shift_swap_request_shifts.shift_id', $requestedShiftId)
+                        ->where('shift_swap_request_shifts.type', 'requested');
+                })
+                ->exists();
+
+            if ($duplicateExists) {
+                $validator->errors()->add('offered_shift_ids', __('swap.duplicate_request'));
             }
         });
     }

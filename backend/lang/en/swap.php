@@ -25,5 +25,8 @@ return [
         'string' => 'The notes field must be a string.',
         'max' => 'The notes field must not be greater than 500 characters.',
     ],
-    'offered_shift_too_soon' => 'Offered shifts must be scheduled for more than 2 days from today.',
+    'rest_hours_violation' => 'Violates the minimum 11-hour rest between consecutive shifts.',
+    'offered_shift_too_soon' => 'Swaps are not allowed for shifts occurring today or in the past.',
+    //'offered_shift_too_soon_old' => 'Offered shifts must be scheduled for more than 2 days from today.',
+    'duplicate_request' => 'A pending swap request already exists for these shifts.',
 ];

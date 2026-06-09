@@ -47,8 +47,8 @@ class SwapValidationController extends Controller
                                 properties: [
                                     new OA\Property(property: 'nurse_id', type: 'integer', example: 1),
                                     new OA\Property(property: 'nurse_name', type: 'string', example: 'Ana Silva'),
-                                    new OA\Property(property: 'type', type: 'string', enum: ['rest_hours', 'days_off']),
-                                    new OA\Property(property: 'message', type: 'string', example: 'A troca pode violar o descanso mínimo de 11 horas entre turnos consecutivos.'),
+                                    new OA\Property(property: 'type', type: 'string', enum: ['rest_hours']),
+                                    new OA\Property(property: 'message', type: 'string', example: 'Viola o descanso mínimo de 11 horas entre turnos consecutivos.'),
                                 ]
                             )
                         ),
@@ -135,16 +135,7 @@ class SwapValidationController extends Controller
                 'nurse_id' => $nurse->id,
                 'nurse_name' => $nurse->name,
                 'type' => 'rest_hours',
-                'message' => 'A troca pode violar o descanso mínimo de 11 horas entre turnos consecutivos.',
-            ];
-        }
-
-        if ($this->countDaysOff($weekShifts, $weekStart, $weekEnd) < 2) {
-            $warnings[] = [
-                'nurse_id' => $nurse->id,
-                'nurse_name' => $nurse->name,
-                'type' => 'days_off',
-                'message' => 'A troca pode deixar a enfermeira com menos de 2 dias de folga nessa semana.',
+                'message' => __('swap.rest_hours_violation'),
             ];
         }
 
@@ -153,7 +144,14 @@ class SwapValidationController extends Controller
 
     private function hasRestHoursViolation($shifts): bool
     {
-        $sortedShifts = $shifts
+        // Day-off shifts have no meaningful start/end times; exclude them so
+        // a folga swap never incorrectly triggers a rest-hours warning.
+        $workShifts = $shifts->filter(function (Shift $shift): bool {
+            $name = strtolower($shift->shiftType->name ?? '');
+            return !in_array($name, ['dayoff', 'day off', 'folga'], true);
+        });
+
+        $sortedShifts = $workShifts
             ->sortBy(function (Shift $shift): string {
                 $startTime = $this->normalizeTime((string) $shift->shiftType->start_time);
 
@@ -173,19 +171,6 @@ class SwapValidationController extends Controller
         }
 
         return false;
-    }
-
-    private function countDaysOff($shifts, Carbon $weekStart, Carbon $weekEnd): int
-    {
-        $workedDays = $shifts
-            ->filter(function (Shift $shift) use ($weekStart, $weekEnd): bool {
-                return $shift->shift_date->betweenIncluded($weekStart, $weekEnd);
-            })
-            ->map(fn (Shift $shift): string => $shift->shift_date->toDateString())
-            ->unique()
-            ->count();
-
-        return 7 - $workedDays;
     }
 
     private function resolveShiftInterval(Shift $shift): array

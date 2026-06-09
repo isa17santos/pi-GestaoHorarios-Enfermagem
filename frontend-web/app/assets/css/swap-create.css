@@ -5,6 +5,7 @@
 
 .swc-content {
   width: 100%;
+  padding-bottom: 28px;
 }
 
 .swc-header {
@@ -220,43 +221,16 @@
   background: rgba(125, 83, 213, 0.08);
 }
 
-.swc-notes-area {
-  margin-top: 14px;
-}
-
-.swc-textarea {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px;
-  color: var(--text);
-  background: white;
-  resize: vertical;
-  min-height: 110px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.swc-textarea:focus {
-  outline: none;
-  border-color: var(--primary-soft);
-  box-shadow: 0 0 0 3px rgba(125, 83, 213, 0.12);
-}
-
-.swc-submit-area {
-  margin-top: 14px;
-}
-
 .swc-submit-btn {
   width: 100%;
   height: 52px;
   border: 0;
   border-radius: 16px;
-  background: #faa844;
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary), var(--pink));
   color: white;
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 10px 20px rgba(247, 125, 24, 0.24);
   transition: transform 0.2s ease, filter 0.2s ease;
 }
 
@@ -282,7 +256,22 @@
   font-weight: 700;
 }
 
-.swc-loading,
+.swc-state-msg {
+  padding: 90px 28px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.swc-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  margin: 0 auto 18px;
+  animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 .swc-empty {
   padding: 14px;
   border-radius: 14px;
@@ -307,5 +296,514 @@
   .swc-panel-left,
   .swc-panel-right {
     padding: 18px;
+  }
+}
+
+/* Option B swap header: before/after panels with a center transition icon. */
+.swc-swap-header {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px;
+}
+
+.swc-swap-header__panel {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.swc-swap-header__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+}
+
+.swc-swap-header__badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 8px;
+}
+
+.swc-swap-header__date {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.swc-swap-header__meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.swc-swap-header__icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--primary-strong);
+}
+
+.swc-panel-right,
+.swc-panel-right.hr-card {
+  width: 100%;
+  overflow: visible;
+}
+
+.swc-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.swc-results-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.swc-search-input {
+  width: 100%;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0 12px;
+  background: var(--surface-strong);
+  color: var(--text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.swc-search-input:focus {
+  outline: none;
+  border-color: var(--primary-soft);
+  box-shadow: 0 0 0 3px rgba(125, 83, 213, 0.12);
+}
+
+.swc-submit-btn--inline {
+  width: 196px;
+  flex: 0 0 196px;
+  height: 46px;
+  border-radius: 14px;
+}
+
+.swc-select-all-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-strong);
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.swc-select-all-row input[type='checkbox'],
+.swc-results-list input[type='checkbox'] {
+  accent-color: var(--primary-strong);
+}
+
+.swc-result-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-strong);
+  overflow: visible;
+  margin-inline-start: 4px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.swc-result-card--selected {
+  margin-inline-start: 0;
+  border-inline-start: 3px solid var(--primary-strong);
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface-strong));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--primary-strong) 10%, transparent);
+}
+
+.swc-result-card--selected .swc-result-card__row {
+  padding-inline-start: 17px;
+}
+
+.swc-result-card__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  cursor: pointer;
+}
+
+.swc-result-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--primary-strong);
+  color: var(--surface-strong);
+  font-size: 1.05rem;
+  font-weight: 800;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-strong) 22%, transparent);
+}
+
+.swc-result-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.swc-result-topline {
+  display: grid;
+  gap: 4px;
+}
+
+.swc-result-nurse {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.14rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.swc-result-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swc-result-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+}
+
+.swc-result-check input {
+  width: 1.28rem;
+  height: 1.28rem;
+  display: block;
+  cursor: pointer;
+}
+
+.swc-result-check input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary-soft) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.swc-result-offer-select {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.swc-result-offer-label {
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.swc-result-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.swc-result-warning-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.swc-result-warning {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 5px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 7px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: rgba(255, 243, 205, 0.92);
+  color: #8a6409;
+  font-size: 0.74rem;
+  line-height: 1.1;
+}
+
+.swc-result-warning-icon {
+  width: 0.8rem;
+  height: 0.8rem;
+  flex: 0 0 0.8rem;
+}
+
+.swc-result-warning-name {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.swc-result-warning-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swc-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.swc-pagination-btn {
+  min-width: 110px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-strong);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+.swc-pagination-btn:hover:not(:disabled) {
+  border-color: var(--primary-soft);
+  color: var(--primary-strong);
+  transform: translateY(-1px);
+}
+
+.swc-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.swc-pagination-label {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .swc-swap-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .swc-swap-header__icon {
+    align-self: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .swc-result-meta {
+    white-space: normal;
+  }
+
+  .swc-results-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .swc-submit-btn--inline {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .swc-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+.swc-swap-header,
+.swc-panel-right {
+  backdrop-filter: none;
+}
+
+/* --- Day-off calendar (step 1 of the two-step dayoff flow) --- */
+
+.swc-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.swc-cal-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-strong);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.swc-cal-nav-btn:hover {
+  border-color: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.swc-cal-month-label {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+/* 7-column grid: one column per ISO week day. */
+.swc-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.swc-cal-weekday {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding: 4px 0 8px;
+}
+
+.swc-cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: default;
+  transition: background 0.18s ease, border-color 0.18s ease;
+  padding: 0;
+}
+
+.swc-cal-cell--empty {
+  border: none;
+  background: none;
+}
+
+/* Days with available people — clickable. */
+.swc-cal-cell--available {
+  border-color: rgba(125, 83, 213, 0.18);
+  background: rgba(125, 83, 213, 0.06);
+  cursor: pointer;
+}
+
+.swc-cal-cell--available:hover {
+  border-color: var(--primary-strong);
+  background: rgba(125, 83, 213, 0.14);
+}
+
+/* Past days or days with 0 availability. */
+.swc-cal-cell--unavailable,
+.swc-cal-cell--past {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.swc-cal-day {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+/* Availability badge: "N disponíveis" on a single inline line. */
+.swc-cal-count {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--primary-strong);
+  background: rgba(125, 83, 213, 0.12);
+  border-radius: 6px;
+  padding: 1px 4px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* "← Back to calendar" link button inside the step-2 toolbar. */
+.swc-back-to-cal-btn {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-strong);
+  color: var(--primary-strong);
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 0 14px;
+  height: 46px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.swc-back-to-cal-btn:hover {
+  border-color: var(--primary-soft);
+  background: rgba(125, 83, 213, 0.06);
+}
+
+@media (max-width: 640px) {
+  .swc-cal-grid {
+    gap: 2px;
+  }
+
+  .swc-cal-day {
+    font-size: 0.78rem;
+  }
+
+  .swc-cal-count {
+    font-size: 0.55rem;
+    padding: 1px 3px;
   }
 }

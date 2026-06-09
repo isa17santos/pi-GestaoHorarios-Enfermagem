@@ -169,6 +169,11 @@ export const useSwap = () => {
     user_id?: number
     exclude_mine?: boolean
     future?: boolean
+    shift_type_id?: number
+    /** Exact date filter — YYYY-MM-DD */
+    date?: string
+    /** Month filter for availability aggregation — YYYY-MM */
+    month?: string
   }): Promise<ShiftOption[]> => {
     const authToken = requireAuthToken()
     const query = new URLSearchParams()
@@ -176,12 +181,38 @@ export const useSwap = () => {
     if (params.user_id) query.set('user_id', String(params.user_id))
     if (params.exclude_mine) query.set('exclude_mine', 'true')
     if (params.future) query.set('future', 'true')
+    if (params.shift_type_id) query.set('shift_type_id', String(params.shift_type_id))
+    if (params.date) query.set('date', params.date)
+    if (params.month) query.set('month', params.month)
 
     const response = await $fetch<ShiftListResponse>(
       `${config.public.apiBase}/shifts?${query.toString()}`,
       { headers: { Authorization: `Bearer ${authToken}` } }
     )
     return response.data ?? []
+  }
+
+  /**
+   * Fetch aggregated day-off availability for a month.
+   * Returns Record<YYYY-MM-DD, count> — only dates with count > 0 are included.
+   */
+  const fetchShiftAvailability = async (params: {
+    shift_type_id: number
+    month: string
+    exclude_mine?: boolean
+  }): Promise<Record<string, number>> => {
+    const authToken = requireAuthToken()
+    const query = new URLSearchParams({
+      shift_type_id: String(params.shift_type_id),
+      month: params.month,
+    })
+    if (params.exclude_mine) query.set('exclude_mine', 'true')
+
+    const response = await $fetch<{ data: Record<string, number> }>(
+      `${config.public.apiBase}/shifts?${query.toString()}`,
+      { headers: { Authorization: `Bearer ${authToken}` } }
+    )
+    return response.data ?? {}
   }
 
   const createSwap = async (payload: CreateSwapPayload): Promise<SwapRequest> => {
@@ -324,6 +355,7 @@ export const useSwap = () => {
     errorSwaps,
     fetchSwaps,
     fetchShifts,
+    fetchShiftAvailability,
     createSwap,
     validateShift,
     acceptSwap,

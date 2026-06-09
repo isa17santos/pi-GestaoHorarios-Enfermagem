@@ -111,6 +111,10 @@
                                     "properties": {
                                         "user": {
                                             "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
                                                 "name": {
                                                     "type": "string",
                                                     "example": "Miguel Ferreira"
@@ -123,6 +127,10 @@
                                                 "role": {
                                                     "type": "string",
                                                     "example": "admin"
+                                                },
+                                                "must_change_password": {
+                                                    "type": "boolean",
+                                                    "example": false
                                                 }
                                             },
                                             "type": "object"
@@ -1948,11 +1956,40 @@
                         "schema": {
                             "type": "boolean"
                         }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Filter shifts by exact shift_date (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "shift_type_id",
+                        "in": "query",
+                        "description": "Filter shifts by shift type id. When combined with month, scopes the availability aggregation.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "description": "When combined with shift_type_id, returns aggregated availability per date (YYYY-MM). Response shape: { \"data\": { \"2026-06-15\": 3, ... } }",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "2026-06"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Successful response with data array of shifts",
+                        "description": "Successful response — array of shifts, or date-keyed counts when month param is present",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2967,6 +3004,86 @@
                     },
                     "404": {
                         "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/validate": {
+            "get": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Validar troca de turnos com avisos de regras laborais",
+                "operationId": "63ea13bf723341223deada4ce7d926b5",
+                "parameters": [
+                    {
+                        "name": "offered_shift_id",
+                        "in": "query",
+                        "description": "ID do turno oferecido pelo utilizador autenticado",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "requested_shift_id",
+                        "in": "query",
+                        "description": "ID do turno solicitado (pertence a outro enfermeiro)",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Validação concluída com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "warnings": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "nurse_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "nurse_name": {
+                                                        "type": "string",
+                                                        "example": "Ana Silva"
+                                                    },
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "rest_hours"
+                                                        ]
+                                                    },
+                                                    "message": {
+                                                        "type": "string",
+                                                        "example": "Viola o descanso mínimo de 11 horas entre turnos consecutivos."
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "422": {
+                        "description": "Parâmetros inválidos ou turnos inconsistentes para validação"
                     }
                 },
                 "security": [

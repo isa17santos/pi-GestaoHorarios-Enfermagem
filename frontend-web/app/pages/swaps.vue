@@ -15,7 +15,9 @@ const { swapRequests, loadingSwaps, errorSwaps, fetchSwaps, acceptSwap, rejectSw
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
 const selectedDirection = ref<SwapDirectionFilter>('')
-const selectedStatus = ref<SwapStatusFilter>('')
+const selectedStatus = ref<SwapStatusFilter>('pending')
+const pageSize = 10
+const currentPage = ref(1)
 
 const isDirectionOpen = ref(false)
 const isStatusOpen = ref(false)
@@ -67,6 +69,10 @@ const texts = computed(() => ({
     reject: currentLocale.value === 'pt' ? 'Rejeitar' : 'Reject',
     cancel: currentLocale.value === 'pt' ? 'Cancelar' : 'Cancel',
   },
+  pagination: {
+    previous: currentLocale.value === 'pt' ? 'Anterior' : 'Previous',
+    next: currentLocale.value === 'pt' ? 'Seguinte' : 'Next',
+  },
   confirmModal: {
     title: currentLocale.value === 'pt' ? 'Confirmar Ação' : 'Confirm Action',
     accept: currentLocale.value === 'pt'
@@ -100,11 +106,15 @@ const formatDate = (value: string) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
-  return new Intl.DateTimeFormat(currentLocale.value === 'pt' ? 'pt-PT' : 'en-US', {
+  const formatted = new Intl.DateTimeFormat(currentLocale.value === 'pt' ? 'pt-PT' : 'en-US', {
+    weekday: 'short',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   }).format(date)
+
+  const normalized = formatted.replace('.', '')
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
 }
 
 // Maps raw shift type names from the API (e.g. 'morning', 'dayoff') to
@@ -170,17 +180,48 @@ const listToRender = computed(() => {
   return selectedDirection.value === 'sent' ? sentSwaps.value : receivedSwaps.value
 })
 
+const totalItems = computed(() => listToRender.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / pageSize)))
+
+const paginatedItems = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return listToRender.value.slice(start, start + pageSize)
+})
+
 // Groups swaps into display sections. Without a direction filter the list splits
 // into named "Sent" and "Received" sections; with a filter it's a single flat list.
 const sections = computed(() => {
   if (selectedDirection.value) {
-    return [{ key: 'filtered', title: null as string | null, items: listToRender.value }]
+    return [{ key: 'filtered', title: null as string | null, items: paginatedItems.value }]
   }
+
+  const pageItems = paginatedItems.value
   return [
-    { key: 'sent', title: texts.value.sentSection, items: sentSwaps.value },
-    { key: 'received', title: texts.value.receivedSection, items: receivedSwaps.value },
+    { key: 'sent', title: texts.value.sentSection, items: pageItems.filter((req) => isSentSwap(req)) },
+    { key: 'received', title: texts.value.receivedSection, items: pageItems.filter((req) => isReceivedSwap(req)) },
   ]
 })
+
+const visibleSections = computed(() => {
+  if (selectedDirection.value) return sections.value
+  return sections.value.filter((section) => section.items.length > 0)
+})
+
+const goToPreviousPage = () => {
+  if (currentPage.value <= 1) return
+  currentPage.value -= 1
+}
+
+const goToNextPage = () => {
+  if (currentPage.value >= totalPages.value) return
+  currentPage.value += 1
+}
+
+const setPage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
 
 const updateSwapInState = (updatedSwap: any) => {
   const index = swapRequests.value.findIndex((item) => item.id === updatedSwap.id)
@@ -271,10 +312,17 @@ onMounted(async () => {
 })
 
 watch([selectedDirection, selectedStatus], async () => {
+  currentPage.value = 1
   await fetchSwaps(
     selectedDirection.value || undefined,
     selectedStatus.value || undefined
   )
+})
+
+watch(totalPages, (newTotalPages) => {
+  if (currentPage.value > newTotalPages) {
+    currentPage.value = newTotalPages
+  }
 })
 </script>
 
@@ -393,7 +441,7 @@ watch([selectedDirection, selectedStatus], async () => {
             v-for="section in sections"        → sections computed: Array<{ key, title, items: SwapRequest[] }>
               v-for="swapItem in section.items"  → section.items: SwapRequest[]
           -->
-          <div v-for="section in sections" :key="section.key" class="sw-section">
+          <div v-for="section in visibleSections" :key="section.key" class="sw-section">
             <h2 v-if="section.title" class="sw-section-title">{{ section.title }}</h2>
             <div v-if="section.items.length === 0" class="sw-empty-section">{{ texts.noRequests }}</div>
             <div v-else class="sw-list">
@@ -412,7 +460,7 @@ watch([selectedDirection, selectedStatus], async () => {
 
                 <!-- Option B swap header: offered and requested panels flanking a centre swap icon. -->
                 <div class="sw-swap-header">
-                  <div class="sw-swap-header__panel">
+                  <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${getPrimaryShift(swapItem.offered_shifts)?.shift_type?.color || 'transparent'}` }">
                     <span class="sw-swap-header__badge">{{ texts.card.offered }}</span>
                     <p class="sw-swap-header__date">{{ formatDate(getPrimaryShift(swapItem.offered_shifts)?.date || '-') }}</p>
                     <p class="sw-swap-header__type">{{ getShiftName(getPrimaryShift(swapItem.offered_shifts)?.shift_type) }}</p>
@@ -428,7 +476,7 @@ watch([selectedDirection, selectedStatus], async () => {
                     </svg>
                   </div>
 
-                  <div class="sw-swap-header__panel">
+                  <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${getPrimaryShift(swapItem.requested_shifts)?.shift_type?.color || 'transparent'}` }">
                     <span class="sw-swap-header__badge">{{ texts.card.requested }}</span>
                     <p class="sw-swap-header__date">{{ formatDate(getPrimaryShift(swapItem.requested_shifts)?.date || '-') }}</p>
                     <p class="sw-swap-header__type">{{ getShiftName(getPrimaryShift(swapItem.requested_shifts)?.shift_type) }}</p>
@@ -459,6 +507,32 @@ watch([selectedDirection, selectedStatus], async () => {
               </article>
             </div>
           </div>
+
+        </div>
+
+        <div v-if="!loadingSwaps && !errorSwaps" class="sw-pagination">
+          <button class="pagination-btn" :disabled="currentPage === 1" :title="texts.pagination.previous" @click="goToPreviousPage">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+
+          <div class="pagination-numbers">
+            <button
+              v-for="p in totalPages"
+              :key="p"
+              :class="['page-num', { active: p === currentPage }]"
+              @click="setPage(p)"
+            >
+              {{ p }}
+            </button>
+          </div>
+
+          <button class="pagination-btn" :disabled="currentPage === totalPages || totalItems === 0" :title="texts.pagination.next" @click="goToNextPage">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
         </div>
       </div>
     </section>

@@ -6,8 +6,9 @@ definePageMeta({
 })
 
 // -------------- Dependencies -----------
-const { token } = useAuth()
+const { token, user } = useAuth()
 const { shiftTypes, fetchShiftTypes } = useSchedule()
+const { fetchShifts } = useSwap()
 const { currentLocale, texts } = useScheduleTexts()
 
 // ------- Scale Constants --------
@@ -25,6 +26,10 @@ const tooltipShift = ref<any>(null)
 const tooltipUsers = ref<any[]>([])
 const tooltipX = ref(0)
 const tooltipY = ref(0)
+const pendingShift = ref<any | null>(null)
+const swapIntentModalOpen = ref(false)
+const selectedSwapIntent = ref<'shift' | 'dayoff' | null>(null)
+const selectedSwapShiftTypeId = ref<number | null>(null)
 
 // Real time indicator
 const timeIndicatorTop = ref('0px')
@@ -49,9 +54,30 @@ const viewTexts = computed(() => {
     absenceShift: isPt ? 'Folga / Ausência' : 'Day Off / Absence',
     assignedNurses: isPt ? 'Enfermeiros Escalados' : 'Assigned Nurses',
     legendTitle: isPt ? 'Turnos:' : 'Shifts:',
+    exchangeForShift: isPt ? 'Trocar por turno' : 'Exchange for a shift',
+    exchangeForDayOff: isPt ? 'Trocar por folga' : 'Exchange for a day off',
+    swapIntentTitle: isPt ? 'Como quer trocar este turno?' : 'How do you want to swap this shift?',
+    shiftIntentDescription: isPt ? 'Seleciona um tipo de turno para pedido.' : 'Pick a shift type to request.',
+    dayOffIntentDescription: isPt ? 'Escolher a folga a oferecer em troca' : 'Choose the day off to offer in return',
+    cancel: isPt ? 'Cancelar' : 'Cancel',
+    confirm: isPt ? 'Confirmar' : 'Confirm',
+    chooseIntent: isPt ? 'Escolhe o tipo de troca' : 'Choose the swap type',
+    chooseShiftType: isPt ? 'Escolhe o tipo de turno' : 'Choose the shift type',
     noAssignedNurses: isPt ? 'Nenhum enfermeiro escalado.' : 'No nurses assigned.',
     errorLoading: isPt ? 'Erro ao carregar horário. Tente novamente.' : 'Error loading schedule. Please try again.',
   }
+})
+
+const selectableShiftTypes = computed(() => {
+  const dayOffNames = ['dayoff', 'day off', 'folga', 'holidays', 'sick leave', 'parental leave']
+  const pendingShiftTypeId = pendingShift.value?.shift_type?.id ?? null
+
+  return shiftTypes.value.filter((type) => {
+    const name = (type.name || '').toLowerCase()
+    const isDayOffType = dayOffNames.includes(name)
+    const isSameAsPendingShift = pendingShiftTypeId !== null && type.id === pendingShiftTypeId
+    return !isDayOffType && !isSameAsPendingShift
+  })
 })
 
 // -------------- Date Calculations --------------
@@ -140,12 +166,39 @@ const getShiftName = (shiftType: any) => {
   return currentLocale.value === 'pt' ? (pt[name] || shiftType.name) : (en[name] || shiftType.name)
 }
 
+const formatTime = (value: string) => {
+  if (!value) return '-'
+  return value.slice(0, 5)
+}
+
+const formatDate = (value: string) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-US'
+  const formatted = new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+
+  const normalized = formatted.replace('.', '')
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1)
+}
+
 // ---------------------- Shifts logic -----------------------
 const isAllDay = (shiftType: any) => {
   if (!shiftType) return true
   const name = (shiftType.name || '').toLowerCase()
   return ['dayoff', 'day off', 'folga', 'holidays', 'férias', 'sick leave', 'baixa médica', 'parental leave', 'licença parental'].includes(name)
     || (shiftType.start_time === '00:00:00' && shiftType.end_time === '00:00:00')
+}
+
+const isDayOffType = (shiftType: any) => {
+  if (!shiftType?.name) return false
+  const name = String(shiftType.name).toLowerCase()
+  return ['dayoff', 'day off', 'folga'].includes(name)
 }
 
 const getDayAllDayGroups = (dateStr: string) => {
@@ -238,9 +291,79 @@ const isShiftSelectable = (dateStr: string) => {
   return dateStr >= today
 }
 
+const isFutureDateOnly = (dateStr: string) => {
+  const today = getLocalDateStr(new Date())
+  return dateStr > today
+}
+
+const resolveOwnShiftId = async (date: string, shiftTypeId: number): Promise<number | null> => {
+  // Fetch shifts owned by the authenticated user and find the one
+  // matching the given date and shift type.
+  const myShifts = await fetchShifts({ mine: true })
+  const match = myShifts.find((s: any) =>
+    s.date === date && s.shift_type.id === shiftTypeId,
+  )
+  return match?.id ?? null
+}
+
 const handleShiftCardClick = async (segment: any) => {
   if (!isShiftSelectable(segment.shift.date)) return
-  await navigateTo(`/swap-create?shift_id=${segment.shift.id}`)
+
+  const authId = Number(user.value?.id)
+  const shiftBelongsToUser = segment.shift.users?.some((u: any) => Number(u.id) === authId)
+
+  if (!shiftBelongsToUser) return
+
+  pendingShift.value = segment.shift
+  selectedSwapIntent.value = null
+  selectedSwapShiftTypeId.value = null
+  swapIntentModalOpen.value = true
+}
+
+const handleAllDayBadgeClick = async (group: any) => {
+  if (!group?.shift?.date || !isFutureDateOnly(group.shift.date)) return
+  if (!isDayOffType(group.shift_type)) return
+
+  const authId = Number(user.value?.id)
+  const shiftBelongsToUser = group.users?.some((u: any) => Number(u.id) === authId)
+  if (!shiftBelongsToUser) return
+
+  // Resolve the authenticated user's own shift id for this date and type,
+  // since the weekly view groups multiple nurses under one shift object.
+  const ownShiftId = await resolveOwnShiftId(group.shift.date, group.shift_type.id)
+  if (!ownShiftId) return
+
+  await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=dayoff`)
+}
+
+const closeSwapIntentModal = () => {
+  swapIntentModalOpen.value = false
+  pendingShift.value = null
+  selectedSwapIntent.value = null
+  selectedSwapShiftTypeId.value = null
+}
+
+const chooseSwapIntent = async (intent: 'shift' | 'dayoff') => {
+  if (!pendingShift.value) return
+
+  selectedSwapIntent.value = intent
+
+  if (intent === 'dayoff') {
+    const ownShiftId = await resolveOwnShiftId(pendingShift.value.date, pendingShift.value.shift_type.id)
+    if (!ownShiftId) return
+    await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=dayoff`)
+    return
+  }
+
+  selectedSwapShiftTypeId.value = null
+}
+
+const confirmSwapIntent = async () => {
+  if (!pendingShift.value || selectedSwapIntent.value !== 'shift' || !selectedSwapShiftTypeId.value) return
+
+  const ownShiftId = await resolveOwnShiftId(pendingShift.value.date, pendingShift.value.shift_type.id)
+  if (!ownShiftId) return
+  await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=shift&shift_type_id=${selectedSwapShiftTypeId.value}`)
 }
 
 // ---------------- Formating ---------------
@@ -498,10 +621,12 @@ onBeforeUnmount(() => {
                   v-for="group in getDayAllDayGroups(getLocalDateStr(day))"
                   :key="group.shift_type.id"
                   class="allday-badge"
+                  :class="{ 'allday-badge--selectable': isDayOffType(group.shift_type) && isFutureDateOnly(group.shift.date) }"
                   :style="getColorVars(group.shift_type.color)"
                   @mouseenter="showTooltip($event, group.shift, group.users)"
                   @mousemove="updateTooltipPosition"
                   @mouseleave="hideTooltip"
+                  @click="handleAllDayBadgeClick(group)"
                 >
                   <span class="allday-badge-name">{{ getShiftName(group.shift_type) }}</span>
                   <span class="allday-badge-count">
@@ -621,18 +746,68 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <transition name="fade">
+      <div v-if="swapIntentModalOpen && pendingShift" class="modal-overlay" @click.self="closeSwapIntentModal">
+        <div class="modal-card swap-intent-modal">
+          <h2 class="swap-intent-modal__title">
+            {{ viewTexts.swapIntentTitle }}
+          </h2>
+
+          <div class="swap-intent-modal__shift-info">
+            <span class="swap-intent-modal__shift-date">{{ formatDate(pendingShift.date) }}</span>
+            <strong>{{ getShiftName(pendingShift.shift_type) }}</strong>
+            <span>{{ formatShiftTime(pendingShift.shift_type) }}</span>
+          </div>
+
+          <div v-if="!selectedSwapIntent" class="swap-intent-choice-grid">
+            <button class="swap-intent-choice-btn" type="button" @click="chooseSwapIntent('shift')">
+              <span>{{ viewTexts.exchangeForShift }}</span>
+              <small>{{ viewTexts.shiftIntentDescription }}</small>
+            </button>
+
+            <button class="swap-intent-choice-btn" type="button" @click="chooseSwapIntent('dayoff')">
+              <span>{{ viewTexts.exchangeForDayOff }}</span>
+              <small>{{ viewTexts.dayOffIntentDescription }}</small>
+            </button>
+          </div>
+
+          <div v-else-if="selectedSwapIntent === 'shift'" class="swap-intent-step">
+            <p class="swap-intent-step__label">{{ viewTexts.chooseShiftType }}</p>
+            <div class="swap-intent-type-grid">
+              <button
+                v-for="type in selectableShiftTypes"
+                :key="type.id"
+                type="button"
+                class="swap-intent-type-btn"
+                :class="{ 'is-selected': selectedSwapShiftTypeId === type.id }"
+                @click="selectedSwapShiftTypeId = type.id"
+              >
+                <span>{{ getShiftName(type) }}</span>
+                <small v-if="type.start_time && type.end_time">{{ type.start_time.slice(0, 5) }} - {{ type.end_time.slice(0, 5) }}</small>
+              </button>
+            </div>
+
+            <div class="modal-actions swap-intent-modal__actions">
+              <button class="modal-btn cancel" type="button" @click="closeSwapIntentModal">
+                {{ viewTexts.cancel }}
+              </button>
+              <button class="modal-btn confirm" type="button" :disabled="!selectedSwapShiftTypeId" @click="confirmSwapIntent">
+                {{ viewTexts.confirm }}
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="modal-actions swap-intent-modal__actions">
+            <button class="modal-btn cancel" type="button" @click="closeSwapIntentModal">
+              {{ viewTexts.cancel }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </main>
 </template>
 
 <style scoped src="~/assets/css/schedule-view.css"></style>
-
-<style scoped>
-.shift-card--selectable {
-  cursor: pointer;
-}
-
-.shift-card--past {
-  cursor: default;
-  opacity: 0.55;
-}
-</style>
+<style scoped src="~/assets/css/swap-select.css"></style>
