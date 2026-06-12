@@ -66,7 +66,6 @@ const viewTexts = computed(() => {
     noAssignedNurses: isPt ? 'Nenhum enfermeiro escalado.' : 'No nurses assigned.',
     errorLoading: isPt ? 'Erro ao carregar horário. Tente novamente.' : 'Error loading schedule. Please try again.',
     legendClickShift: isPt ? 'Clica num turno de trabalho para iniciar um pedido de troca.' : 'Click a work shift to start a swap request.',
-    legendClickDayOff: isPt ? 'Clica numa folga para trocar por outra folga.' : 'Click a day off to swap for another day off.',
   }
 })
 
@@ -323,19 +322,7 @@ const handleShiftCardClick = async (segment: any) => {
 }
 
 const handleAllDayBadgeClick = async (group: any) => {
-  if (!group?.shift?.date || !isFutureDateOnly(group.shift.date)) return
-  if (!isDayOffType(group.shift_type)) return
-
-  const authId = Number(user.value?.id)
-  const shiftBelongsToUser = group.users?.some((u: any) => Number(u.id) === authId)
-  if (!shiftBelongsToUser) return
-
-  // Resolve the authenticated user's own shift id for this date and type,
-  // since the weekly view groups multiple nurses under one shift object.
-  const ownShiftId = await resolveOwnShiftId(group.shift.date, group.shift_type.id)
-  if (!ownShiftId) return
-
-  await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=dayoff`)
+  // Day-off badges are not selectable for swaps — only work shifts can be traded.
 }
 
 const closeSwapIntentModal = () => {
@@ -353,10 +340,8 @@ const chooseSwapIntent = async (intent: 'shift' | 'dayoff') => {
   if (intent === 'dayoff') {
     const ownShiftId = await resolveOwnShiftId(pendingShift.value.date, pendingShift.value.shift_type.id)
     if (!ownShiftId) return
-    // dayoff mode: offering a folga in exchange for another folga.
-    // shift_for_dayoff mode: offering a work shift in exchange for a folga.
-    const mode = isDayOffType(pendingShift.value.shift_type) ? 'dayoff' : 'shift_for_dayoff'
-    await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=${mode}`)
+    // shift_for_dayoff mode: offering a work shift in exchange for a day-off.
+    await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=shift_for_dayoff`)
     return
   }
 
@@ -546,10 +531,6 @@ onBeforeUnmount(() => {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"></path></svg>
           {{ viewTexts.legendClickShift }}
         </span>
-        <span class="schedule-hint-bar__item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"></path></svg>
-          {{ viewTexts.legendClickDayOff }}
-        </span>
       </div>
 
       <div v-if="loading && weeklyShifts.length === 0" class="schedule-view-state hr-card">
@@ -638,7 +619,7 @@ onBeforeUnmount(() => {
                   v-for="group in getDayAllDayGroups(getLocalDateStr(day))"
                   :key="group.shift_type.id"
                   class="allday-badge"
-                  :class="{ 'allday-badge--selectable': isDayOffType(group.shift_type) && isFutureDateOnly(group.shift.date) }"
+                  :class="{}"
                   :style="getColorVars(group.shift_type.color)"
                   @mouseenter="showTooltip($event, group.shift, group.users)"
                   @mousemove="updateTooltipPosition"

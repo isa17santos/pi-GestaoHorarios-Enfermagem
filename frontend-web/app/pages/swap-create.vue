@@ -27,10 +27,10 @@ type ValidationWarning = {
   text?: string
 }
 
-type SwapMode = 'shift' | 'dayoff' | 'shift_for_dayoff'
+type SwapMode = 'shift' | 'shift_for_dayoff'
 
 const { user } = useAuth()
-const { fetchShifts, fetchShiftAvailability, createSwap, validateShift, errorSwaps } = useSwap()
+const { fetchShifts, createSwap, validateShift, errorSwaps } = useSwap()
 const { shiftTypes, fetchShiftTypes } = useSchedule()
 const route = useRoute()
 
@@ -41,28 +41,36 @@ const requestedShiftTypeId = ref<number | null>(null)
 const sourceShiftId = ref<number | null>(null)
 const offeredShift = ref<ShiftOption | null>(null)
 const selectedResults = ref<Set<number>>(new Set())
+
+const firstSelectedShift = computed(() => {
+  const id = [...selectedResults.value][0]
+  if (!id) return null
+  return availableShifts.value.find((s) => s.id === id) ?? null
+})
 const myShifts = ref<ShiftOption[]>([])
 const availableShifts = ref<ShiftOption[]>([])
 const validationWarnings = ref<Record<number, ValidationWarning[]>>({})
 const loadingMyShifts = ref(false)
 const loadingAvailable = ref(false)
+const loadingDayShifts = ref(false)
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const submitSuccess = ref(false)
 const showConfirmModal = ref(false)
 const notes = ref('')
 const searchQuery = ref('')
+const filterShiftTypeId = ref<number | null>(null)
+const isShiftTypeFilterOpen = ref(false)
+
+if (process.client) {
+  window.addEventListener('click', (e: MouseEvent) => {
+    if (!(e.target as HTMLElement).closest('.custom-select-wrapper')) {
+      isShiftTypeFilterOpen.value = false
+    }
+  })
+}
 const resultsPerPage = 10
 const currentPage = ref(1)
-
-// --- Day-off two-step flow state ---
-// Step 1: monthly calendar with availability counts per day.
-// Step 2: list of people on the selected date.
-const selectedDate = ref<string | null>(null)
-const availabilityData = ref<Record<string, number>>({})
-const calendarMonth = ref<string>(new Date().toISOString().slice(0, 7)) // YYYY-MM
-const loadingAvailability = ref(false)
-const loadingDayShifts = ref(false)
 
 // --- Shift-for-dayoff two-step flow state ---
 // Step 1: user picks one of their own day-off shifts from the calendar.
@@ -72,8 +80,13 @@ const selectedOwnDayOff = ref<ShiftOption | null>(null)
 const loadingOwnDayOffs = ref(false)
 // Controls which step is visible: false = calendar (step 1), true = people list (step 2).
 const ownDayOffSelected = ref(false)
-// Independent calendar month for step 1 — does not share state with the dayoff mode calendar.
+// Independent calendar month for step 1 own day-off selection.
 const ownDayOffCalendarMonth = ref<string>(new Date().toISOString().slice(0, 7))
+
+// Candidate counts per date for step 1 calendar enrichment.
+// date → (shift_type_id → count)
+const dayOffCandidateCounts = ref<Map<string, Map<number, number>>>(new Map())
+const loadingCandidateCounts = ref(false)
 
 const dayOffShiftNames = ['dayoff', 'day off', 'folga']
 
@@ -83,7 +96,6 @@ const isDayOffShift = (shift: ShiftOption | null | undefined) => {
   return dayOffShiftNames.includes(name)
 }
 
-const isDayOffMode = computed(() => swapMode.value === 'dayoff')
 const isShiftForDayoffMode = computed(() => swapMode.value === 'shift_for_dayoff')
 
 const normalizeDateKey = (value: string | null | undefined) => {
@@ -92,8 +104,8 @@ const normalizeDateKey = (value: string | null | undefined) => {
 }
 
 const resultShifts = computed(() => {
-  if (swapMode.value === 'dayoff' || swapMode.value === 'shift_for_dayoff') {
-    // In dayoff/shift_for_dayoff modes, availableShifts is populated per selected date.
+  if (swapMode.value === 'shift_for_dayoff') {
+    // In shift_for_dayoff mode, availableShifts is populated per selected date.
     return availableShifts.value
   }
 
@@ -107,13 +119,34 @@ const resultShifts = computed(() => {
   })
 })
 
-const filteredResultShifts = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
-  if (!query) return resultShifts.value
-  return resultShifts.value.filter((shift) => {
-    const nurseName = (shift.users[0]?.name || '').toLowerCase()
-    return nurseName.includes(query)
+const availableShiftTypeFilters = computed(() => {
+  const seen = new Map<number, typeof shiftTypes.value[0]>()
+  const source = isShiftForDayoffMode.value ? targetWorkShifts.value : resultShifts.value
+  for (const shift of source) {
+    const tid = Number(shift.shift_type.id)
+    if (!seen.has(tid)) seen.set(tid, shiftTypes.value.find((t) => Number(t.id) === tid) ?? { id: tid, name: shift.shift_type.name, start_time: shift.shift_type.start_time ?? '', end_time: shift.shift_type.end_time ?? '', color: shift.shift_type.color ?? '' })
+  }
+  const shiftOrder: Record<string, number> = { morning: 0, afternoon: 1, night: 2 }
+  return [...seen.values()].sort((a, b) => {
+    const aOrder = shiftOrder[a.name.toLowerCase()] ?? 99
+    const bOrder = shiftOrder[b.name.toLowerCase()] ?? 99
+    if (aOrder !== bOrder) return aOrder - bOrder
+    return (a.start_time ?? '').localeCompare(b.start_time ?? '')
   })
+})
+
+const filteredResultShifts = computed(() => {
+  let list = resultShifts.value
+  const query = searchQuery.value.trim().toLowerCase()
+  if (query) list = list.filter((shift) => (shift.users[0]?.name || '').toLowerCase().includes(query))
+  if (filterShiftTypeId.value !== null) {
+    if (isShiftForDayoffMode.value) {
+      list = list.filter((shift) => Number(getTargetWorkShift(Number(shift.users[0]?.id))?.shift_type?.id) === filterShiftTypeId.value)
+    } else {
+      list = list.filter((shift) => Number(shift.shift_type.id) === filterShiftTypeId.value)
+    }
+  }
+  return list
 })
 
 const totalPages = computed(() => Math.ceil(filteredResultShifts.value.length / 10))
@@ -152,9 +185,6 @@ const confirmSummaryLine = computed(() => {
 })
 
 const rightPanelTitle = computed(() => {
-  if (swapMode.value === 'dayoff') {
-    return currentLocale.value === 'pt' ? 'Folgas disponíveis' : 'Available day offs'
-  }
   return currentLocale.value === 'pt' ? 'Pessoas disponíveis' : 'Available people'
 })
 
@@ -186,7 +216,6 @@ const texts = computed(() => ({
   submitSuccess: currentLocale.value === 'pt' ? 'Pedido criado com sucesso!' : 'Request created successfully!',
   submitErrorFallback: currentLocale.value === 'pt' ? 'Não foi possível criar o pedido.' : 'Failed to create request.',
   invalidForm: currentLocale.value === 'pt' ? 'Seleciona os resultados para continuar.' : 'Please select results to continue.',
-  backToCalendar: currentLocale.value === 'pt' ? '← Voltar ao calendário' : '← Back to calendar',
   calendarSelectDay: currentLocale.value === 'pt' ? 'Seleciona um dia' : 'Select a day',
   calendarAvailable: currentLocale.value === 'pt' ? 'Disponíveis' : 'Available',
   shiftForDayoffStep1Title: currentLocale.value === 'pt' ? 'Escolhe a tua folga a oferecer' : 'Choose your day off to offer',
@@ -207,44 +236,6 @@ const texts = computed(() => ({
 
 // --- Calendar helpers ---
 
-/** Returns YYYY-MM-DD string for the 1st of the given month string (YYYY-MM). */
-const monthStart = computed(() => `${calendarMonth.value}-01`)
-
-/** All calendar cells for the current month view, padded to start on Monday. */
-const calendarCells = computed(() => {
-  const [year, month] = calendarMonth.value.split('-').map(Number)
-  const firstDay = new Date(year, month - 1, 1)
-  const lastDay = new Date(year, month, 0)
-
-  // ISO week starts on Monday (1). Sunday = 0 → remap to 6.
-  const startPad = (firstDay.getDay() + 6) % 7
-  const cells: Array<{ date: string | null; day: number | null; count: number; available: boolean }> = []
-
-  for (let i = 0; i < startPad; i++) cells.push({ date: null, day: null, count: 0, available: false })
-
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    const dateStr = `${calendarMonth.value}-${String(d).padStart(2, '0')}`
-    const count = availabilityData.value[dateStr] ?? 0
-    cells.push({
-      date: dateStr,
-      day: d,
-      count,
-      available: count > 0 && !isCellPast(dateStr) && !isOfferedShiftDate(dateStr),
-    })
-  }
-
-  return cells
-})
-
-const calendarMonthLabel = computed(() => {
-  const [year, month] = calendarMonth.value.split('-').map(Number)
-  const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-US'
-  const label = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1))
-  // pt-PT Intl returns title-case ("Junho De 2026"); lowercase words after the first, preserving digits.
-  return label.replace(/(\S+)/g, (word, _m, offset) =>
-    offset === 0 ? word : (/^\d/.test(word) ? word : word.toLowerCase()),
-  )
-})
 
 const calendarWeekDays = computed(() => {
   return currentLocale.value === 'pt'
@@ -260,99 +251,17 @@ const isCellPast = (date: string) => date <= todayStr
 // True when the cell date matches the shift the nurse is offering — can't swap to the same day.
 const isOfferedShiftDate = (date: string) => date === normalizeDateKey(offeredShift.value?.date)
 
-const isCellAvailable = (date: string) => {
-  return !isCellPast(date) && (availabilityData.value[date] ?? 0) > 0
-}
-
-/** Shift type id used for day-off availability fetches — read from the offered shift. */
-const dayOffShiftTypeId = computed(() => {
-  return offeredShift.value?.shift_type?.id ?? null
-})
-
-/**
- * In shift_for_dayoff mode the offered shift is a work shift, so dayOffShiftTypeId
- * would return the work shift type — not useful for availability. Use the selected
- * own day-off shift type instead, so we look for others who have that same day-off type.
- */
-const resolvedDayOffShiftTypeId = computed(() => {
-  if (swapMode.value === 'shift_for_dayoff') {
-    return selectedOwnDayOff.value?.shift_type?.id ?? null
-  }
-  return dayOffShiftTypeId.value
-})
-
-const goToPreviousMonth = () => {
-  const [year, month] = calendarMonth.value.split('-').map(Number)
-  const prev = new Date(year, month - 2, 1)
-  calendarMonth.value = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`
-}
-
-const goToNextMonth = () => {
-  const [year, month] = calendarMonth.value.split('-').map(Number)
-  const next = new Date(year, month, 1)
-  calendarMonth.value = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
-}
-
-/** Fetch availability counts for the current calendar month (dayoff mode only). */
-const fetchAvailability = async () => {
-  if (!dayOffShiftTypeId.value) return
-
-  loadingAvailability.value = true
-  try {
-    availabilityData.value = await fetchShiftAvailability({
-      shift_type_id: dayOffShiftTypeId.value,
-      month: calendarMonth.value,
-      exclude_mine: true,
-    })
-  } catch (error) {
-    console.error('Error fetching availability:', error)
-  } finally {
-    loadingAvailability.value = false
-  }
-}
-
-/** Fetch the list of people available on the selected date (dayoff step 2). */
-const fetchDayShifts = async (date: string) => {
-  if (!dayOffShiftTypeId.value) return
-
-  loadingDayShifts.value = true
-  availableShifts.value = []
-  selectedResults.value = new Set()
-  validationWarnings.value = {}
-
-  try {
-    availableShifts.value = await fetchShifts({
-      exclude_mine: true,
-      shift_type_id: dayOffShiftTypeId.value,
-      date,
-    })
-    await runAllValidations()
-  } catch (error) {
-    console.error('Error fetching day shifts:', error)
-  } finally {
-    loadingDayShifts.value = false
-  }
-}
-
-/**
- * Fetch people who have the same day-off type as the one the user is offering on the selected date.
- * Used in shift_for_dayoff step 3.
- */
+/** Fetch nurses with a day-off on `date` (the offered work shift's date) for step 2 candidates. */
 const fetchDayShiftsForShiftSwap = async (date: string) => {
-  const shiftTypeId = selectedOwnDayOff.value?.shift_type?.id
-  if (!shiftTypeId) return
-
   loadingDayShifts.value = true
   availableShifts.value = []
   selectedResults.value = new Set()
   validationWarnings.value = {}
 
   try {
-    availableShifts.value = await fetchShifts({
-      exclude_mine: true,
-      shift_type_id: shiftTypeId,
-      date,
-    })
+    const all = await fetchShifts({ exclude_mine: true, date })
+    // Only show nurses who have a day-off on this date — those are the valid swap targets.
+    availableShifts.value = all.filter((s) => dayOffShiftNames.includes(s.shift_type.name.toLowerCase()))
     await runAllValidations()
   } catch (error) {
     console.error('Error fetching day shifts for shift swap:', error)
@@ -360,24 +269,6 @@ const fetchDayShiftsForShiftSwap = async (date: string) => {
     loadingDayShifts.value = false
   }
 }
-
-const selectCalendarDay = async (date: string) => {
-  if (!isCellAvailable(date)) return
-  selectedDate.value = date
-  await fetchDayShifts(date)
-}
-
-const backToCalendar = () => {
-  selectedDate.value = null
-  availableShifts.value = []
-  selectedResults.value = new Set()
-  validationWarnings.value = {}
-}
-
-// Re-fetch availability whenever the month changes in dayoff mode.
-watch(calendarMonth, () => {
-  if (isDayOffMode.value) fetchAvailability()
-})
 
 // --- Shift-for-dayoff step functions ---
 
@@ -414,7 +305,7 @@ const loadOwnDayOffShifts = async () => {
     const all = await fetchShifts({ mine: true, future: true })
     ownDayOffShifts.value = all.filter((s) => dayOffShiftNames.includes(s.shift_type.name.toLowerCase()))
     // Pin the step 1 calendar to the month of the earliest own day-off so it's immediately visible.
-    // This only affects ownDayOffCalendarMonth — calendarMonth (used in steps 2/3) is untouched.
+    // This only affects ownDayOffCalendarMonth — immediately visible when step 1 opens.
     if (ownDayOffShifts.value.length > 0) {
       ownDayOffCalendarMonth.value = ownDayOffShifts.value[0].date.slice(0, 7)
     }
@@ -424,6 +315,61 @@ const loadOwnDayOffShifts = async () => {
     loadingOwnDayOffs.value = false
   }
 }
+
+/** For each own day-off date in step 1, count how many nurses:
+ *  1. have a day-off on the offeredShift date (valid swap targets), AND
+ *  2. have a work shift on that day-off date (the shift the user will receive),
+ *  grouped by the work shift type. */
+const loadCandidateCounts = async () => {
+  loadingCandidateCounts.value = true
+  const offeredDate = normalizeDateKey(offeredShift.value?.date)
+  if (!offeredDate) { loadingCandidateCounts.value = false; return }
+
+  const uniqueDates = [...new Set(ownDayOffShifts.value.map((s) => s.date.slice(0, 10)))]
+  try {
+    // Fetch once: all nurses with a day-off on the offered shift date.
+    const dayOffCandidates = await fetchShifts({ exclude_mine: true, date: offeredDate }).catch(() => [] as ShiftOption[])
+    const candidateUserIds = new Set(
+      dayOffCandidates
+        .filter((s) => dayOffShiftNames.includes(s.shift_type.name.toLowerCase()))
+        .flatMap((s) => s.users.map((u) => Number(u.id))),
+    )
+
+    const results = await Promise.all(
+      uniqueDates.map(async (date) => {
+        // For each own day-off date, fetch work shifts — but only count nurses who are valid candidates.
+        const shifts = await fetchShifts({ exclude_mine: true, date }).catch(() => [] as ShiftOption[])
+        const typeMap = new Map<number, number>()
+        for (const s of shifts) {
+          if (dayOffShiftNames.includes(s.shift_type.name.toLowerCase())) continue
+          for (const u of s.users) {
+            if (!candidateUserIds.has(Number(u.id))) continue
+            const tid = Number(s.shift_type.id)
+            typeMap.set(tid, (typeMap.get(tid) ?? 0) + 1)
+          }
+        }
+        return { date, typeMap }
+      }),
+    )
+    const countMap = new Map<string, Map<number, number>>()
+    for (const { date, typeMap } of results) countMap.set(date, typeMap)
+    dayOffCandidateCounts.value = countMap
+  } finally {
+    loadingCandidateCounts.value = false
+  }
+}
+
+/** Own work shifts indexed by date for step 1 calendar (excludes day-off types). */
+const myWorkShiftsByDate = computed(() => {
+  const map = new Map<string, ShiftOption[]>()
+  for (const shift of myShifts.value) {
+    if (dayOffShiftNames.includes(shift.shift_type.name.toLowerCase())) continue
+    const date = shift.date.slice(0, 10)
+    if (!map.has(date)) map.set(date, [])
+    map.get(date)!.push(shift)
+  }
+  return map
+})
 
 /** Find the own day-off shift matching `date` and advance to step 2. */
 const selectOwnDayOffFromCalendar = (date: string) => {
@@ -550,6 +496,11 @@ const getShiftName = (shiftType: ShiftOption['shift_type'] | null | undefined) =
   const pt: Record<string, string> = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite', dayoff: 'Folga', 'day off': 'Folga', holidays: 'Férias', 'sick leave': 'Baixa Médica', 'parental leave': 'Licença Parental' }
   const en: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', night: 'Night', dayoff: 'Day Off', 'day off': 'Day Off', holidays: 'Holidays', 'sick leave': 'Sick Leave', 'parental leave': 'Parental Leave' }
   return currentLocale.value === 'pt' ? (pt[name] || shiftType.name) : (en[name] || shiftType.name)
+}
+
+const getDayOffCellStyle = (date: string) => {
+  const color = myShifts.value.find((s) => s.date.slice(0, 10) === date)?.shift_type.color
+  return color ? { backgroundColor: color + '66' } : {}
 }
 
 const isAllDayShift = (shiftType: ShiftOption['shift_type']) => {
@@ -747,7 +698,13 @@ const submitCreateSwap = async () => {
   }
 }
 
-const goBack = async () => { await navigateTo('/swap-select') }
+const goBack = async () => {
+  if (isShiftForDayoffMode.value && ownDayOffSelected.value) {
+    backToOwnDayOffSelection()
+  } else {
+    await navigateTo('/swap-select')
+  }
+}
 
 const goToPreviousPage = () => { if (canGoPreviousPage.value) currentPage.value -= 1 }
 const goToNextPage = () => { if (canGoNextPage.value) currentPage.value += 1 }
@@ -769,10 +726,15 @@ watch(filteredResultShifts, () => {
 })
 
 watch(searchQuery, () => { currentPage.value = 1 })
+watch(resultShifts, () => {
+  if (filterShiftTypeId.value !== null && !availableShiftTypeFilters.value.some((t) => Number(t.id) === filterShiftTypeId.value)) {
+    filterShiftTypeId.value = null
+  }
+})
 
 onMounted(async () => {
   const modeParam = Array.isArray(route.query.mode) ? route.query.mode[0] : route.query.mode
-  swapMode.value = modeParam === 'dayoff' ? 'dayoff' : modeParam === 'shift_for_dayoff' ? 'shift_for_dayoff' : 'shift'
+  swapMode.value = modeParam === 'shift_for_dayoff' ? 'shift_for_dayoff' : 'shift'
 
   const shiftTypeParam = Array.isArray(route.query.shift_type_id) ? route.query.shift_type_id[0] : route.query.shift_type_id
   const parsedShiftTypeId = shiftTypeParam ? Number(shiftTypeParam) : NaN
@@ -782,12 +744,11 @@ onMounted(async () => {
   const parsedShiftId = shiftIdParam ? Number(shiftIdParam) : NaN
   sourceShiftId.value = Number.isNaN(parsedShiftId) ? null : parsedShiftId
 
-  if (swapMode.value === 'dayoff' || swapMode.value === 'shift_for_dayoff') {
-    // These modes resolve offeredShift manually below; no need for bulk loads.
-    await loadShiftTypes()
-    if (swapMode.value === 'shift_for_dayoff') {
-      await loadOwnDayOffShifts()
-    }
+  if (swapMode.value === 'shift_for_dayoff') {
+    // shift_for_dayoff resolves offeredShift manually below; load shift types and own day-offs.
+    // myShifts is loaded here so myWorkShiftsByDate is populated for the step 1 calendar.
+    const [allMineEarly] = await Promise.all([fetchShifts({ mine: true }), loadShiftTypes(), loadOwnDayOffShifts()])
+    myShifts.value = allMineEarly
   } else {
     await Promise.all([loadMyShifts(), loadAvailableShifts(), loadShiftTypes()])
   }
@@ -795,18 +756,17 @@ onMounted(async () => {
   if (sourceShiftId.value) {
     // In dayoff and shift_for_dayoff modes, always fetch without future:true so
     // today's shifts are not excluded.
-    if (swapMode.value === 'dayoff' || swapMode.value === 'shift_for_dayoff') {
-      const allMine = await fetchShifts({ mine: true })
-      offeredShift.value = allMine.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
-      if (offeredShift.value) myShifts.value = allMine
+    if (swapMode.value === 'shift_for_dayoff') {
+      // myShifts already loaded above — just resolve offeredShift from it.
+      offeredShift.value = myShifts.value.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
     } else {
       offeredShift.value = myShifts.value.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
     }
 
     if (!offeredShift.value) {
       try {
-        if (swapMode.value !== 'dayoff' && swapMode.value !== 'shift_for_dayoff') {
-          // Already tried mine without future above in these modes; skip duplicate call.
+        if (swapMode.value !== 'shift_for_dayoff') {
+          // Already tried mine above in shift_for_dayoff; skip duplicate call.
           const allMine = await fetchShifts({ mine: true })
           offeredShift.value = allMine.find((s) => Number(s.id) === Number(sourceShiftId.value)) || null
           if (offeredShift.value) myShifts.value = allMine
@@ -838,11 +798,13 @@ onMounted(async () => {
     }
   }
 
+  // shift_for_dayoff: load candidate counts for step 1 calendar enrichment once offeredShift is known.
+  if (swapMode.value === 'shift_for_dayoff') {
+    await loadCandidateCounts()
+  }
+
   // shift_for_dayoff: availability fetch starts only after the user picks a day-off (step 1→2).
-  // dayoff: fetch availability immediately after offeredShift is resolved.
-  if (swapMode.value === 'dayoff') {
-    await fetchAvailability()
-  } else if (swapMode.value !== 'shift_for_dayoff') {
+  if (swapMode.value !== 'shift_for_dayoff') {
     await runAllValidations()
   }
 })
@@ -864,244 +826,75 @@ onMounted(async () => {
         <h1 class="swc-title">{{ texts.title }}</h1>
       </header>
 
-      <!-- Swap header: two panels with a swap icon in between. -->
-      <section v-if="offeredShift" class="hr-card swc-swap-header" aria-label="Swap header">
+      <!-- Swap header: mirrors the swaps.vue history card layout. -->
+      <section v-if="offeredShift" class="hr-card sw-swap-header" aria-label="Swap header">
 
-        <!-- shift_for_dayoff: stacked left panel showing offered work shift + own day-off being offered. -->
+        <!-- shift_for_dayoff: two offered shifts stacked (work + day-off). -->
         <template v-if="isShiftForDayoffMode">
-          <article class="swc-swap-header__panel swc-swap-header__panel--multi">
-            <!-- Row 1: the work shift the user is giving up. -->
-            <div class="swc-swap-header__multi-row">
-              <span class="swc-swap-header__badge">
-                <span class="swc-swap-header__badge-dot" :style="{ backgroundColor: offeredShift.shift_type.color || 'var(--primary-soft)' }"></span>
-                {{ currentLocale === 'pt' ? 'Turno actual' : 'Current shift' }}
-              </span>
-              <p class="swc-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
-              <p class="swc-swap-header__meta">
-                {{ getShiftName(offeredShift.shift_type) }} · {{ formatTime(offeredShift.shift_type.start_time) }} - {{ formatTime(offeredShift.shift_type.end_time) }}
-              </p>
+          <div class="sw-swap-header__panel sw-swap-header__panel--multi">
+            <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${offeredShift.shift_type.color || 'var(--line)'}` }">
+              <span class="sw-swap-header__badge">{{ currentLocale === 'pt' ? 'Turno actual' : 'Current shift' }}</span>
+              <p class="sw-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
+              <p class="sw-swap-header__type">{{ getShiftName(offeredShift.shift_type) }} · {{ formatTime(offeredShift.shift_type.start_time) }} - {{ formatTime(offeredShift.shift_type.end_time) }}</p>
             </div>
-            <!-- Row 2: the own day-off the user will also offer (selected in step 1, or placeholder). -->
-            <div class="swc-swap-header__multi-row">
-              <span class="swc-swap-header__badge">
-                <span v-if="selectedOwnDayOff" class="swc-swap-header__badge-dot" :style="{ backgroundColor: selectedOwnDayOff.shift_type.color || 'var(--primary-soft)' }"></span>
-                {{ currentLocale === 'pt' ? 'Folga a oferecer' : 'Day off to offer' }}
-              </span>
-              <template v-if="selectedOwnDayOff">
-                <p class="swc-swap-header__date">{{ formatDate(selectedOwnDayOff.date) }}</p>
-                <p class="swc-swap-header__meta">{{ getShiftName(selectedOwnDayOff.shift_type) }} · {{ currentLocale === 'pt' ? 'Dia inteiro' : 'All day' }}</p>
-              </template>
-              <template v-else>
-                <p class="swc-swap-header__date">—</p>
-                <p class="swc-swap-header__meta">—</p>
-              </template>
+            <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${selectedOwnDayOff?.shift_type.color || 'var(--line)'}` }">
+              <span class="sw-swap-header__badge">{{ currentLocale === 'pt' ? 'Folga a oferecer' : 'Day off to offer' }}</span>
+              <p class="sw-swap-header__date">{{ selectedOwnDayOff ? formatDate(selectedOwnDayOff.date) : '—' }}</p>
+              <p class="sw-swap-header__type">{{ selectedOwnDayOff ? `${getShiftName(selectedOwnDayOff.shift_type)} · ${currentLocale === 'pt' ? 'Dia inteiro' : 'All day'}` : '—' }}</p>
             </div>
-          </article>
+          </div>
 
-          <div class="swc-swap-header__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
-              <path d="M20 7h-4V3"></path>
-              <path d="M20 7a8 8 0 0 0-14-3"></path>
-              <path d="M4 17h4v4"></path>
-              <path d="M4 17a8 8 0 0 0 14 3"></path>
+          <div class="sw-swap-header__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+              <path d="M20 7h-4V3"></path><path d="M16 3l5 5-5 5"></path><path d="M4 17h4v4"></path><path d="M8 21l-5-5 5-5"></path>
             </svg>
           </div>
 
-          <!-- Right: the target day-off the user wants to receive (always the offered work shift date). -->
-          <article class="swc-swap-header__panel swc-swap-header__panel--requested">
-            <span class="swc-swap-header__badge">{{ currentLocale === 'pt' ? 'Folga pretendida' : 'Requested day off' }}</span>
-            <p class="swc-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
-            <p class="swc-swap-header__meta">{{ currentLocale === 'pt' ? 'Folga · Dia inteiro' : 'Day off · All day' }}</p>
-          </article>
+          <div class="sw-swap-header__panel sw-swap-header__panel--multi">
+            <div class="sw-swap-header__panel" :style="{ borderInlineStart: '3px solid var(--line)' }">
+              <span class="sw-swap-header__badge">{{ currentLocale === 'pt' ? 'Folga pretendida' : 'Requested day off' }}</span>
+              <p class="sw-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
+              <p class="sw-swap-header__type">{{ currentLocale === 'pt' ? 'Folga · Dia inteiro' : 'Day off · All day' }}</p>
+            </div>
+            <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${firstSelectedShift?.shift_type.color || 'var(--line)'}` }">
+              <span class="sw-swap-header__badge">{{ currentLocale === 'pt' ? 'Turno a receber' : 'Shift to receive' }}</span>
+              <template v-if="firstSelectedShift">
+                <p class="sw-swap-header__date">{{ formatDate(firstSelectedShift.date) }}</p>
+                <p class="sw-swap-header__type">{{ getShiftName(firstSelectedShift.shift_type) }} · {{ formatShiftLabel(firstSelectedShift).timeLabel }}</p>
+              </template>
+              <template v-else>
+                <p class="sw-swap-header__date">—</p>
+                <p class="sw-swap-header__type">—</p>
+              </template>
+            </div>
+          </div>
         </template>
 
-        <!-- Default (shift / dayoff modes): original single-row left panel. -->
+        <!-- Shift mode: single offered shift. -->
         <template v-else>
-          <article class="swc-swap-header__panel">
-            <span class="swc-swap-header__badge">
-              <span
-                class="swc-swap-header__badge-dot"
-                :style="{ backgroundColor: offeredShift.shift_type.color || 'var(--primary-soft)' }"
-              ></span>
-              {{ isDayOffMode ? (currentLocale === 'pt' ? 'Folga actual' : 'Current day off') : (currentLocale === 'pt' ? 'Turno actual' : 'Current shift') }}
-            </span>
-            <p class="swc-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
-            <p class="swc-swap-header__meta">
-              <template v-if="isDayOffMode">
-                {{ getShiftName(offeredShift.shift_type) }} · {{ currentLocale === 'pt' ? 'Dia inteiro' : 'All day' }}
-              </template>
-              <template v-else>
-                {{ getShiftName(offeredShift.shift_type) }} · {{ formatTime(offeredShift.shift_type.start_time) }} - {{ formatTime(offeredShift.shift_type.end_time) }}
-              </template>
-            </p>
-          </article>
+          <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${offeredShift.shift_type.color || 'var(--line)'}` }">
+            <span class="sw-swap-header__badge">{{ currentLocale === 'pt' ? 'Turno actual' : 'Current shift' }}</span>
+            <p class="sw-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
+            <p class="sw-swap-header__type">{{ getShiftName(offeredShift.shift_type) }} · {{ formatTime(offeredShift.shift_type.start_time) }} - {{ formatTime(offeredShift.shift_type.end_time) }}</p>
+          </div>
 
-          <div class="swc-swap-header__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
-              <path d="M20 7h-4V3"></path>
-              <path d="M20 7a8 8 0 0 0-14-3"></path>
-              <path d="M4 17h4v4"></path>
-              <path d="M4 17a8 8 0 0 0 14 3"></path>
+          <div class="sw-swap-header__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+              <path d="M20 7h-4V3"></path><path d="M16 3l5 5-5 5"></path><path d="M4 17h4v4"></path><path d="M8 21l-5-5 5-5"></path>
             </svg>
           </div>
 
-          <!-- Right panel: target info. In dayoff mode shows the selected date or a placeholder. -->
-          <article class="swc-swap-header__panel swc-swap-header__panel--requested">
-            <span class="swc-swap-header__badge">
-              {{ isDayOffMode ? (currentLocale === 'pt' ? 'Folga pretendida' : 'Requested day off') : (currentLocale === 'pt' ? 'Turno pretendido' : 'Requested shift') }}
-            </span>
-            <template v-if="isDayOffMode">
-              <p class="swc-swap-header__date">
-                {{ selectedDate ? formatDate(selectedDate) : texts.calendarSelectDay }}
-              </p>
-              <p class="swc-swap-header__meta">
-                {{ selectedDate ? (currentLocale === 'pt' ? 'Folga · Dia inteiro' : 'Day off · All day') : '—' }}
-              </p>
-            </template>
-            <template v-else>
-              <p class="swc-swap-header__date">{{ requestedShiftTypeLabel }}</p>
-              <p class="swc-swap-header__meta">
-                {{ requestedShiftType ? `${formatTime(requestedShiftType.start_time)} - ${formatTime(requestedShiftType.end_time)}` : '—' }}
-              </p>
-            </template>
-          </article>
+          <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${requestedShiftType?.color || 'var(--line)'}` }">
+            <span class="sw-swap-header__badge">{{ currentLocale === 'pt' ? 'Turno pretendido' : 'Requested shift' }}</span>
+            <p class="sw-swap-header__date">{{ requestedShiftTypeLabel }}</p>
+            <p class="sw-swap-header__type">{{ requestedShiftType ? `${formatTime(requestedShiftType.start_time)} - ${formatTime(requestedShiftType.end_time)}` : '—' }}</p>
+          </div>
         </template>
 
       </section>
 
-      <!-- Day-off two-step flow -->
-      <template v-if="isDayOffMode">
-        <!-- STEP 1: Monthly calendar for picking a target day. -->
-        <section v-if="!selectedDate" class="hr-card swc-panel-right">
-          <h2 class="swc-panel-title">{{ currentLocale === 'pt' ? 'Escolhe um dia' : 'Pick a day' }}</h2>
-
-          <div class="swc-cal-nav">
-            <button class="swc-cal-nav-btn" @click="goToPreviousMonth" :aria-label="currentLocale === 'pt' ? 'Mês anterior' : 'Previous month'">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-            <span class="swc-cal-month-label">{{ calendarMonthLabel }}</span>
-            <button class="swc-cal-nav-btn" @click="goToNextMonth" :aria-label="currentLocale === 'pt' ? 'Mês seguinte' : 'Next month'">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-          </div>
-
-          <div v-if="loadingAvailability" class="swc-state-msg">
-            <div class="swc-spinner"></div>
-            <p>{{ texts.rightLoading }}</p>
-          </div>
-          <div v-else class="swc-cal-grid">
-            <!-- Week day headers -->
-            <div v-for="wd in calendarWeekDays" :key="wd" class="swc-cal-weekday">{{ wd }}</div>
-
-            <!-- Calendar cells: empty padding + actual day cells. -->
-            <template v-for="(cell, i) in calendarCells" :key="cell.date ?? `pad-${i}`">
-              <div v-if="!cell.date" class="swc-cal-cell swc-cal-cell--empty"></div>
-              <button
-                v-else
-                class="swc-cal-cell"
-                :class="{
-                  'swc-cal-cell--available': cell.available,
-                  'swc-cal-cell--unavailable': !cell.available,
-                  'swc-cal-cell--past': isCellPast(cell.date) || isOfferedShiftDate(cell.date),
-                }"
-                :disabled="!cell.available"
-                @click="selectCalendarDay(cell.date)"
-              >
-                <span class="swc-cal-day">{{ cell.day }}</span>
-                <!-- Availability badge: "N disponíveis" on a single line, shown only on clickable days. -->
-                <span v-if="cell.available" class="swc-cal-count">{{ cell.count }} {{ texts.calendarAvailable }}</span>
-              </button>
-            </template>
-          </div>
-        </section>
-
-        <!-- STEP 2: People list for the selected date. -->
-        <section v-else class="hr-card swc-panel-right">
-          <div class="swc-results-toolbar">
-            <button class="swc-back-to-cal-btn" @click="backToCalendar">{{ texts.backToCalendar }}</button>
-            <input
-              v-model="searchQuery"
-              type="text"
-              class="swc-search-input"
-              :placeholder="texts.searchPlaceholder"
-            />
-            <button
-              class="swc-submit-btn swc-submit-btn--inline"
-              :disabled="selectedResults.size === 0"
-              @click="openConfirmModal"
-            >
-              {{ texts.submit }}
-            </button>
-          </div>
-
-          <div v-if="loadingDayShifts" class="swc-state-msg">
-            <div class="swc-spinner"></div>
-            <p>{{ texts.rightLoading }}</p>
-          </div>
-          <div v-else-if="resultShifts.length === 0" class="swc-empty">{{ texts.rightEmpty }}</div>
-          <div v-else class="swc-results-list">
-            <div v-if="filteredResultShifts.length === 0" class="swc-empty">{{ texts.rightEmpty }}</div>
-            <template v-else>
-              <label class="swc-select-all-row">
-                <input type="checkbox" :checked="allVisibleSelected" @change="toggleSelectAllVisible" />
-                <span>{{ texts.selectAllPeople }} ({{ visibleSelectionCount }}/{{ paginatedResultShifts.length }})</span>
-              </label>
-
-              <article
-                v-for="shift in paginatedResultShifts"
-                :key="`result-${shift.id}`"
-                class="swc-result-card"
-                :class="{ 'swc-result-card--selected': isResultSelected(shift.id) }"
-              >
-                <div class="swc-result-card__row" @click="toggleResultSelection(shift)">
-                  <div class="swc-result-avatar">{{ getShiftAvatarInitial(shift) }}</div>
-                  <div class="swc-result-content">
-                    <div class="swc-result-topline">
-                      <p class="swc-result-nurse">{{ shift.users[0]?.name || '-' }}</p>
-                      <p class="swc-result-meta">
-                        {{ formatDate(shift.date) }} · {{ formatShiftLabel(shift).typeName }} · {{ formatShiftLabel(shift).timeLabel }}
-                      </p>
-                    </div>
-                    <div class="swc-result-warning-stack">
-                      <span
-                        v-for="(warning, warningIndex) in validationWarnings[shift.id] || []"
-                        :key="`warning-${shift.id}-${warningIndex}`"
-                        class="swc-result-warning"
-                      >
-                        <svg class="swc-result-warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3l-8.47-14.14a2 2 0 0 0-3.42 0z"></path>
-                          <line x1="12" y1="9" x2="12" y2="13"></line>
-                          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
-                        <strong class="swc-result-warning-name">{{ getWarningName(warning) || '-' }}</strong>
-                        <span class="swc-result-warning-text">{{ warning.message || warning.text || '' }}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <label class="swc-result-check">
-                    <input type="checkbox" :checked="isResultSelected(shift.id)" @click.stop @change.stop="toggleResultSelection(shift)" />
-                  </label>
-                </div>
-              </article>
-
-              <div v-if="filteredResultShifts.length > 0" class="sw-pagination">
-                <button class="pagination-btn" :disabled="!canGoPreviousPage" @click="goToPreviousPage">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                </button>
-                <div class="pagination-numbers">
-                  <button v-for="p in totalPages" :key="p" :class="['page-num', { active: p === currentPage }]" @click="setPage(p)">{{ p }}</button>
-                </div>
-                <button class="pagination-btn" :disabled="!canGoNextPage" @click="goToNextPage">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                </button>
-              </div>
-            </template>
-          </div>
-        </section>
-      </template>
-
       <!-- Shift-for-dayoff two-step flow: pick own day-off → see people on the work shift date. -->
-      <template v-else-if="isShiftForDayoffMode">
+      <template v-if="isShiftForDayoffMode">
 
         <!-- STEP 1: Calendar of own future day-off shifts to offer. -->
         <section v-if="!ownDayOffSelected" class="hr-card swc-panel-right">
@@ -1136,10 +929,30 @@ onMounted(async () => {
                   'swc-cal-cell--unavailable': !cell.available,
                   'swc-cal-cell--past': isCellPast(cell.date),
                 }"
+                :style="getDayOffCellStyle(cell.date)"
                 :disabled="!cell.available"
                 @click="selectOwnDayOffFromCalendar(cell.date)"
               >
                 <span class="swc-cal-day">{{ cell.day }}</span>
+                <span class="swc-cal-cell__type-label">{{ getShiftName(myShifts.find((s) => s.date.slice(0, 10) === cell.date)?.shift_type) }}</span>
+                <template v-if="cell.available">
+                  <!-- Candidate counts per shift type -->
+                  <template v-if="loadingCandidateCounts">
+                    <span class="swc-cal-cell__receive-label">…</span>
+                  </template>
+                  <template v-else>
+                    <span
+                      v-for="t in shiftTypes.filter(t => !dayOffShiftNames.includes(t.name.toLowerCase()) && (dayOffCandidateCounts.get(cell.date)?.get(Number(t.id)) ?? 0) > 0)"
+                      :key="t.id"
+                      class="swc-cal-cell__receive-label"
+                      :style="t.color ? { borderLeft: `2px solid ${t.color}`, paddingLeft: '4px' } : {}"
+                    >
+                      {{ getShiftName(t) }}
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                      {{ dayOffCandidateCounts.get(cell.date)?.get(Number(t.id)) ?? 0 }} {{ currentLocale === 'pt' ? 'Disponíveis' : 'Available' }}
+                    </span>
+                  </template>
+                </template>
               </button>
             </template>
           </div>
@@ -1150,6 +963,27 @@ onMounted(async () => {
           <div class="swc-results-toolbar">
             <button class="swc-back-to-cal-btn" @click="backToOwnDayOffSelection">{{ texts.backToMyDayOffs }}</button>
             <input v-model="searchQuery" type="text" class="swc-search-input" :placeholder="texts.searchPlaceholder" />
+            <div class="custom-select-wrapper">
+              <div class="custom-select-trigger" @click.stop="isShiftTypeFilterOpen = !isShiftTypeFilterOpen">
+                <span>{{ filterShiftTypeId !== null ? getShiftName(shiftTypes.find(t => Number(t.id) === filterShiftTypeId)) : (currentLocale === 'pt' ? 'Todos os Turnos' : 'All Shifts') }}</span>
+                <svg :class="['chevron-icon', { rotate: isShiftTypeFilterOpen }]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+              <transition name="fade-slide">
+                <div v-if="isShiftTypeFilterOpen" class="custom-options">
+                  <div class="option-item" @click="filterShiftTypeId = null; isShiftTypeFilterOpen = false">
+                    {{ currentLocale === 'pt' ? 'Todos os Turnos' : 'All Shifts' }}
+                  </div>
+                  <div
+                    v-for="t in availableShiftTypeFilters"
+                    :key="t.id"
+                    class="option-item"
+                    @click="filterShiftTypeId = Number(t.id); isShiftTypeFilterOpen = false"
+                  >{{ getShiftName(t) }}</div>
+                </div>
+              </transition>
+            </div>
             <button class="swc-submit-btn swc-submit-btn--inline" :disabled="selectedResults.size === 0" @click="openConfirmModal">
               {{ texts.submit }}
             </button>
@@ -1185,7 +1019,6 @@ onMounted(async () => {
                       <p class="swc-result-meta">
                         {{ formatDate(shift.date) }} · {{ formatShiftLabel(shift).typeName }} · {{ formatShiftLabel(shift).timeLabel }}
                       </p>
-                      <!-- Show the work shift this nurse will receive, or an info badge when no shift exists on the day-off date. -->
                       <template v-if="loadingTargetShifts">
                         <div class="swc-spinner"></div>
                       </template>
@@ -1201,7 +1034,7 @@ onMounted(async () => {
                       <template v-else>
                         <span class="swc-swap-header__badge">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                          {{ currentLocale === 'pt' ? `Também está de folga em ${formatDate(selectedOwnDayOff!.date)}` : `Also on day off on ${formatDate(selectedOwnDayOff!.date)}` }}
+                          {{ currentLocale === 'pt' ? `Também está de folga ${formatDate(selectedOwnDayOff!.date)}` : `Also on day off ${formatDate(selectedOwnDayOff!.date)}` }}
                         </span>
                       </template>
                     </div>
@@ -1364,3 +1197,4 @@ onMounted(async () => {
 </template>
 
 <style scoped src="~/assets/css/swap-create.css"></style>
+<style src="~/assets/css/swaps.css"></style>

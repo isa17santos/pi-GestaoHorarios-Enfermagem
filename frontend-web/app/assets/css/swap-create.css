@@ -3,6 +3,7 @@
   margin: 0 auto;
 }
 
+
 .swc-content {
   width: 100%;
   padding-bottom: 28px;
@@ -813,7 +814,7 @@
 /* Past days or days with 0 availability. */
 .swc-cal-cell--unavailable,
 .swc-cal-cell--past {
-  opacity: 0.38;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -834,6 +835,135 @@
   padding: 1px 4px;
   white-space: nowrap;
   line-height: 1.4;
+}
+
+/* Shift type name shown on every calendar cell. */
+.swc-cal-cell__type-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Own work shift pill shown on step-1 calendar cells. */
+.swc-cal-cell__shift-pill {
+  font-size: 0.58rem;
+  font-weight: 700;
+  border-radius: 5px;
+  padding: 1px 4px;
+  white-space: nowrap;
+  line-height: 1.4;
+  background: rgba(125, 83, 213, 0.1);
+  color: var(--primary-strong);
+}
+
+/* Day-off pill variant — uses muted style since folgas rarely have a color. */
+.swc-cal-cell__shift-pill--dayoff {
+  background: rgba(125, 83, 213, 0.1);
+  color: var(--primary-strong);
+}
+
+/* Arrow label showing what shift type the nurse will receive in exchange. */
+.swc-cal-cell__receive-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+/* Secondary count badge — total work shifts on the day (muted style). */
+.swc-cal-count--muted {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--muted);
+}
+
+/* Custom dropdown — matches the admin pages style. Scoped to swap-create to avoid conflicts. */
+.swc-page .custom-select-wrapper {
+  position: relative;
+  min-width: 160px;
+  flex-shrink: 0;
+}
+
+.swc-page .custom-select-trigger {
+  height: 46px;
+  padding: 0 14px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: border-color 0.2s;
+  white-space: nowrap;
+}
+
+.swc-page .custom-select-trigger:hover {
+  border-color: var(--primary-soft);
+}
+
+.swc-page .chevron-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.swc-page .chevron-icon.rotate {
+  transform: rotate(180deg);
+}
+
+.swc-page .custom-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid rgba(125, 83, 213, 0.1);
+  box-shadow: 0 15px 35px rgba(125, 83, 213, 0.15);
+  z-index: 999;
+  padding: 6px;
+}
+
+.swc-page .option-item {
+  padding: 9px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: background 0.15s, color 0.15s;
+}
+
+.swc-page .option-item:hover {
+  background: rgba(125, 83, 213, 0.08);
+  color: var(--primary-strong);
+}
+
+.swc-page .fade-slide-enter-active,
+.swc-page .fade-slide-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.swc-page .fade-slide-enter-from,
+.swc-page .fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 /* "← Back to calendar" link button inside the step-2 toolbar. */

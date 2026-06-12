@@ -173,6 +173,7 @@ const isMultiOfferedSwap = (swap: any) => (swap.offered_shifts?.length ?? 0) > 1
 // True when requested_shifts contains more than one entry (shift_for_dayoff: day-off + target work shift).
 const isMultiRequestedSwap = (swap: any) => (swap.requested_shifts?.length ?? 0) > 1
 
+
 const sentSwaps = computed(() => {
   if (authUserId.value === 0) return []
   return swapRequests.value.filter((req) => isSentSwap(req))
@@ -528,7 +529,7 @@ watch(totalPages, (newTotalPages) => {
                       :style="{ borderInlineStart: `3px solid ${requestedShift.shift_type?.color || 'transparent'}` }"
                     >
                       <span class="sw-swap-header__badge">
-                        {{ index === 0 ? texts.card.requested : (currentLocale === 'pt' ? 'Turno a receber' : 'Shift to receive') }}
+                        {{ index === 0 ? (currentLocale === 'pt' ? 'Folga pretendida' : 'Requested day off') : (currentLocale === 'pt' ? 'Turno a receber' : 'Shift to receive') }}
                       </span>
                       <p class="sw-swap-header__date">{{ formatDate(requestedShift.date || '-') }}</p>
                       <p class="sw-swap-header__type">{{ getShiftName(requestedShift.shift_type) }}</p>
