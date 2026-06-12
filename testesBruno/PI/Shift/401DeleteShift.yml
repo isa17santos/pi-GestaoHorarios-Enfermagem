@@ -1,7 +1,7 @@
 info:
   name: 401DeleteShift
   type: http
-  seq: 6
+  seq: 8
 
 http:
   method: DELETE

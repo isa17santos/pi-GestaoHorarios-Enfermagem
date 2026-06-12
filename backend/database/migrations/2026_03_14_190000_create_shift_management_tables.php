@@ -105,28 +105,28 @@ return new class extends Migration
 
         Schema::create('shift_swap_participants', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('swap_id')->constrained('shift_swap_requests')->cascadeOnDelete();
+            $table->foreignId('swap_request_id')->constrained('shift_swap_requests')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->enum('role', ['requester', 'target']);
             $table->timestamps();
 
-            $table->unique(['swap_id', 'user_id', 'role']);
-            $table->index(['swap_id', 'role']);
+            $table->unique(['swap_request_id', 'user_id', 'role']);
+            $table->index(['swap_request_id', 'role']);
             $table->index(['user_id', 'role']);
         });
 
         Schema::create('shift_swap_request_shifts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('swap_id')->constrained('shift_swap_requests')->cascadeOnDelete();
+            $table->foreignId('swap_request_id')->constrained('shift_swap_requests')->cascadeOnDelete();
             $table->foreignId('shift_id')->constrained('shifts')->cascadeOnDelete();
             $table->foreignId('owner_user_id')->constrained('users')->cascadeOnDelete();
-            $table->enum('kind', ['offered', 'requested']);
+            $table->enum('type', ['offered', 'requested']);
             $table->timestamps();
 
-            $table->unique(['swap_id', 'shift_id', 'kind', 'owner_user_id']);
-            $table->index(['swap_id', 'kind']);
-            $table->index(['shift_id', 'kind']);
-            $table->index(['owner_user_id', 'kind']);
+            $table->unique(['swap_request_id', 'shift_id', 'type', 'owner_user_id']);
+            $table->index(['swap_request_id', 'type']);
+            $table->index(['shift_id', 'type']);
+            $table->index(['owner_user_id', 'type']);
         });
     }
 

@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-enum ShiftSwapRequestShiftKind: string
+enum ShiftSwapRequestShiftType: string
 {
     case Offered = 'offered';
     case Requested = 'requested';

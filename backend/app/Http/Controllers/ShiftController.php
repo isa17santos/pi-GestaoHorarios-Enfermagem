@@ -5,15 +5,179 @@ namespace App\Http\Controllers;
 use App\Enums\UserRole;
 use App\Http\Requests\Shift\StoreShiftRequest;
 use App\Http\Requests\Shift\UpdateShiftRequest;
+use App\Http\Resources\ShiftResource;
 use App\Models\Schedule;
 use App\Models\Shift;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
 class ShiftController extends Controller
 {
+    #[OA\Get(
+        path: '/api/shifts',
+        summary: 'List shifts with optional filters',
+        security: [['bearerAuth' => []]],
+        tags: ['Shifts'],
+        parameters: [
+            new OA\Parameter(
+                name: 'mine',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts assigned to the authenticated user',
+                schema: new OA\Schema(type: 'boolean')
+            ),
+            new OA\Parameter(
+                name: 'user_id',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts assigned to a specific user',
+                schema: new OA\Schema(type: 'integer')
+            ),
+            new OA\Parameter(
+                name: 'from',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts with shift_date >= from (YYYY-MM-DD)',
+                schema: new OA\Schema(type: 'string', format: 'date')
+            ),
+            new OA\Parameter(
+                name: 'future',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts with shift_date > today',
+                schema: new OA\Schema(type: 'boolean')
+            ),
+            new OA\Parameter(
+                name: 'date',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts by exact shift_date (YYYY-MM-DD)',
+                schema: new OA\Schema(type: 'string', format: 'date')
+            ),
+            new OA\Parameter(
+                name: 'shift_type_id',
+                in: 'query',
+                required: false,
+                description: 'Filter shifts by shift type id. When combined with month, scopes the availability aggregation.',
+                schema: new OA\Schema(type: 'integer')
+            ),
+            new OA\Parameter(
+                name: 'month',
+                in: 'query',
+                required: false,
+                description: 'When combined with shift_type_id, returns aggregated availability per date (YYYY-MM). Response shape: { "data": { "2026-06-15": 3, ... } }',
+                schema: new OA\Schema(type: 'string', example: '2026-06')
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Successful response — array of shifts, or date-keyed counts when month param is present',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(
+                            property: 'data',
+                            type: 'array',
+                            items: new OA\Items(type: 'object')
+                        ),
+                    ]
+                )
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ]
+    )]
+    public function index(Request $request): AnonymousResourceCollection|JsonResponse
+    {
+        $query = Shift::query()
+            ->with(['shiftType', 'users']);
+
+        // Apply assignment-based filters from query params.
+        if ($request->filled('user_id')) {
+            // Keep only shifts assigned to the explicit user passed in the query.
+            $query->whereHas('users', function ($q) use ($request): void {
+                $q->where('users.id', (int) $request->query('user_id'));
+            });
+        }
+
+        if ($request->boolean('mine')) {
+            // Restrict results to shifts where the authenticated user is assigned.
+            $query->whereHas('users', function ($q) use ($request): void {
+                $q->where('users.id', $request->user()->id);
+            });
+        }
+
+        if ($request->boolean('exclude_mine')) {
+            // Remove shifts that already include the authenticated user.
+            $query->whereDoesntHave('users', function ($q) use ($request): void {
+                $q->where('users.id', $request->user()->id);
+            });
+        }
+
+        // Exclude shifts assigned exclusively to head nurses.
+        $query->whereHas('users', function ($q): void {
+            $q->where('users.role', '!=', UserRole::HeadNurse->value);
+        });
+
+        if ($request->filled('from')) {
+            // Return only shifts on or after the provided start date.
+            $query->whereDate('shift_date', '>=', (string) $request->query('from'));
+        }
+
+        if ($request->boolean('future')) {
+            // Keep only upcoming shifts relative to today's date.
+            $query->whereDate('shift_date', '>', Carbon::today()->toDateString());
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('shift_date', (string) $request->query('date'));
+        }
+
+        $query->when($request->filled('shift_type_id'), function ($q) use ($request): void {
+            $q->where('shift_type_id', (int) $request->query('shift_type_id'));
+        });
+
+        // Aggregated availability mode: returns date → count map for the given month and shift type.
+        if ($request->filled('month') && $request->filled('shift_type_id')) {
+            $monthStart = Carbon::createFromFormat('Y-m', (string) $request->query('month'))->startOfMonth();
+            $monthEnd = $monthStart->copy()->endOfMonth();
+
+            $rows = (clone $query)
+                ->whereDate('shift_date', '>=', $monthStart->toDateString())
+                ->whereDate('shift_date', '<=', $monthEnd->toDateString())
+                ->whereDoesntHave('users', function ($q) use ($request): void {
+                    $q->where('users.id', $request->user()->id);
+                })
+                ->get();
+
+            $counts = [];
+            foreach ($rows as $shift) {
+                $date = $shift->shift_date instanceof \Illuminate\Support\Carbon
+                    ? $shift->shift_date->toDateString()
+                    : (string) $shift->shift_date;
+
+                // Count all assigned users — role is not a filter for availability.
+                $userCount = $shift->users->count();
+
+                if ($userCount > 0) {
+                    $counts[$date] = ($counts[$date] ?? 0) + $userCount;
+                }
+            }
+
+            return response()->json(['data' => $counts]);
+        }
+
+        $shifts = $query
+            ->orderBy('shift_date')
+            ->get();
+
+        return ShiftResource::collection($shifts);
+    }
+
     #[OA\Post(
         path: '/api/shifts',
         summary: 'Cria um turno individual',

@@ -111,6 +111,10 @@
                                     "properties": {
                                         "user": {
                                             "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
                                                 "name": {
                                                     "type": "string",
                                                     "example": "Miguel Ferreira"
@@ -123,6 +127,10 @@
                                                 "role": {
                                                     "type": "string",
                                                     "example": "admin"
+                                                },
+                                                "must_change_password": {
+                                                    "type": "boolean",
+                                                    "example": false
                                                 }
                                             },
                                             "type": "object"
@@ -519,6 +527,89 @@
                         "bearerAuth": []
                     }
                 ]
+            }
+        },
+        "/api/profile/change-password": {
+            "post": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Altera a password do utilizador autenticado",
+                "operationId": "9e9c52641e7e8e60f1a2a643084beba6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "PasswordAtual@123"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "NovaPassword@123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "NovaPassword@123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password alterada com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Password alterada com sucesso."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Password atual inválida ou payload inválido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Dados inválidos."
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "example": {
+                                                "current_password": [
+                                                    "A password atual está incorreta."
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/profile": {
@@ -1822,6 +1913,109 @@
             }
         },
         "/api/shifts": {
+            "get": {
+                "tags": [
+                    "Shifts"
+                ],
+                "summary": "List shifts with optional filters",
+                "operationId": "103e4bf991b78692d4f10f7abf16603c",
+                "parameters": [
+                    {
+                        "name": "mine",
+                        "in": "query",
+                        "description": "Filter shifts assigned to the authenticated user",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "Filter shifts assigned to a specific user",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "Filter shifts with shift_date >= from (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "future",
+                        "in": "query",
+                        "description": "Filter shifts with shift_date > today",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Filter shifts by exact shift_date (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "shift_type_id",
+                        "in": "query",
+                        "description": "Filter shifts by shift type id. When combined with month, scopes the availability aggregation.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "description": "When combined with shift_type_id, returns aggregated availability per date (YYYY-MM). Response shape: { \"data\": { \"2026-06-15\": 3, ... } }",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "2026-06"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response — array of shifts, or date-keyed counts when month param is present",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
             "post": {
                 "tags": [
                     "Shifts"
@@ -2550,6 +2744,355 @@
                 ]
             }
         },
+        "/api/swaps": {
+            "get": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Listar pedidos de troca",
+                "operationId": "f31ab080390e6265c55eac07f3d58be3",
+                "parameters": [
+                    {
+                        "name": "direction",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "nullable": true,
+                            "enum": [
+                                "sent",
+                                "received"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "nullable": true,
+                            "enum": [
+                                "pending",
+                                "accepted",
+                                "rejected",
+                                "cancelled"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Listagem paginada de SwapRequests"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Criar pedido de troca",
+                "operationId": "21ef029199e9261502baebb17a314c0b",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "offered_shift_ids",
+                                    "requested_shift_ids",
+                                    "target_user_id"
+                                ],
+                                "properties": {
+                                    "offered_shift_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "requested_shift_ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "target_user_id": {
+                                        "type": "integer"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Pedido de troca criado com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "422": {
+                        "description": "Dados inválidos"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}": {
+            "get": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Ver detalhe de um pedido de troca",
+                "operationId": "3fe7f7bdb070b20383b0573a0c0e7a98",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SwapRequest detalhado"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}/accept": {
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Aceitar pedido de troca",
+                "operationId": "3bdaee8c2fac7f25127817e5c1d1fd5f",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pedido de troca aceite com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}/reject": {
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Rejeitar pedido de troca",
+                "operationId": "a2b887f1ffcdb0650ec1aa86b8ba92ef",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pedido de troca rejeitado com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/{swapRequest}/cancel": {
+            "post": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Cancelar pedido de troca",
+                "operationId": "bd9d6b38f9c88dabe799d33974305c79",
+                "parameters": [
+                    {
+                        "name": "swapRequest",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pedido de troca cancelado com sucesso"
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Não autorizado"
+                    },
+                    "404": {
+                        "description": "Não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/swaps/validate": {
+            "get": {
+                "tags": [
+                    "SwapRequests"
+                ],
+                "summary": "Validar troca de turnos com avisos de regras laborais",
+                "operationId": "63ea13bf723341223deada4ce7d926b5",
+                "parameters": [
+                    {
+                        "name": "offered_shift_id",
+                        "in": "query",
+                        "description": "ID do turno oferecido pelo utilizador autenticado",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "requested_shift_id",
+                        "in": "query",
+                        "description": "ID do turno solicitado (pertence a outro enfermeiro)",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Validação concluída com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "warnings": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "nurse_id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "nurse_name": {
+                                                        "type": "string",
+                                                        "example": "Ana Silva"
+                                                    },
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "rest_hours"
+                                                        ]
+                                                    },
+                                                    "message": {
+                                                        "type": "string",
+                                                        "example": "Viola o descanso mínimo de 11 horas entre turnos consecutivos."
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "422": {
+                        "description": "Parâmetros inválidos ou turnos inconsistentes para validação"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
@@ -2987,6 +3530,10 @@
         }
     },
     "tags": [
+        {
+            "name": "SwapRequests",
+            "description": "Gestão de pedidos de troca de turnos"
+        },
         {
             "name": "Auth",
             "description": "Operacoes relacionadas com autenticação."

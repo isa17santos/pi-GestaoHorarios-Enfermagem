@@ -35,7 +35,7 @@ class ShiftSwapRequest extends Model
     // Returns the participant entries linked to this swap request.
     public function participants(): HasMany
     {
-        return $this->hasMany(ShiftSwapParticipant::class, 'swap_id');
+        return $this->hasMany(ShiftSwapParticipant::class, 'swap_request_id');
     }
 
     // Returns the users linked to this swap request.
@@ -49,7 +49,7 @@ class ShiftSwapRequest extends Model
     // Returns the shift entries linked to this swap request.
     public function requestShifts(): HasMany
     {
-        return $this->hasMany(ShiftSwapRequestShift::class, 'swap_id');
+        return $this->hasMany(ShiftSwapRequestShift::class, 'swap_request_id');
     }
 
     // Returns the shifts linked to this swap request.

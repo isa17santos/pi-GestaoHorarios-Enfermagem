@@ -47,8 +47,8 @@ class Shift extends Model
     // Returns the swap requests that include this shift.
     public function swapRequests(): BelongsToMany
     {
-        return $this->belongsToMany(ShiftSwapRequest::class, 'shift_swap_request_shifts', 'shift_id', 'swap_id')
-            ->withPivot(['kind', 'owner_user_id'])
+        return $this->belongsToMany(ShiftSwapRequest::class, 'shift_swap_request_shifts', 'shift_id', 'swap_request_id')
+            ->withPivot(['type', 'owner_user_id'])
             ->withTimestamps();
     }
 
