@@ -1,0 +1,17 @@
+info:
+  name: 404SetNotificationAsRead
+  type: http
+  seq: 7
+
+http:
+  method: PATCH
+  url: "{{base_url}}/notifications/10000/read"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

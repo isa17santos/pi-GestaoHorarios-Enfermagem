@@ -1,0 +1,17 @@
+info:
+  name: 200SetNotificationAsRead
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{base_url}}/notifications/7/read"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

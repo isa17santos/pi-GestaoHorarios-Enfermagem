@@ -7,3 +7,4 @@ require __DIR__.'/shift-types.php';
 require __DIR__.'/users.php';
 require __DIR__.'/schedules.php';
 require __DIR__.'/shifts.php';
+require __DIR__.'/notifications.php';

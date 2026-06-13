@@ -20,7 +20,18 @@ class SchedulePublishedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', \App\Notifications\Channels\DatabaseNotificationChannel::class];
+    }
+
+    public function toCustomDatabase(object $notifiable): array
+    {
+        Carbon::setLocale('pt');
+        $month = Carbon::parse($this->schedule->start_date)->translatedFormat('F \d\e Y');
+
+        return [
+            'subject' => "Horário de {$month} publicado",
+            'body' => "O horário do mês de {$month} foi publicado e já está disponível.",
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -37,6 +48,6 @@ class SchedulePublishedNotification extends Notification implements ShouldQueue
             ->action('Ver horário', $scheduleUrl)
             ->line('Se tiveres alguma dúvida, contacta o teu enfermeiro chefe.')
             ->salutation('Obrigado, ShiftCare');
-        
+
     }
 }
