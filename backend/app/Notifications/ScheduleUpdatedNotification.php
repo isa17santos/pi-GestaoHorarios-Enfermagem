@@ -17,7 +17,18 @@ class ScheduleUpdatedNotification extends Notification
 
     public function via($notifiable): array
     {
-        return ['mail'];
+        return ['mail', \App\Notifications\Channels\DatabaseNotificationChannel::class];
+    }
+
+    public function toCustomDatabase($notifiable): array
+    {
+        \Illuminate\Support\Carbon::setLocale('pt');
+        $mes = $this->schedule->start_date->translatedFormat('F');
+
+        return [
+            'subject' => "Alteração no Horário de {$mes}",
+            'body' => "Informamos que o horário referente ao mês de {$mes} sofreu alterações. Por favor, aceda à aplicação para consultar a sua nova escala.",
+        ];
     }
 
     public function toMail($notifiable): MailMessage

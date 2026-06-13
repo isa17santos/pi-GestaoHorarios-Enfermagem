@@ -3,6 +3,14 @@ import logoUrl from '~/assets/images/logotipo.png'
 
 const { user, logout } = useAuth()
 
+const { unreadCount, fetchUnreadCount } = useNotifications()
+onMounted(() => {
+  fetchUnreadCount()
+  const interval = setInterval(fetchUnreadCount, 30000)
+  onBeforeUnmount(() => clearInterval(interval))
+})
+
+
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
 const localeLabel = computed(() =>
@@ -40,10 +48,10 @@ const translatedRole = computed(() => {
   return user.value.role 
 })
 
-
 const texts = computed(() => ({
   logout: currentLocale.value === 'pt' ? 'Terminar sessão' : 'Sign out',
   myProfile: currentLocale.value === 'pt' ? 'Meu Perfil' : 'My Profile',
+  notifications: currentLocale.value === 'pt' ? 'Notificações' : 'Notifications',
 }))
 </script>
 
@@ -70,6 +78,14 @@ const texts = computed(() => ({
             </svg>
           </NuxtLink>
 
+          <NuxtLink to="/notifications" class="header-action-btn notification-nav-btn" :title="texts.notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span v-if="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+          </NuxtLink>
+
           <button class="header-action-btn header-action-btn--danger" @click="logout" :title="texts.logout">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
               stroke-linejoin="round" width="18" height="18">
@@ -94,5 +110,27 @@ const texts = computed(() => ({
   .dashboard-actions-group {
     display: none !important;
   }
+}
+
+.notification-nav-btn {
+  position: relative;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger, #f79b32);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border: 2px solid var(--surface-strong, #ffffff);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 </style>

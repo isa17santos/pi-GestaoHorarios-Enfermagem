@@ -1,0 +1,17 @@
+info:
+  name: 401SetNotificationAsRead
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}/notifications/10000/read"
+  auth:
+    type: bearer
+    token: ""
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

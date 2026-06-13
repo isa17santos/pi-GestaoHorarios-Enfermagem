@@ -1,0 +1,15 @@
+info:
+  name: 401SetAllNotificationsAsRead
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{base_url}}/notifications/read-all"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

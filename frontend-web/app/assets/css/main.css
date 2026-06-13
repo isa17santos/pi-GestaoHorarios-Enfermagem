@@ -8,6 +8,7 @@
 @import './user-create.css';
 @import './profile.css';
 @import './change-password.css';
+@import './notifications.css';
 
 /* ------- DEFAULT COLORS -------- */
 :root {
