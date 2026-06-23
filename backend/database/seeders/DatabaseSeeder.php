@@ -374,7 +374,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // Generate DRAFT for August 2026
+                // Generate DRAFT for August 2026
         $draftScheduleId = DB::table('schedules')->insertGetId([
             'created_by' => $headNurseId,
             'start_date' => '2026-08-01',
@@ -392,8 +392,13 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Populate first 5 days of August in the draft
-        for ($day = 1; $day <= 5; $day++) {
+        // Get Andre Sousa's ID to exclude him during the first week
+        $andreId = DB::table('users')
+            ->where('email', 'andre.sousa@example.pt')
+            ->value('id');
+
+        // Populate all 31 days of August in the draft
+        for ($day = 1; $day <= 31; $day++) {
             $dateStr = sprintf('2026-08-%02d', $day);
             $carbonDate = \Carbon\Carbon::parse($dateStr);
             $dayOfWeekIndex = ($carbonDate->dayOfWeekIso - 1);
@@ -411,6 +416,11 @@ class DatabaseSeeder extends Seeder
             }
 
             foreach ($offNurses as $nurseId) {
+                // Skip inserting shifts for Ana Antunes and Andre Sousa in the first week (days 1 to 7)
+                if ($day <= 7 && ($nurseId == $headNurseId || $nurseId == $andreId)) {
+                    $previousShifts[$nurseId] = null;
+                    continue;
+                }
                 $shiftId = DB::table('shifts')->insertGetId([
                     'schedule_id' => $draftScheduleId,
                     'shift_type_id' => $shiftTypeIds['dayOff'],
@@ -455,10 +465,19 @@ class DatabaseSeeder extends Seeder
                 } elseif ($typeId === $shiftTypeIds['night']) {
                     $nightNurses[] = $nurseId;
                 }
-                $previousShifts[$nurseId] = $typeId;
+
+                // Clear previous shift reference for the first week to avoid rest conflicts when they resume
+                if ($day <= 7 && ($nurseId == $headNurseId || $nurseId == $andreId)) {
+                    $previousShifts[$nurseId] = null;
+                } else {
+                    $previousShifts[$nurseId] = $typeId;
+                }
             }
 
             foreach ($morningNurses as $nurseId) {
+                if ($day <= 7 && ($nurseId == $headNurseId || $nurseId == $andreId)) {
+                    continue;
+                }
                 $shiftId = DB::table('shifts')->insertGetId([
                     'schedule_id' => $draftScheduleId,
                     'shift_type_id' => $shiftTypeIds['morning'],
@@ -476,6 +495,9 @@ class DatabaseSeeder extends Seeder
             }
 
             foreach ($afternoonNurses as $nurseId) {
+                if ($day <= 7 && ($nurseId == $headNurseId || $nurseId == $andreId)) {
+                    continue;
+                }
                 $shiftId = DB::table('shifts')->insertGetId([
                     'schedule_id' => $draftScheduleId,
                     'shift_type_id' => $shiftTypeIds['afternoon'],
@@ -493,6 +515,9 @@ class DatabaseSeeder extends Seeder
             }
 
             foreach ($nightNurses as $nurseId) {
+                if ($day <= 7 && ($nurseId == $headNurseId || $nurseId == $andreId)) {
+                    continue;
+                }
                 $shiftId = DB::table('shifts')->insertGetId([
                     'schedule_id' => $draftScheduleId,
                     'shift_type_id' => $shiftTypeIds['night'],
@@ -509,7 +534,6 @@ class DatabaseSeeder extends Seeder
                 $shiftsByDateAndNurse[$dateStr][$nurseId] = $shiftId;
             }
         }
-
 
         //------------------------ Nurse Preferences ----------------------------
         $preferencesData = [];
