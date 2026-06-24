@@ -1,0 +1,17 @@
+info:
+  name: 403UpdateMedicalLeaveAccessForbidden
+  type: http
+  seq: 15
+
+http:
+  method: PATCH
+  url: "{{base_url}}/medical-leaves/1"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

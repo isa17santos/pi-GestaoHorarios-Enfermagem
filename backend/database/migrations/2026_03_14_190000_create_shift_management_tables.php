@@ -128,6 +128,27 @@ return new class extends Migration
             $table->index(['shift_id', 'type']);
             $table->index(['owner_user_id', 'type']);
         });
+
+        Schema::create('medical_leaves', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->date('start_date');
+            $table->date('end_date');
+            $table->text('reason')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+        Schema::create('medical_leave_replaced_shifts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('medical_leave_id')->constrained('medical_leaves')->cascadeOnDelete();
+            $table->date('shift_date');
+            $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
+            $table->foreignId('original_shift_id')->nullable()->constrained('shifts')->cascadeOnDelete();
+            $table->foreignId('original_shift_type_id')->constrained('shift_types')->cascadeOnDelete();
+            $table->foreignId('temp_shift_id')->nullable()->constrained('shifts')->cascadeOnDelete();
+            $table->boolean('was_shared')->default(false);
+            $table->timestamps();
+        });
     }
 
     /**
@@ -146,5 +167,7 @@ return new class extends Migration
         Schema::dropIfExists('schedules');
         Schema::dropIfExists('nurse_preferences');
         Schema::dropIfExists('shift_types');
+        Schema::dropIfExists('medical_leave_replaced_shifts');
+        Schema::dropIfExists('medical_leaves');
     }
 };

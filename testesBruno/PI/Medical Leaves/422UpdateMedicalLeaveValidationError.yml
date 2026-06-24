@@ -1,0 +1,26 @@
+info:
+  name: 422UpdateMedicalLeaveValidationError
+  type: http
+  seq: 13
+
+http:
+  method: PATCH
+  url: "{{base_url}}/medical-leaves/1"
+  body:
+    type: json
+    data: |-
+      {
+        "user_id": 4,
+        "start_date": "-06-26",
+        "end_date": "2026-07-03",
+        "reason": "Período prolongado de recuperação"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

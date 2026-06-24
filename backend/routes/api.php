@@ -15,3 +15,4 @@ require __DIR__.'/schedules.php';
 require __DIR__.'/shifts.php';
 require __DIR__.'/notifications.php';
 require __DIR__.'/swaps.php';
+require __DIR__.'/medical-leaves.php';

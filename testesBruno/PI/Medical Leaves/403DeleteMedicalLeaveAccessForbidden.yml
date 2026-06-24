@@ -1,0 +1,17 @@
+info:
+  name: 403DeleteMedicalLeaveAccessForbidden
+  type: http
+  seq: 18
+
+http:
+  method: DELETE
+  url: "{{base_url}}/medical-leaves/1"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

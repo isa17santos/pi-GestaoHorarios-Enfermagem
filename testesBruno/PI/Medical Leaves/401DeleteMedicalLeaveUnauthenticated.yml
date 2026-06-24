@@ -1,0 +1,14 @@
+info:
+  name: 401DeleteMedicalLeaveUnauthenticated
+  type: http
+  seq: 19
+
+http:
+  method: DELETE
+  url: "{{base_url}}/medical-leaves/1"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

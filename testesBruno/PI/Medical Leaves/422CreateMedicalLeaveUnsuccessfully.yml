@@ -1,0 +1,26 @@
+info:
+  name: 422CreateMedicalLeaveUnsuccessfully
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}/medical-leaves"
+  body:
+    type: json
+    data: |-
+      {
+        "user_id": 2,
+        "start_date": "2026-06-26",
+        "end_date": "202-07-02",
+        "reason": "Cirurgia planeada"
+      }
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
