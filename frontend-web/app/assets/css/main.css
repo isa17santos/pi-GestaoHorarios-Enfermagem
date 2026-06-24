@@ -9,6 +9,8 @@
 @import './profile.css';
 @import './change-password.css';
 @import './notifications.css';
+@import './sick-leaves.css';
+@import './sick-leaves-create.css';
 
 /* ------- DEFAULT COLORS -------- */
 :root {

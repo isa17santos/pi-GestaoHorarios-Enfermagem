@@ -1,0 +1,27 @@
+/* Colorações dos estados de baixa médica (roxo, rosa e amarelo) */
+
+/* A Decorrer -> Roxo (var(--primary-strong)) */
+.status-indicator.ongoing {
+  color: #7d53d5;
+  background: rgba(125, 83, 213, 0.15);
+}
+
+/* Datas Futuras -> Rosa */
+.status-indicator.future {
+  color: rgb(250, 47, 216);
+  background: rgba(250, 126, 244, 0.2);
+}
+
+/* Já Passou -> Amarelo */
+.status-indicator.past {
+  color: #f4a42c;
+  background: rgba(238, 177, 36, 0.2);
+}
+
+/* Ajuste para que o texto do motivo não fique cortado e quebre linha normalmente */
+.reason-text {
+  display: inline-block;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 280px;
+}
