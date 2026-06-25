@@ -1,0 +1,792 @@
+/* ==========================================================================
+   CONTEÚDO E FILTROS DE NAVEGAÇÃO DE CALENDÁRIO
+   ========================================================================== */
+
+.vacation-calendar-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  background: var(--surface);
+  padding: 16px 30px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 10px 30px rgba(102, 67, 155, 0.03);
+  backdrop-filter: blur(20px);
+  gap: 20px;
+}
+
+.month-navigator {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.month-navigator h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  min-width: 220px;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.month-navigator h2 span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.nav-arrow-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-arrow-btn:hover {
+  background: var(--primary-strong);
+  color: white;
+  border-color: var(--primary-strong);
+  transform: scale(1.05);
+}
+
+.filters-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.modern-filter-select {
+  height: 50px;
+  padding: 0 20px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 190px;
+}
+
+.modern-filter-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 8px 16px rgba(125, 83, 213, 0.08);
+}
+
+/* ==========================================================================
+   GRELHA DE CALENDÁRIO MENSAL PRINCIPAL
+   ========================================================================== */
+
+.vacation-calendar-card {
+  background: var(--surface);
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 20px 50px rgba(102, 67, 155, 0.05);
+  backdrop-filter: blur(20px);
+  padding: 24px;
+  margin-bottom: 30px;
+}
+
+.weekdays-header-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.weekday-label {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.days-container-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.calendar-day-box {
+  min-height: 120px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 18px;
+  border: 1px solid rgba(126, 90, 181, 0.08);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.calendar-day-box:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 67, 155, 0.06);
+  border-color: var(--primary-soft);
+}
+
+.calendar-day-box.non-current-month {
+  opacity: 0.4;
+  background: transparent;
+}
+
+.calendar-day-box.today-box {
+  background: rgba(172, 138, 241, 0.06);
+  border: 2px solid var(--primary-soft);
+}
+
+.calendar-day-box.active-focus {
+  background: white;
+  border: 2.5px solid var(--primary-strong);
+  box-shadow: 0 10px 25px rgba(125, 83, 213, 0.1);
+}
+
+.day-number-label {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.day-events-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-grow: 1;
+  overflow-y: auto;
+  max-height: 80px;
+}
+
+.day-events-wrapper::-webkit-scrollbar {
+  width: 0px;
+}
+
+/* ==========================================================================
+   CHIPS DE FÉRIAS NO CALENDÁRIO (Tons Amarelos da Aplicação - Sem Bordas)
+   ========================================================================== */
+
+.vacation-chip {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.vacation-chip:hover {
+  filter: brightness(0.95);
+  transform: scale(1.03);
+}
+
+/* A Decorrer -> Amarelo Vivo com maior opacidade */
+.vacation-chip.ongoing {
+  color: #f4a42c;
+  background: rgba(238, 177, 36, 0.26);
+}
+
+/* Datas Futuras -> Amarelo Padrão da aplicação */
+.vacation-chip.future {
+  color: #f4a42c;
+  background: rgba(238, 177, 36, 0.18);
+}
+
+/* Já Passou -> Tom Ocre/Cinzento Desvanecido */
+.vacation-chip.past {
+  color: #8a7a5f;
+  background: rgba(138, 122, 95, 0.1);
+}
+
+.chip-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* ==========================================================================
+   PAINEL DE DETALHES DO DIA SELECIONADO
+   ========================================================================== */
+
+.selected-day-details-panel {
+  background: var(--surface);
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 15px 40px rgba(102, 67, 155, 0.04);
+  padding: 24px 30px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.panel-header h3 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin: 0;
+}
+
+.panel-header h3 strong {
+  color: var(--text);
+  font-weight: 850;
+}
+
+.add-day-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--primary-soft);
+  background: rgba(172, 138, 241, 0.08);
+  color: var(--primary-strong);
+  font-weight: 750;
+  padding: 10px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.88rem;
+}
+
+.add-day-btn:hover {
+  background: var(--primary-strong);
+  color: white;
+  border-color: var(--primary-strong);
+}
+
+.no-vacations-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: var(--muted);
+  opacity: 0.7;
+  gap: 12px;
+}
+
+.no-vacations-state p {
+  font-weight: 700;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.vacations-detailed-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.detailed-vacation-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.25s ease;
+}
+
+.detailed-vacation-card:hover {
+  box-shadow: 0 10px 20px rgba(102, 67, 155, 0.04);
+  border-color: var(--primary-soft);
+}
+
+.card-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nurse-avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(125, 83, 213, 0.08);
+  color: var(--primary-strong);
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  border: 1px solid rgba(125, 83, 213, 0.15);
+}
+
+.nurse-info h4 {
+  font-size: 1rem;
+  margin: 0 0 4px 0;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.dates-range {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.dates-range .arrow {
+  color: var(--primary);
+  font-weight: 800;
+  margin: 0 4px;
+}
+
+.notes-text {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 6px 0 0 0;
+  font-style: italic;
+}
+
+.card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.status-indicator-badge {
+  padding: 5px 12px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.status-indicator-badge.ongoing {
+  color: #f4a42c;
+  background: rgba(238, 177, 36, 0.26);
+}
+
+.status-indicator-badge.future {
+  color: #f4a42c;
+  background: rgba(238, 177, 36, 0.18);
+}
+
+.status-indicator-badge.past {
+  color: #8a7a5f;
+  background: rgba(138, 122, 95, 0.1);
+}
+
+.action-btn-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn-circle:hover {
+  background: rgba(125, 83, 213, 0.08);
+  color: var(--primary-strong);
+  border-color: var(--primary-soft);
+}
+
+/* ==========================================================================
+   PAINEL SLIDE-IN (DRAWER LATERAL) E FORMULÁRIO
+   ========================================================================== */
+
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(67, 44, 104, 0.22);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.drawer-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vacation-drawer {
+  position: fixed;
+  top: 0;
+  right: -500px;
+  width: 480px;
+  height: 100vh;
+  background: white;
+  box-shadow: -15px 0 35px rgba(67, 44, 104, 0.12);
+  z-index: 1000;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+.vacation-drawer.open {
+  right: 0;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.drawer-header h2 {
+  font-size: 1.45rem;
+  font-weight: 850;
+  color: var(--text);
+  margin: 0;
+}
+
+.close-drawer-btn {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.close-drawer-btn:hover {
+  background: rgba(125, 83, 213, 0.08);
+  color: var(--primary-strong);
+}
+
+.drawer-body {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.drawer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-group-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+}
+
+.form-group-item label {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text);
+  margin-left: 2px;
+}
+
+.uc-input-box {
+  height: 56px;
+  padding: 0 20px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  color: var(--text);
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.uc-input-box:focus {
+  border-color: var(--primary-soft);
+  background: white;
+  box-shadow: 0 8px 16px rgba(125, 83, 213, 0.08);
+}
+
+.read-only-nurse-badge {
+  height: 56px;
+  padding: 0 20px;
+  border-radius: 16px;
+  background: rgba(125, 83, 213, 0.05);
+  border: 1px dashed var(--primary);
+  display: flex;
+  align-items: center;
+  font-weight: 750;
+  color: var(--primary-strong);
+}
+
+.field-error-msg {
+  color: #f36cc8;
+  font-size: 0.82rem;
+  font-weight: 750;
+  margin-left: 2px;
+}
+
+.drawer-actions-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.save-drawer-btn {
+  flex-grow: 1;
+  height: 60px;
+  border-radius: 18px;
+  border: 0;
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary), var(--pink));
+  color: white;
+  font-weight: 800;
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(144, 104, 222, 0.25);
+  transition: all 0.25s ease;
+}
+
+.save-drawer-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(144, 104, 222, 0.35);
+}
+
+.delete-drawer-btn {
+  height: 60px;
+  padding: 0 24px;
+  border-radius: 18px;
+  border: 1px solid var(--danger);
+  background: rgba(247, 155, 50, 0.05);
+  color: var(--danger);
+  font-weight: 800;
+  font-size: 1.02rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.delete-drawer-btn:hover:not(:disabled) {
+  background: var(--danger);
+  color: white;
+  box-shadow: 0 10px 20px rgba(247, 155, 50, 0.2);
+}
+
+/* ==========================================================================
+   DATE PICKER DE FORMULÁRIO (Configurado para abrir PARA BAIXO para evitar cortes)
+   ========================================================================== */
+
+.custom-calendar-popup-view {
+  position: absolute;
+  top: calc(100% + 8px); /* Alterado de 'bottom' para 'top' para abrir para baixo */
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 20px;
+  border: 1px solid rgba(125, 83, 213, 0.12);
+  box-shadow: 0 15px 35px rgba(125, 83, 213, 0.15); /* Sombra ajustada para baixo */
+  z-index: 100;
+  padding: 16px;
+  animation: popupSlideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes popupSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.calendar-header-view {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.calendar-month-title-view {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.calendar-nav-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.calendar-nav-btn:hover {
+  background: rgba(125, 83, 213, 0.08);
+  color: var(--primary-strong);
+}
+
+.calendar-weekdays-view {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.weekday-cell-view {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.calendar-days-grid-view {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.day-cell-view {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.day-cell-view:hover:not(.empty-view):not(.selected-view) {
+  background: rgba(125, 83, 213, 0.08);
+  color: var(--primary-strong);
+}
+
+.day-cell-view.empty-view {
+  cursor: default;
+  pointer-events: none;
+}
+
+.day-cell-view.selected-view {
+  background: linear-gradient(135deg, var(--primary-strong), var(--primary));
+  color: white;
+}
+
+.day-cell-view.today-view:not(.selected-view) {
+  border: 1.5px solid var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+/* ==========================================================================
+   RESPONSIVIDADE
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .vacation-calendar-controls {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 20px;
+  }
+  
+  .filters-actions-row {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .modern-filter-select, .create-btn {
+    flex-grow: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .vacation-drawer {
+    width: 100%;
+    right: -100%;
+    padding: 20px;
+  }
+  
+  .vacation-calendar-controls {
+    margin-bottom: 20px;
+  }
+  .month-navigator h2 {
+    font-size: 1.25rem;
+    min-width: auto;
+  }
+  .nav-arrow-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .vacation-calendar-card {
+    padding: 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .weekdays-header-grid {
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+  }
+  .weekday-label {
+    font-size: 0.72rem;
+  }
+  .days-container-grid {
+    gap: 4px;
+  }
+  
+  .calendar-day-box {
+    min-height: 72px;
+    padding: 6px 4px;
+    border-radius: 12px;
+  }
+  
+  .day-number-label {
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+  .day-events-wrapper {
+    max-height: 44px;
+    gap: 3px;
+  }
+  .vacation-chip {
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    border-radius: 5px;
+  }
+  
+  .vacations-detailed-list {
+    grid-template-columns: 1fr;
+  }
+  .selected-day-details-panel {
+    padding: 20px;
+    border-radius: 24px;
+  }
+}
+@media (max-width: 480px) {
+  .calendar-day-box {
+    min-height: 64px;
+  }
+  .weekday-label {
+    font-size: 0.65rem;
+  }
+  .vacation-chip {
+    font-size: 0.55rem;
+    padding: 1px 3px;
+  }
+}

@@ -11,6 +11,7 @@
 @import './notifications.css';
 @import './sick-leaves.css';
 @import './sick-leaves-create.css';
+@import './vacations.css';
 
 /* ------- DEFAULT COLORS -------- */
 :root {

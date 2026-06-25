@@ -514,9 +514,41 @@ const getShiftTypeBackgroundColor = (shiftTypeId: number | null) => {
 
 // ==================== Validation Helpers ====================
 
+// Helper to identify if a shift type is a vacation or a sick leave
+const isVacationOrSickLeaveById = (id: number | null): boolean => {
+  if (id === null) return false
+  const st = shiftTypes.value.find((item) => item.id === id)
+  if (!st) return false
+  const norm = st.name.trim().toLowerCase()
+  return (
+    norm === 'holidays' ||
+    norm === 'holiday' ||
+    norm === 'vacation' ||
+    norm === 'ferias' ||
+    norm === 'férias' ||
+    norm === 'sick leave' ||
+    norm === 'sick_leave' ||
+    norm === 'baixa medica' ||
+    norm === 'baixa médica'
+  )
+}
+
 // Returns ids for shift types that represent blocking absences.
 const blockingShiftTypeIds = computed(() => {
-  const blockingNames = new Set(['dayoff', 'holidays', 'sick leave', 'parental leave'])
+  const blockingNames = new Set([
+    'dayoff',
+    'day off',
+    'holidays',
+    'holiday',
+    'vacation',
+    'ferias',
+    'férias',
+    'sick leave',
+    'sick_leave',
+    'baixa medica',
+    'baixa médica',
+    'parental leave'
+  ])
 
   return shiftTypes.value.reduce<Set<number>>((acc, shiftType) => {
     const normalizedName = shiftType.name.trim().toLowerCase()
@@ -527,6 +559,11 @@ const blockingShiftTypeIds = computed(() => {
 
     return acc
   }, new Set<number>())
+})
+
+// Filtered list of shift types for the assignment toolbar (excluding vacations and sick leaves)
+const visibleShiftTypes = computed(() => {
+  return shiftTypes.value.filter(st => !isVacationOrSickLeaveById(st.id))
 })
 
 type FillValidationResult = {
@@ -676,6 +713,9 @@ const selectShiftType = (shiftTypeId: number) => {
 
 // Starts drag fill and applies the first cell.
 const handleCellMouseDown = (nurseId: number, dateIso: string) => {
+  const currentShiftTypeId = getCellShiftTypeId(nurseId, dateIso)
+  if (isVacationOrSickLeaveById(currentShiftTypeId)) return
+
   isDragging.value = true
   draggingNurseId.value = nurseId
   fillCell(nurseId, dateIso)
@@ -685,6 +725,9 @@ const handleCellMouseDown = (nurseId: number, dateIso: string) => {
 const handleCellMouseOver = (nurseId: number, dateIso: string) => {
   if (!isDragging.value) return
   if (draggingNurseId.value !== nurseId) return
+
+  const currentShiftTypeId = getCellShiftTypeId(nurseId, dateIso)
+  if (isVacationOrSickLeaveById(currentShiftTypeId)) return
 
   fillCell(nurseId, dateIso)
 }
@@ -697,6 +740,9 @@ const handleCellMouseUp = () => {
 
 // Handles single-cell fill by click.
 const handleCellClick = (nurseId: number, dateIso: string) => {
+  const currentShiftTypeId = getCellShiftTypeId(nurseId, dateIso)
+  if (isVacationOrSickLeaveById(currentShiftTypeId)) return
+
   fillCell(nurseId, dateIso)
 }
 
@@ -704,7 +750,9 @@ const handleCellClick = (nurseId: number, dateIso: string) => {
 const clearCellAssignment = (nurseId: number, dateIso: string) => {
   if (!isDateWithinScheduleRange(dateIso)) return
 
-  // Clearing is always allowed, including blocking shift types.
+  const currentShiftTypeId = getCellShiftTypeId(nurseId, dateIso)
+  if (isVacationOrSickLeaveById(currentShiftTypeId)) return
+
   setCellAssignment(nurseId, dateIso, null)
 }
 
@@ -1596,7 +1644,7 @@ onBeforeUnmount(() => {
         <div class="schedule-legend">
           <span class="schedule-legend__title">{{ texts.edit.activeShiftLabel }}</span>
           <div class="schedule-legend__items">
-            <button v-for="shiftType in shiftTypes" :key="`toolbar-${shiftType.id}`" type="button"
+              <button v-for="shiftType in visibleShiftTypes" :key="`toolbar-${shiftType.id}`" type="button"
               class="schedule-legend__item" :class="{ 'is-selected': selectedShiftTypeId === shiftType.id }" :style="{
                 backgroundColor: getShiftTypeBackgroundColor(shiftType.id) || '#f5f5f7',
                 borderColor: selectedShiftTypeId === shiftType.id ? 'rgba(102, 67, 155, 0.45)' : 'var(--line)',
@@ -1756,16 +1804,17 @@ onBeforeUnmount(() => {
                   </span>
                 </td>
 
-                <td v-for="day in monthDays" :key="`${nurse.id}-${day.dateIso}`" class="schedule-grid__cell"
+                  <td v-for="day in monthDays" :key="`${nurse.id}-${day.dateIso}`" class="schedule-grid__cell"
                   :class="{ 'is-weekend': day.isWeekend }" :style="{
                     backgroundColor: getShiftTypeBackgroundColor(getCellShiftTypeId(nurse.id, day.dateIso)) || '',
-                    position: 'relative'
+                    position: 'relative',
+                    cursor: isVacationOrSickLeaveById(getCellShiftTypeId(nurse.id, day.dateIso)) ? 'not-allowed' : 'pointer'
                   }" @mousedown.prevent="handleCellMouseDown(nurse.id, day.dateIso)"
                   @mouseover="handleCellMouseOver(nurse.id, day.dateIso)" @mouseup="handleCellMouseUp"
                   @click="handleCellClick(nurse.id, day.dateIso)" @mouseenter="setHoveredCell(nurse.id, day.dateIso)"
                   @mouseleave="clearHoveredCell">
                   <button
-                    v-if="hoveredCellKey === getCellKey(nurse.id, day.dateIso) && getCellShiftTypeId(nurse.id, day.dateIso) && isDateWithinScheduleRange(day.dateIso)"
+                    v-if="hoveredCellKey === getCellKey(nurse.id, day.dateIso) && getCellShiftTypeId(nurse.id, day.dateIso) && isDateWithinScheduleRange(day.dateIso) && !isVacationOrSickLeaveById(getCellShiftTypeId(nurse.id, day.dateIso))"
                     type="button" class="schedule-secondary-button" :style="{
                       position: 'absolute',
                       top: '2px',
