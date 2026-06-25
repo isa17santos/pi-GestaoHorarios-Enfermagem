@@ -222,12 +222,109 @@ class ScheduleController extends Controller
             ], 422);
         }
 
+        $vacationType = \App\Models\ShiftType::whereRaw('LOWER(name) = ?', ['ferias'])
+            ->orWhereRaw('LOWER(name) = ?', ['férias'])
+            ->orWhereRaw('LOWER(name) = ?', ['vacation'])
+            ->orWhereRaw('LOWER(name) = ?', ['holidays'])
+            ->orWhereRaw('LOWER(name) = ?', ['holiday'])
+            ->first();
+        $sickLeaveType = \App\Models\ShiftType::whereRaw('LOWER(name) = ?', ['baixa medica'])
+            ->orWhereRaw('LOWER(name) = ?', ['sick leave'])
+            ->first();
+        $dayOffType = \App\Models\ShiftType::whereRaw('LOWER(name) = ?', ['dayoff'])
+            ->orWhereRaw('LOWER(name) = ?', ['day off'])
+            ->first();
+
         // Persist schedule and stamp the creator from the current token.
-        $schedule = new Schedule();
-        $schedule->created_by = $user->id;
-        $schedule->start_date = $validated['start_date'];
-        $schedule->end_date = $validated['end_date'];
-        $schedule->save();
+        $schedule = DB::transaction(function () use ($user, $validated, $vacationType, $sickLeaveType, $dayOffType) {
+            $schedule = new Schedule();
+            $schedule->created_by = $user->id;
+            $schedule->start_date = $validated['start_date'];
+            $schedule->end_date = $validated['end_date'];
+            $schedule->save();
+            if ($vacationType) {
+                $vacations = \App\Models\Vacation::where(function ($query) use ($schedule) {
+                    $query->whereBetween('start_date', [$schedule->start_date, $schedule->end_date])
+                          ->orWhereBetween('end_date', [$schedule->start_date, $schedule->end_date])
+                          ->orWhere(function ($sub) use ($schedule) {
+                              $sub->where('start_date', '<=', $schedule->start_date)
+                                  ->where('end_date', '>=', $schedule->end_date);
+                          });
+                })->get();
+                foreach ($vacations as $vacation) {
+                    $start = max(Carbon::parse($schedule->start_date), Carbon::parse($vacation->start_date));
+                    $end = min(Carbon::parse($schedule->end_date), Carbon::parse($vacation->end_date));
+                    for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                        $dateStr = $date->toDateString();
+                        // Evitar duplicados
+                        $exists = \App\Models\Shift::where('schedule_id', $schedule->id)
+                            ->where('shift_date', $dateStr)
+                            ->whereHas('users', function ($q) use ($vacation) {
+                                $q->where('users.id', $vacation->user_id);
+                            })
+                            ->exists();
+                        if (!$exists) {
+                            $shift = new \App\Models\Shift();
+                            $shift->schedule_id = $schedule->id;
+                            $shift->shift_type_id = $vacationType->id;
+                            $shift->shift_date = $dateStr;
+                            $shift->save();
+                            $shift->users()->attach($vacation->user_id);
+                            \App\Models\VacationReplacedShift::create([
+                                'vacation_id' => $vacation->id,
+                                'shift_date' => $dateStr,
+                                'schedule_id' => $schedule->id,
+                                'original_shift_id' => null,
+                                'original_shift_type_id' => $dayOffType ? $dayOffType->id : $vacationType->id,
+                                'temp_shift_id' => null,
+                                'was_shared' => false,
+                            ]);
+                        }
+                    }
+                }
+            }
+            if ($sickLeaveType) {
+                $medicalLeaves = \App\Models\MedicalLeave::where(function ($query) use ($schedule) {
+                    $query->whereBetween('start_date', [$schedule->start_date, $schedule->end_date])
+                          ->orWhereBetween('end_date', [$schedule->start_date, $schedule->end_date])
+                          ->orWhere(function ($sub) use ($schedule) {
+                              $sub->where('start_date', '<=', $schedule->start_date)
+                                  ->where('end_date', '>=', $schedule->end_date);
+                          });
+                })->get();
+                foreach ($medicalLeaves as $leave) {
+                    $start = max(Carbon::parse($schedule->start_date), Carbon::parse($leave->start_date));
+                    $end = min(Carbon::parse($schedule->end_date), Carbon::parse($leave->end_date));
+                    for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                        $dateStr = $date->toDateString();
+                        $exists = \App\Models\Shift::where('schedule_id', $schedule->id)
+                            ->where('shift_date', $dateStr)
+                            ->whereHas('users', function ($q) use ($leave) {
+                                $q->where('users.id', $leave->user_id);
+                            })
+                            ->exists();
+                        if (!$exists) {
+                            $shift = new \App\Models\Shift();
+                            $shift->schedule_id = $schedule->id;
+                            $shift->shift_type_id = $sickLeaveType->id;
+                            $shift->shift_date = $dateStr;
+                            $shift->save();
+                            $shift->users()->attach($leave->user_id);
+                            \App\Models\MedicalLeaveReplacedShift::create([
+                                'medical_leave_id' => $leave->id,
+                                'shift_date' => $dateStr,
+                                'schedule_id' => $schedule->id,
+                                'original_shift_id' => null,
+                                'original_shift_type_id' => $dayOffType ? $dayOffType->id : $sickLeaveType->id,
+                                'temp_shift_id' => null,
+                                'was_shared' => false,
+                            ]);
+                        }
+                    }
+                }
+            }
+            return $schedule;
+        });
 
         return response()->json([
             'message' => 'Horário criado com sucesso.',

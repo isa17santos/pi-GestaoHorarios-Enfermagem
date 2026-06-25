@@ -363,16 +363,20 @@ class VacationController extends Controller
         }
     }
 
-    private function getOrCreateVacationType(): ShiftType
+        private function getOrCreateVacationType(): ShiftType
     {
+        // Procura pelos nomes comuns em português e inglês, incluindo "holidays" e "holiday"
         $type = ShiftType::whereRaw('LOWER(name) = ?', ['ferias'])
             ->orWhereRaw('LOWER(name) = ?', ['férias'])
             ->orWhereRaw('LOWER(name) = ?', ['vacation'])
+            ->orWhereRaw('LOWER(name) = ?', ['holidays'])
+            ->orWhereRaw('LOWER(name) = ?', ['holiday'])
             ->first();
 
+        // Se nenhum tipo de turno correspondente existir na base de dados, cria um padrão
         if (!$type) {
             $type = ShiftType::create([
-                'name' => 'ferias',
+                'name' => 'holidays', // Define 'holidays' como o nome padrão
                 'color' => '#fff3cd',
                 'start_time' => '00:00:00',
                 'end_time' => '00:00:00',

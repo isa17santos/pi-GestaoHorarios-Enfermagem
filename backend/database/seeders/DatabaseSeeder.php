@@ -168,15 +168,6 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
-            [
-                'name' => 'parental leave',
-                'color' => '#fce7d8',
-                'start_time' => '00:00:00',
-                'end_time' => '00:00:00',
-                'min_nurses' => 0,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
         ]);
 
 
@@ -771,7 +762,228 @@ class DatabaseSeeder extends Seeder
                 ]
             ]);
         }
+
+        //------------------- MEDICAL LEAVES & REPLACED SHIFTS ---------------------------
+        $medicalLeavesData = [
+            [
+                'email' => 'helena.coelho@example.pt',
+                'start_date' => '2026-06-08',
+                'end_date' => '2026-06-12',
+                'reason' => 'Recuperação pós-operatória',
+            ],
+            [
+                'email' => 'julio.magalhaes@example.pt',
+                'start_date' => '2026-07-13',
+                'end_date' => '2026-07-17',
+                'reason' => 'Gripe influenza grave',
+            ],
+            [
+                'email' => 'diana.oliveira@example.pt',
+                'start_date' => '2026-05-04',
+                'end_date' => '2026-05-08',
+                'reason' => 'Lesão no joelho',
+            ],
+            [
+                'email' => 'diana.oliveira@example.pt',
+                'start_date' => '2026-10-04',
+                'end_date' => '2026-10-08',
+                'reason' => 'Lesão no joelho',
+            ],
+        ];
+        foreach ($medicalLeavesData as $leave) {
+            $userId = DB::table('users')->where('email', $leave['email'])->value('id');
+            if (!$userId) {
+                continue;
+            }
+            $leaveId = DB::table('medical_leaves')->insertGetId([
+                'user_id' => $userId,
+                'start_date' => $leave['start_date'],
+                'end_date' => $leave['end_date'],
+                'reason' => $leave['reason'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            // Replace shifts on the schedule for this nurse during the medical leave period
+            $start = \Carbon\Carbon::parse($leave['start_date']);
+            $end = \Carbon\Carbon::parse($leave['end_date']);
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $dateStr = $date->toDateString();
+                // Find the original shift assigned to this nurse on this date
+                $originalShift = DB::table('shifts')
+                    ->join('user_shifts', 'shifts.id', '=', 'user_shifts.shift_id')
+                    ->where('user_shifts.user_id', $userId)
+                    ->where('shifts.shift_date', $dateStr)
+                    ->select('shifts.id', 'shifts.schedule_id', 'shifts.shift_type_id')
+                    ->first();
+                if ($originalShift) {
+                    // Update original shift type to 'sick leave'
+                    DB::table('shifts')
+                        ->where('id', $originalShift->id)
+                        ->update([
+                            'shift_type_id' => $shiftTypeIds['sick leave'],
+                            'updated_at' => $now,
+                        ]);
+                    // Log the replacement
+                    DB::table('medical_leave_replaced_shifts')->insert([
+                        'medical_leave_id' => $leaveId,
+                        'shift_date' => $dateStr,
+                        'schedule_id' => $originalShift->schedule_id,
+                        'original_shift_id' => $originalShift->id,
+                        'original_shift_type_id' => $originalShift->shift_type_id,
+                        'temp_shift_id' => null,
+                        'was_shared' => false,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            }
+        }
+        //------------------- VACATIONS & REPLACED SHIFTS ---------------------------
+        $vacationsData = [
+            [
+                'email' => 'andre.sousa@example.pt',
+                'start_date' => '2026-07-20',
+                'end_date' => '2026-07-26',
+            ],
+            [
+                'email' => 'joana.silva@example.pt',
+                'start_date' => '2026-06-22',
+                'end_date' => '2026-06-28',
+            ],
+            [
+                'email' => 'carlos.santos@example.pt',
+                'start_date' => '2026-05-18',
+                'end_date' => '2026-05-24',
+            ],
+            [
+                'email' => 'carlos.santos@example.pt',
+                'start_date' => '2026-10-18',
+                'end_date' => '2026-10-24',
+            ],
+        ];
+        foreach ($vacationsData as $vacation) {
+            $userId = DB::table('users')->where('email', $vacation['email'])->value('id');
+            if (!$userId) {
+                continue;
+            }
+            $vacationId = DB::table('vacations')->insertGetId([
+                'user_id' => $userId,
+                'start_date' => $vacation['start_date'],
+                'end_date' => $vacation['end_date'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            // Replace shifts on the schedule for this nurse during the vacation period
+            $start = \Carbon\Carbon::parse($vacation['start_date']);
+            $end = \Carbon\Carbon::parse($vacation['end_date']);
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $dateStr = $date->toDateString();
+                // Find the original shift assigned to this nurse on this date
+                $originalShift = DB::table('shifts')
+                    ->join('user_shifts', 'shifts.id', '=', 'user_shifts.shift_id')
+                    ->where('user_shifts.user_id', $userId)
+                    ->where('shifts.shift_date', $dateStr)
+                    ->select('shifts.id', 'shifts.schedule_id', 'shifts.shift_type_id')
+                    ->first();
+                if ($originalShift) {
+                    // Update original shift type to 'holidays'
+                    DB::table('shifts')
+                        ->where('id', $originalShift->id)
+                        ->update([
+                            'shift_type_id' => $shiftTypeIds['holidays'],
+                            'updated_at' => $now,
+                        ]);
+                    // Log the replacement
+                    DB::table('vacation_replaced_shifts')->insert([
+                        'vacation_id' => $vacationId,
+                        'shift_date' => $dateStr,
+                        'schedule_id' => $originalShift->schedule_id,
+                        'original_shift_id' => $originalShift->id,
+                        'original_shift_type_id' => $originalShift->shift_type_id,
+                        'temp_shift_id' => null,
+                        'was_shared' => false,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            }
+        }
+        //------------------- SYSTEM NOTIFICATIONS & USER NOTIFICATIONS ---------------------------
+        $notifications = [
+            [
+                'subject' => 'Horário Publicado',
+                'body' => 'O horário para o mês de Junho de 2026 foi publicado pela Enfermeira Chefe Ana Antunes.',
+                'read' => false,
+            ],
+            [
+                'subject' => 'Pedido de Troca de Turno',
+                'body' => 'Recebeste um novo pedido de troca de turno de Andre Sousa para o dia 10 de Maio.',
+                'read' => false,
+            ],
+            [
+                'subject' => 'Férias Aprovadas',
+                'body' => 'O teu período de férias de 20/07/2026 a 26/07/2026 foi registado e aprovado.',
+                'read' => true,
+            ],
+            [
+                'subject' => 'Baixa Médica Registada',
+                'body' => 'Foi registada uma baixa médica para Helena Coelho de 08/06/2026 a 12/06/2026.',
+                'read' => false,
+            ],
+        ];
+        foreach ($notifications as $notifData) {
+            $notifId = DB::table('notifications')->insertGetId([
+                'subject' => $notifData['subject'],
+                'body' => $notifData['body'],
+                'read' => $notifData['read'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            if ($notifData['subject'] === 'Pedido de Troca de Turno') {
+                $targetUserId = DB::table('users')->where('email', 'bruno.andrade@example.pt')->value('id');
+                if ($targetUserId) {
+                    DB::table('user_notifications')->insert([
+                        'user_id' => $targetUserId,
+                        'notification_id' => $notifId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            } elseif ($notifData['subject'] === 'Férias Aprovadas') {
+                $targetUserId = DB::table('users')->where('email', 'andre.sousa@example.pt')->value('id');
+                if ($targetUserId) {
+                    DB::table('user_notifications')->insert([
+                        'user_id' => $targetUserId,
+                        'notification_id' => $notifId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            } elseif ($notifData['subject'] === 'Horário Publicado') {
+                foreach ($nurses as $nurse) {
+                    DB::table('user_notifications')->insert([
+                        'user_id' => $nurse->id,
+                        'notification_id' => $notifId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            } else {
+                $adminIds = DB::table('users')
+                    ->whereIn('email', ['ana.antunes@example.pt'])
+                    ->pluck('id');
+                foreach ($adminIds as $adminId) {
+                    DB::table('user_notifications')->insert([
+                        'user_id' => $adminId,
+                        'notification_id' => $notifId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+            }
+        }
     }
+
 
 
     private function assignShifts(
