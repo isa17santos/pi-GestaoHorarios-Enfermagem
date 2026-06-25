@@ -1,0 +1,17 @@
+info:
+  name: 200DeleteVacation
+  type: http
+  seq: 20
+
+http:
+  method: DELETE
+  url: "{{base_url}}/vacations/1"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

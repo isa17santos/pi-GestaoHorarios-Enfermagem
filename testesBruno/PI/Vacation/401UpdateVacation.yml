@@ -1,0 +1,22 @@
+info:
+  name: 401UpdateVacation
+  type: http
+  seq: 13
+
+http:
+  method: PATCH
+  url: "{{base_url}}/vacations/1"
+  body:
+    type: json
+    data: |-
+      {
+        "user_id": 7,
+        "start_date": "2026-06-26",
+        "end_date": "2026-07-03"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

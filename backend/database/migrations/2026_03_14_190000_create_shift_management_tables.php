@@ -149,6 +149,26 @@ return new class extends Migration
             $table->boolean('was_shared')->default(false);
             $table->timestamps();
         });
+
+        Schema::create('vacations', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->date('start_date');
+            $table->date('end_date');
+            $table->timestamps();
+            $table->softDeletes();
+        });
+        Schema::create('vacation_replaced_shifts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('vacation_id')->constrained('vacations')->cascadeOnDelete();
+            $table->date('shift_date');
+            $table->foreignId('schedule_id')->constrained('schedules')->cascadeOnDelete();
+            $table->foreignId('original_shift_id')->nullable()->constrained('shifts')->cascadeOnDelete();
+            $table->foreignId('original_shift_type_id')->constrained('shift_types')->cascadeOnDelete();
+            $table->foreignId('temp_shift_id')->nullable()->constrained('shifts')->cascadeOnDelete();
+            $table->boolean('was_shared')->default(false);
+            $table->timestamps();
+        });
     }
 
     /**
@@ -169,5 +189,7 @@ return new class extends Migration
         Schema::dropIfExists('shift_types');
         Schema::dropIfExists('medical_leave_replaced_shifts');
         Schema::dropIfExists('medical_leaves');
+        Schema::dropIfExists('vacation_replaced_shifts');
+        Schema::dropIfExists('vacations');
     }
 };

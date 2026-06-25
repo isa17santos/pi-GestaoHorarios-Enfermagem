@@ -1,0 +1,22 @@
+info:
+  name: 401CreateVacation
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}/vacations"
+  body:
+    type: json
+    data: |-
+      {
+        "user_id": 8,
+        "start_date": "2026-06-26",
+        "end_date": "2026-07-02"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

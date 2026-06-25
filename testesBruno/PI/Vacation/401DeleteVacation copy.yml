@@ -1,0 +1,14 @@
+info:
+  name: 401DeleteVacation copy
+  type: http
+  seq: 19
+
+http:
+  method: DELETE
+  url: "{{base_url}}/vacations/1"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
