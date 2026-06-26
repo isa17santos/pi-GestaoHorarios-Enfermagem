@@ -575,29 +575,50 @@ input {
 
 @media (max-width: 960px) {
   .login-shell {
-    grid-template-columns: 1fr;
+    display: block !important;
+    height: auto !important;
+    min-height: 100vh !important;
   }
 
   .brand-panel {
     min-height: 42vh;
-    padding: 130px 35px 12px;
+    padding: 130px 35px 24px;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  .brand-panel__content {
+    width: min(100%, 520px) !important; /* Mesma largura do login-card para alinhamento */
+    margin: 0 auto !important;
+    text-align: left !important; /* Garante que os textos ficam alinhados à esquerda */
   }
 
   .brand-title {
-    max-width: 12ch;
-    font-size: clamp(2.2rem, 10vw, 3.6rem);
+    max-width: 100% !important;
+    font-size: clamp(2.2rem, 10vw, 3.6rem) !important;
+    text-align: left !important;
+  }
+
+  .brand-text {
+    text-align: left !important;
+  }
+
+  .brand-card {
+    margin: 32px auto 0 !important; /* Centra apenas este cartão no ecrã */
+    text-align: left !important;
   }
 
   .login-panel {
-    padding: 20px 16px 32px;
-    justify-content: center;
+    display: flex !important;
+    justify-content: center !important;
+    padding: 20px 16px 40px !important;
   }
-
   .login-card {
-    width: min(100%, 520px);
-    min-height: auto;
+    width: min(100%, 520px) !important;
+    height: auto !important;
+    min-height: auto !important;
     padding: 28px;
-    margin-left: 0;
+    margin: 0 auto !important; /* Centra o cartão de login */
   }
 
   .reset-password-page {
@@ -681,6 +702,7 @@ input {
     font-size: 0.98rem;
     line-height: 1.6;
   }
+
 
 }
 
