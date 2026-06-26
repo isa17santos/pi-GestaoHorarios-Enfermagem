@@ -9,12 +9,13 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class SwapRejectedNotification extends Notification
+class SwapCancelledNotification extends Notification
 {
     use Queueable, FormatsDates;
 
     public function __construct(
         public ShiftSwapRequest $swapRequest,
+        public bool $expired = false,
     ) {
     }
 
@@ -35,20 +36,21 @@ class SwapRejectedNotification extends Notification
 
     public function toCustomDatabase(object $notifiable): array
     {
-        $target = $this->swapRequest->participants->firstWhere('role', 'target');
-
         $offeredShift   = $this->swapRequest->requestShifts->firstWhere('type', ShiftSwapRequestShiftType::Offered);
         $requestedShift = $this->swapRequest->requestShifts->firstWhere('type', ShiftSwapRequestShiftType::Requested);
 
-        $targetName    = (string) ($target?->user?->name ?? '-');
         $offeredDate   = $this->formatShiftDate($offeredShift?->shift?->shift_date?->toDateString());
         $offeredType   = $offeredShift?->shift?->shiftType?->name ?? '-';
         $requestedDate = $this->formatShiftDate($requestedShift?->shift?->shift_date?->toDateString());
         $requestedType = $requestedShift?->shift?->shiftType?->name ?? '-';
 
+        $body = $this->expired
+            ? "O seu pedido de troca do turno de {$offeredType} ({$offeredDate}) pelo turno de {$requestedType} ({$requestedDate}) foi cancelado automaticamente porque a data do turno já passou."
+            : "O seu pedido de troca do turno de {$offeredType} ({$offeredDate}) pelo turno de {$requestedType} ({$requestedDate}) foi cancelado porque o turno já foi trocado por outro enfermeiro.";
+
         return [
-            'subject' => 'Pedido de Troca Rejeitado',
-            'body'    => "{$targetName} rejeitou o seu pedido de troca do turno de {$requestedType} ({$requestedDate}) pelo turno de {$offeredType} ({$offeredDate}).",
+            'subject' => 'Pedido de Troca Cancelado',
+            'body'    => $body,
         ];
     }
 }

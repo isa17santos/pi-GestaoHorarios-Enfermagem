@@ -83,6 +83,7 @@ type ValidateShiftWarning = {
 const swapRequests = ref<SwapRequest[]>([])
 const loadingSwaps = ref(false)
 const errorSwaps = ref<string | null>(null)
+const pendingReceivedCount = ref(0)
 
 export const useSwap = () => {
   const config = useRuntimeConfig()
@@ -126,7 +127,7 @@ export const useSwap = () => {
     return fallback
   }
 
-  const fetchSwaps = async (direction?: SwapDirection, status?: SwapStatus) => {
+  const fetchSwaps = async (direction?: SwapDirection, status?: SwapStatus, userId?: number, month?: string) => {
     loadingSwaps.value = true
     errorSwaps.value = null
 
@@ -137,6 +138,8 @@ export const useSwap = () => {
       // Add optional filters only when provided.
       if (direction) query.set('direction', direction)
       if (status) query.set('status', status)
+      if (userId) query.set('user_id', String(userId))
+      if (month) query.set('month', month)
 
       const queryString = query.toString()
       const endpoint = queryString
@@ -322,6 +325,20 @@ export const useSwap = () => {
     }
   }
 
+  const fetchPendingReceivedCount = async () => {
+    try {
+      const authToken = requireAuthToken()
+      const response = await $fetch<SwapListResponse | SwapRequest[]>(
+        `${config.public.apiBase}/swaps?direction=received&status=pending`,
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      )
+      const list = Array.isArray(response) ? response : (response.data ?? [])
+      pendingReceivedCount.value = list.length
+    } catch {
+      pendingReceivedCount.value = 0
+    }
+  }
+
   const cancelSwap = async (id: number): Promise<SwapRequest> => {
     loadingSwaps.value = true
     errorSwaps.value = null
@@ -353,9 +370,11 @@ export const useSwap = () => {
     swapRequests,
     loadingSwaps,
     errorSwaps,
+    pendingReceivedCount,
     fetchSwaps,
     fetchShifts,
     fetchShiftAvailability,
+    fetchPendingReceivedCount,
     createSwap,
     validateShift,
     acceptSwap,

@@ -166,6 +166,7 @@
 }
 
 .bento-icon {
+  position: relative;
   width: 56px;
   height: 56px;
   border-radius: 18px;
@@ -174,6 +175,24 @@
   margin-bottom: 24px;
   color: white;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.bento-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--danger, #f79b32);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .bento-card--hr .bento-icon {
