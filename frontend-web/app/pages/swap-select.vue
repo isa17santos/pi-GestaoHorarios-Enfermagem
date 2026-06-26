@@ -28,6 +28,12 @@ const tooltipX = ref(0)
 const tooltipY = ref(0)
 const pendingShift = ref<any | null>(null)
 const swapIntentModalOpen = ref(false)
+const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+
+const showToast = (message: string, type: 'success' | 'error' = 'error') => {
+  toast.value = { message, type }
+  setTimeout(() => { toast.value = null }, 4000)
+}
 const selectedSwapIntent = ref<'shift' | 'dayoff' | null>(null)
 const selectedSwapShiftTypeId = ref<number | null>(null)
 
@@ -54,11 +60,11 @@ const viewTexts = computed(() => {
     absenceShift: isPt ? 'Folga / Ausência' : 'Day Off / Absence',
     assignedNurses: isPt ? 'Enfermeiros Escalados' : 'Assigned Nurses',
     legendTitle: isPt ? 'Turnos:' : 'Shifts:',
-    exchangeForShift: isPt ? 'Trocar por turno' : 'Exchange for a shift',
+    exchangeForShift: isPt ? 'Troca de turno no mesmo dia' : 'Same-day shift swap',
     exchangeForDayOff: isPt ? 'Trocar por folga' : 'Exchange for a day off',
     swapIntentTitle: isPt ? 'Como quer trocar este turno?' : 'How do you want to swap this shift?',
-    shiftIntentDescription: isPt ? 'Seleciona um tipo de turno para pedido.' : 'Pick a shift type to request.',
-    dayOffIntentDescription: isPt ? 'Escolher a folga a oferecer em troca' : 'Choose the day off to offer in return',
+    shiftIntentDescription: isPt ? 'Propõe trocar o teu turno por um turno de outro enfermeiro no mesmo dia' : 'Propose swapping your shift for another nurse\'s shift on the same day',
+    dayOffIntentDescription: isPt ? 'Propõe dar o teu turno em troca de uma folga do outro enfermeiro' : 'Propose giving your shift in exchange for another nurse\'s day off',
     cancel: isPt ? 'Cancelar' : 'Cancel',
     confirm: isPt ? 'Confirmar' : 'Confirm',
     chooseIntent: isPt ? 'Escolhe o tipo de troca' : 'Choose the swap type',
@@ -339,7 +345,10 @@ const chooseSwapIntent = async (intent: 'shift' | 'dayoff') => {
 
   if (intent === 'dayoff') {
     const ownShiftId = await resolveOwnShiftId(pendingShift.value.date, pendingShift.value.shift_type.id)
-    if (!ownShiftId) return
+    if (!ownShiftId) {
+      showToast(currentLocale.value === 'pt' ? 'Turno não encontrado. Tenta novamente.' : 'Shift not found. Please try again.', 'error')
+      return
+    }
     // shift_for_dayoff mode: offering a work shift in exchange for a day-off.
     await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=shift_for_dayoff`)
     return
@@ -352,7 +361,10 @@ const confirmSwapIntent = async () => {
   if (!pendingShift.value || selectedSwapIntent.value !== 'shift' || !selectedSwapShiftTypeId.value) return
 
   const ownShiftId = await resolveOwnShiftId(pendingShift.value.date, pendingShift.value.shift_type.id)
-  if (!ownShiftId) return
+  if (!ownShiftId) {
+    showToast(currentLocale.value === 'pt' ? 'Turno não encontrado. Tenta novamente.' : 'Shift not found. Please try again.', 'error')
+    return
+  }
   await navigateTo(`/swap-create?shift_id=${ownShiftId}&mode=shift&shift_type_id=${selectedSwapShiftTypeId.value}`)
 }
 
@@ -508,6 +520,22 @@ onBeforeUnmount(() => {
   <main class="dashboard-layout schedule-view-page is-personal-view">
     <AppNavbar />
 
+    <transition name="slide-down">
+      <div v-if="toast" :class="['global-toast', toast.type]">
+        <div class="toast-content">
+          <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ toast.message }}</span>
+        </div>
+      </div>
+    </transition>
+
     <section class="dashboard-content">
       <div class="uc-top-bar">
         <div class="uc-title-group">
@@ -619,7 +647,7 @@ onBeforeUnmount(() => {
                   v-for="group in getDayAllDayGroups(getLocalDateStr(day))"
                   :key="group.shift_type.id"
                   class="allday-badge"
-                  :class="{}"
+                  :class="{ 'allday-badge--past': !isFutureDateOnly(getLocalDateStr(day)) }"
                   :style="getColorVars(group.shift_type.color)"
                   @mouseenter="showTooltip($event, group.shift, group.users)"
                   @mousemove="updateTooltipPosition"

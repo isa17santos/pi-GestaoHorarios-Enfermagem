@@ -73,10 +73,27 @@ const filteredNotifications = computed(() => {
   return notifications.value
 })
 
+const shiftNameMap: Record<string, { pt: string; en: string }> = {
+  morning:         { pt: 'Manhã',           en: 'Morning' },
+  manhã:           { pt: 'Manhã',           en: 'Morning' },
+  afternoon:       { pt: 'Tarde',           en: 'Afternoon' },
+  tarde:           { pt: 'Tarde',           en: 'Afternoon' },
+  night:           { pt: 'Noite',           en: 'Night' },
+  noite:           { pt: 'Noite',           en: 'Night' },
+  dayoff:          { pt: 'Folga',           en: 'Day Off' },
+  'day off':       { pt: 'Folga',           en: 'Day Off' },
+  folga:           { pt: 'Folga',           en: 'Day Off' },
+  holidays:        { pt: 'Férias',          en: 'Holidays' },
+  férias:          { pt: 'Férias',          en: 'Holidays' },
+  'sick leave':    { pt: 'Baixa Médica',    en: 'Sick Leave' },
+  'baixa médica':  { pt: 'Baixa Médica',    en: 'Sick Leave' },
+  'parental leave':{ pt: 'Licença Parental',en: 'Parental Leave' },
+}
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
   if (isNaN(date.getTime())) return dateString
-  
+
   return date.toLocaleDateString(currentLocale.value === 'pt' ? 'pt-PT' : 'en-US', {
     day: '2-digit',
     month: 'long',
@@ -84,6 +101,26 @@ const formatDate = (dateString: string) => {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+const formatIsoDate = (iso: string) => {
+  const date = new Date(iso + 'T00:00:00')
+  if (isNaN(date.getTime())) return iso
+  return date.toLocaleDateString(currentLocale.value === 'pt' ? 'pt-PT' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+const formatNotificationBody = (body: string) => {
+  const locale = currentLocale.value
+  let result = body.replace(/\b(\d{4}-\d{2}-\d{2})\b/g, (_, iso) => formatIsoDate(iso))
+  for (const [slug, translations] of Object.entries(shiftNameMap)) {
+    const escaped = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    result = result.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), translations[locale])
+  }
+  return result
 }
 
 onMounted(async () => {
@@ -192,7 +229,7 @@ onMounted(async () => {
                     <h3 class="notif-subject">{{ notif.subject }}</h3>
                     <span v-if="!notif.read" class="unread-badge-dot"></span>
                   </div>
-                  <p class="notif-body">{{ notif.body }}</p>
+                  <p class="notif-body">{{ formatNotificationBody(notif.body) }}</p>
                   <span class="notif-date">{{ texts.receivedAt }}: {{ formatDate(notif.created_at) }}</span>
                 </div>
               </div>

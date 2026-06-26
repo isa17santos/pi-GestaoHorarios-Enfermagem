@@ -13,6 +13,8 @@ use App\Models\ShiftSwapRequest;
 use App\Models\ShiftSwapRequestShift;
 use App\Models\User;
 use App\Notifications\SwapAcceptedNotification;
+use App\Notifications\SwapCancelledNotification;
+use App\Notifications\SwapRequestedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -52,9 +54,23 @@ class SwapRequestController extends Controller
                 required: false,
                 schema: new OA\Schema(type: 'string', enum: ['pending', 'accepted', 'rejected', 'cancelled'], nullable: true)
             ),
+            new OA\Parameter(
+                name: 'user_id',
+                in: 'query',
+                required: false,
+                description: 'Filtrar por participante (admin only)',
+                schema: new OA\Schema(type: 'integer', nullable: true)
+            ),
+            new OA\Parameter(
+                name: 'month',
+                in: 'query',
+                required: false,
+                description: 'Filtrar por mês de criação no formato YYYY-MM',
+                schema: new OA\Schema(type: 'string', nullable: true)
+            ),
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Listagem paginada de SwapRequests'),
+            new OA\Response(response: 200, description: 'Listagem de SwapRequests'),
             new OA\Response(response: 401, description: 'Não autenticado'),
             new OA\Response(response: 403, description: 'Não autorizado'),
         ]
@@ -66,25 +82,37 @@ class SwapRequestController extends Controller
         $user = $request->user();
         $direction = $request->query('direction');
         $status = $request->query('status');
+        $userId = $request->query('user_id');
+        $month = $request->query('month');
 
-        $swapRequests = ShiftSwapRequest::query()
-            ->whereHas('participants', function ($query) use ($user, $direction): void {
-                $query->where('user_id', $user->id);
+        $isPrivileged = in_array($user->role, [UserRole::Admin, UserRole::HeadNurse]);
+
+        $query = ShiftSwapRequest::query();
+
+        if (! $isPrivileged) {
+            // Não-admin: restringir aos pedidos onde é participante
+            $query->whereHas('participants', function ($q) use ($user, $direction): void {
+                $q->where('user_id', $user->id);
 
                 if ($direction === 'sent') {
-                    $query->where('role', ShiftSwapParticipantRole::Requester->value);
+                    $q->where('role', ShiftSwapParticipantRole::Requester->value);
                 }
 
                 if ($direction === 'received') {
-                    $query->where('role', ShiftSwapParticipantRole::Target->value);
+                    $q->where('role', ShiftSwapParticipantRole::Target->value);
                 }
-            })
-            ->when($status, fn ($query, $status) => $query->where('status', $status))
-            ->with(self::RELATIONS)
-            ->orderByDesc('id')
-            ->get();
+            });
+        } elseif ($userId) {
+            // Admin/HeadNurse com filtro de utilizador específico
+            $query->whereHas('participants', fn ($q) => $q->where('user_id', (int) $userId));
+        }
 
-        return SwapRequestResource::collection($swapRequests);
+        $query->when($status, fn ($q, $s) => $q->where('status', $s))
+            ->when($month, fn ($q, $m) => $q->whereRaw("TO_CHAR(created_at, 'YYYY-MM') = ?", [$m]))
+            ->with(self::RELATIONS)
+            ->orderByDesc('id');
+
+        return SwapRequestResource::collection($query->get());
     }
 
     #[OA\Get(
@@ -209,6 +237,9 @@ class SwapRequestController extends Controller
 
         $swapRequest->load(self::RELATIONS);
 
+        $target = User::find((int) $validated['target_user_id']);
+        $target?->notify(new SwapRequestedNotification($swapRequest));
+
         return (new SwapRequestResource($swapRequest))
             ->response()
             ->setStatusCode(201);
@@ -241,8 +272,9 @@ class SwapRequestController extends Controller
         // Load shift rows before entering the transaction so the collection
         // is available inside the closure without triggering lazy loads.
         $requestShifts = $swapRequest->requestShifts()->get();
+        $siblingRequests = collect();
 
-        DB::transaction(function () use ($swapRequest, $requestShifts): void {
+        DB::transaction(function () use ($swapRequest, $requestShifts, &$siblingRequests): void {
             $swapRequest->update([
                 'status' => ShiftSwapStatus::Accepted,
             ]);
@@ -305,23 +337,36 @@ class SwapRequestController extends Controller
                 ->where('type', ShiftSwapRequestShiftType::Offered->value)
                 ->value('shift_id');
 
-            ShiftSwapRequest::query()
+            $siblingRequests = ShiftSwapRequest::query()
                 ->where('id', '!=', $swapRequest->id)
                 ->where('status', ShiftSwapStatus::Pending)
                 ->whereHas('requestShifts', function ($q) use ($acceptedShiftId): void {
                     $q->where('shift_id', $acceptedShiftId)
                         ->where('type', ShiftSwapRequestShiftType::Offered->value);
                 })
+                ->with(self::RELATIONS)
+                ->get();
+
+            ShiftSwapRequest::query()
+                ->whereIn('id', $siblingRequests->pluck('id'))
                 ->update(['status' => ShiftSwapStatus::Cancelled]);
         });
+
+        $swapRequest->load(self::RELATIONS);
 
         $headNurses = User::query()
             ->where('role', UserRole::HeadNurse->value)
             ->get();
 
-        $swapRequest->load(self::RELATIONS);
-
         Notification::send($headNurses, new SwapAcceptedNotification($swapRequest));
+
+        $requesterParticipant = $swapRequest->participants->firstWhere('role', 'requester');
+        $requesterParticipant?->user?->notify(new SwapAcceptedNotification($swapRequest));
+
+        foreach ($siblingRequests as $sibling) {
+            $siblingRequester = $sibling->participants->firstWhere('role', 'requester');
+            $siblingRequester?->user?->notify(new SwapCancelledNotification($sibling));
+        }
 
         return new SwapRequestResource($swapRequest);
     }

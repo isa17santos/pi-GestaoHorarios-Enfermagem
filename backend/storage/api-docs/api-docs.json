@@ -3508,11 +3508,31 @@
                                 "cancelled"
                             ]
                         }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "Filtrar por participante (admin only)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "nullable": true
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "description": "Filtrar por mês de criação no formato YYYY-MM",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "nullable": true
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Listagem paginada de SwapRequests"
+                        "description": "Listagem de SwapRequests"
                     },
                     "401": {
                         "description": "Não autenticado"

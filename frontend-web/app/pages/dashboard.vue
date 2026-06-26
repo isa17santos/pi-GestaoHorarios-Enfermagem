@@ -4,6 +4,11 @@ definePageMeta({
 })
 
 const { user } = useAuth()
+const { pendingReceivedCount, fetchPendingReceivedCount } = useSwap()
+
+onMounted(() => {
+  fetchPendingReceivedCount()
+})
 
 // Perfis de utilizador simplificados
 const isHeadNurse = computed(() => {
@@ -37,6 +42,7 @@ const texts = computed(() => ({
   vacations: currentLocale.value === 'pt' ? 'Gestão férias' : 'Vacations',
   sickLeaves: currentLocale.value === 'pt' ? 'Gestão baixas' : 'Absences',
   shiftTypes: currentLocale.value === 'pt' ? 'Gestão tipos de turno' : 'Shift types',
+  swapHistory: currentLocale.value === 'pt' ? 'Histórico de Trocas' : 'Swap History',
   
   // Textos Enfermeiro
   schedule: currentLocale.value === 'pt' ? 'Horário' : 'Schedule',
@@ -114,6 +120,19 @@ const texts = computed(() => ({
             <h3>{{ texts.viewSchedule }}</h3>
             <p>{{ currentLocale === 'pt' ? 'Visualizar o horário' : 'View schedule' }}</p>
           </NuxtLink>
+
+          <NuxtLink to="/swaps-history" class="bento-card bento-card--vacations">
+            <div class="bento-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <polyline points="17 1 21 5 17 9"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 23 3 19 7 15"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+            </div>
+            <h3>{{ texts.swapHistory }}</h3>
+            <p>{{ currentLocale === 'pt' ? 'Pedidos de troca aceites' : 'Accepted swap requests' }}</p>
+          </NuxtLink>
         </template>
 
 
@@ -142,6 +161,7 @@ const texts = computed(() => ({
                 <polyline points="7 23 3 19 7 15"></polyline>
                 <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
               </svg>
+              <span v-if="pendingReceivedCount > 0" class="bento-badge">{{ pendingReceivedCount }}</span>
             </div>
             <h3>{{ texts.swaps }}</h3>
             <p>{{ currentLocale === 'pt' ? 'Gerir pedidos de troca de turno' : 'Manage shift swap requests' }}</p>
@@ -203,6 +223,19 @@ const texts = computed(() => ({
             </div>
             <h3>{{ texts.shiftTypes }}</h3>
             <p>{{ currentLocale === 'pt' ? 'Configuração de tipos de turnos' : 'Configuration of shift patterns' }}</p>
+          </NuxtLink>
+
+          <NuxtLink to="/swaps-history" class="bento-card bento-card--vacations">
+            <div class="bento-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <polyline points="17 1 21 5 17 9"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 23 3 19 7 15"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+            </div>
+            <h3>{{ texts.swapHistory }}</h3>
+            <p>{{ currentLocale === 'pt' ? 'Pedidos de troca aceites' : 'Accepted swap requests' }}</p>
           </NuxtLink>
         </template>
 

@@ -15,7 +15,7 @@ const { swapRequests, loadingSwaps, errorSwaps, fetchSwaps, acceptSwap, rejectSw
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
 const selectedDirection = ref<SwapDirectionFilter>('')
-const selectedStatus = ref<SwapStatusFilter>('pending')
+const selectedStatus = ref<SwapStatusFilter>('')
 const pageSize = 10
 const currentPage = ref(1)
 

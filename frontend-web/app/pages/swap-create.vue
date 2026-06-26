@@ -56,6 +56,18 @@ const loadingDayShifts = ref(false)
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const submitSuccess = ref(false)
+const toast = ref<{ key: string; type: 'success' | 'error' } | null>(null)
+
+const showToast = (key: string, type: 'success' | 'error' = 'success') => {
+  toast.value = { key, type }
+  setTimeout(() => { toast.value = null }, 4000)
+}
+
+const toastTexts = computed(() => ({
+  createSuccess: currentLocale.value === 'pt' ? 'Pedido criado com sucesso!' : 'Request created successfully!',
+  createError: currentLocale.value === 'pt' ? 'Erro ao criar pedido.' : 'Failed to create request.',
+  noShiftFound: currentLocale.value === 'pt' ? 'Turno não encontrado. Tenta novamente.' : 'Shift not found. Please try again.',
+}))
 const showConfirmModal = ref(false)
 const notes = ref('')
 const searchQuery = ref('')
@@ -88,7 +100,12 @@ const ownDayOffCalendarMonth = ref<string>(new Date().toISOString().slice(0, 7))
 const dayOffCandidateCounts = ref<Map<string, Map<number, number>>>(new Map())
 const loadingCandidateCounts = ref(false)
 
-const dayOffShiftNames = ['dayoff', 'day off', 'folga']
+const dayOffShiftNames = ['dayoff', 'day off', 'folga', 'holidays', 'sick leave', 'parental leave']
+const pureLeaveNames = ['holidays', 'sick leave', 'parental leave']
+const isSwappableDayOff = (s: ShiftOption) => {
+  const name = s.shift_type.name.toLowerCase()
+  return dayOffShiftNames.includes(name) && !pureLeaveNames.includes(name)
+}
 
 const isDayOffShift = (shift: ShiftOption | null | undefined) => {
   if (!shift?.shift_type?.name) return false
@@ -260,8 +277,8 @@ const fetchDayShiftsForShiftSwap = async (date: string) => {
 
   try {
     const all = await fetchShifts({ exclude_mine: true, date })
-    // Only show nurses who have a day-off on this date — those are the valid swap targets.
-    availableShifts.value = all.filter((s) => dayOffShiftNames.includes(s.shift_type.name.toLowerCase()))
+    // Only show nurses with a true day-off (not holidays/sick leave/parental leave).
+    availableShifts.value = all.filter(isSwappableDayOff)
     await runAllValidations()
   } catch (error) {
     console.error('Error fetching day shifts for shift swap:', error)
@@ -303,7 +320,7 @@ const loadOwnDayOffShifts = async () => {
   loadingOwnDayOffs.value = true
   try {
     const all = await fetchShifts({ mine: true, future: true })
-    ownDayOffShifts.value = all.filter((s) => dayOffShiftNames.includes(s.shift_type.name.toLowerCase()))
+    ownDayOffShifts.value = all.filter(isSwappableDayOff)
     // Pin the step 1 calendar to the month of the earliest own day-off so it's immediately visible.
     // This only affects ownDayOffCalendarMonth — immediately visible when step 1 opens.
     if (ownDayOffShifts.value.length > 0) {
@@ -331,7 +348,7 @@ const loadCandidateCounts = async () => {
     const dayOffCandidates = await fetchShifts({ exclude_mine: true, date: offeredDate }).catch(() => [] as ShiftOption[])
     const candidateUserIds = new Set(
       dayOffCandidates
-        .filter((s) => dayOffShiftNames.includes(s.shift_type.name.toLowerCase()))
+        .filter(isSwappableDayOff)
         .flatMap((s) => s.users.map((u) => Number(u.id))),
     )
 
@@ -572,11 +589,12 @@ const loadAvailableShifts = async () => {
   submitError.value = null
 
   try {
-    let all = await fetchShifts({ exclude_mine: true })
+    const isWorkShift = (s: ShiftOption) => !dayOffShiftNames.includes(s.shift_type.name.toLowerCase())
+    let all = (await fetchShifts({ exclude_mine: true })).filter(isWorkShift)
     if (all.length === 0) {
       const anyShifts = await fetchShifts({})
       const authUserId = Number(user.value?.id)
-      all = anyShifts.filter((shift) => !shift.users.some((nurse) => Number(nurse.id) === authUserId))
+      all = anyShifts.filter((shift) => !shift.users.some((nurse) => Number(nurse.id) === authUserId) && isWorkShift(shift))
     }
     availableShifts.value = all
     await runAllValidations()
@@ -685,12 +703,14 @@ const submitCreateSwap = async () => {
         })
       }),
     )
-    submitSuccess.value = true
+    showConfirmModal.value = false
+    showToast('createSuccess', 'success')
     setTimeout(async () => { await navigateTo('/swaps') }, 1500)
   } catch (error) {
     const apiError = error as { data?: unknown; response?: { _data?: unknown; data?: unknown } }
     console.error('Create swap error:', { error, responseBody: apiError?.data ?? apiError?.response?._data ?? null })
     submitError.value = errorSwaps.value || texts.value.submitErrorFallback
+    showToast('createError', 'error')
     await nextTick()
     document.querySelector('.swc-submit-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } finally {
@@ -813,6 +833,22 @@ onMounted(async () => {
 <template>
   <main class="dashboard-layout swc-page">
     <AppNavbar />
+
+    <transition name="slide-down">
+      <div v-if="toast" :class="['global-toast', toast.type]">
+        <div class="toast-content">
+          <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="22">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ toastTexts[toast.key as keyof typeof toastTexts] }}</span>
+        </div>
+      </div>
+    </transition>
 
     <section class="dashboard-content swc-content">
       <header class="swc-header">
