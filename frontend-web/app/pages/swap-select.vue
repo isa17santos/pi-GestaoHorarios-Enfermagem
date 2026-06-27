@@ -72,6 +72,7 @@ const viewTexts = computed(() => {
     noAssignedNurses: isPt ? 'Nenhum enfermeiro escalado.' : 'No nurses assigned.',
     errorLoading: isPt ? 'Erro ao carregar horário. Tente novamente.' : 'Error loading schedule. Please try again.',
     legendClickShift: isPt ? 'Clica num turno de trabalho para iniciar um pedido de troca.' : 'Click a work shift to start a swap request.',
+    hintLabel: isPt ? 'Como funciona' : 'How it works',
   }
 })
 
@@ -295,7 +296,7 @@ const getDayTimedSegments = (dateStr: string) => {
 
 const isShiftSelectable = (dateStr: string) => {
   const today = getLocalDateStr(new Date())
-  return dateStr >= today
+  return dateStr > today
 }
 
 const isFutureDateOnly = (dateStr: string) => {
@@ -555,10 +556,13 @@ onBeforeUnmount(() => {
 
       <!-- Contextual hint bar: explains which elements are clickable and what they trigger. -->
       <div class="schedule-hint-bar">
-        <span class="schedule-hint-bar__item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"></path></svg>
-          {{ viewTexts.legendClickShift }}
-        </span>
+        <div class="schedule-hint-bar__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M8 7h12M8 12h12M8 17h12M3 7h.01M3 12h.01M3 17h.01"></path></svg>
+        </div>
+        <div class="schedule-hint-bar__text">
+          <span class="schedule-hint-bar__label">{{ viewTexts.hintLabel }}</span>
+          <span class="schedule-hint-bar__item">{{ viewTexts.legendClickShift }}</span>
+        </div>
       </div>
 
       <div v-if="loading && weeklyShifts.length === 0" class="schedule-view-state hr-card">

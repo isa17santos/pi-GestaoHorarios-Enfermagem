@@ -183,9 +183,14 @@ const receivedSwaps = computed(() => {
   return swapRequests.value.filter((req) => isReceivedSwap(req))
 })
 
+const sortByPendingFirst = (list: any[]) =>
+  [...list].sort((a, b) => (a.status === 'pending' ? -1 : 1) - (b.status === 'pending' ? -1 : 1))
+
 const listToRender = computed(() => {
-  if (!selectedDirection.value) return swapRequests.value
-  return selectedDirection.value === 'sent' ? sentSwaps.value : receivedSwaps.value
+  const base = !selectedDirection.value
+    ? swapRequests.value
+    : selectedDirection.value === 'sent' ? sentSwaps.value : receivedSwaps.value
+  return sortByPendingFirst(base)
 })
 
 const totalItems = computed(() => listToRender.value.length)
@@ -204,10 +209,20 @@ const sections = computed(() => {
   }
 
   const pageItems = paginatedItems.value
-  return [
-    { key: 'sent', title: texts.value.sentSection, items: pageItems.filter((req) => isSentSwap(req)) },
-    { key: 'received', title: texts.value.receivedSection, items: pageItems.filter((req) => isReceivedSwap(req)) },
-  ]
+  const sentItems = pageItems.filter((req) => isSentSwap(req))
+  const receivedItems = pageItems.filter((req) => isReceivedSwap(req))
+  const sentPending = sentItems.filter((r) => r.status === 'pending').length
+  const receivedPending = receivedItems.filter((r) => r.status === 'pending').length
+  const ordered = receivedPending > sentPending
+    ? [
+        { key: 'received', title: texts.value.receivedSection, items: receivedItems },
+        { key: 'sent', title: texts.value.sentSection, items: sentItems },
+      ]
+    : [
+        { key: 'sent', title: texts.value.sentSection, items: sentItems },
+        { key: 'received', title: texts.value.receivedSection, items: receivedItems },
+      ]
+  return ordered
 })
 
 const visibleSections = computed(() => {
