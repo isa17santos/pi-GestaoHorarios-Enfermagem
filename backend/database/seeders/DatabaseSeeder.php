@@ -613,8 +613,7 @@ class DatabaseSeeder extends Seeder
 
 
         //------------------- Shift Swap ---------------------------
-
-        // Only active nurses
+        // Only active nurses are considered for shift swap requests
         $nurseUsers = DB::table('users')
             ->where('role', UserRole::Nurse->value)
             ->where('active', true)
@@ -625,7 +624,7 @@ class DatabaseSeeder extends Seeder
 
         if ($nurseCount >= 6) {
             foreach ($nurseUsers as $index => $requester) {
-                // Defines the target users (targets) using different circular indices.
+                // Define the target users (targets) using different circular indices.
                 // By making each nurse send 2 pending requests in a circular manner (i+4 and i+5),
                 // we ensure that each one also receives exactly 2 pending requests.
                 $targetAccepted = $nurseUsers[($index + 1) % $nurseCount];
@@ -634,7 +633,7 @@ class DatabaseSeeder extends Seeder
                 $targetPending1 = $nurseUsers[($index + 4) % $nurseCount];
                 $targetPending2 = $nurseUsers[($index + 5) % $nurseCount];
 
-                // Find active working shifts for the requester (excluding days off, holidays, and sick leave)
+                // Find active work shifts (excluding days off, holidays and sick leaves) for the requester
                 $requesterShifts = DB::table('user_shifts')
                     ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
                     ->where('user_shifts.user_id', $requester->id)
@@ -647,7 +646,7 @@ class DatabaseSeeder extends Seeder
                     ->pluck('shifts.id')
                     ->toArray();
 
-                // Find working shifts for the targets
+                // Find active work shifts (excluding days off, holidays and sick leaves) for the target users
                 $targetAcceptedShifts = DB::table('user_shifts')
                     ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
                     ->where('user_shifts.user_id', $targetAccepted->id)
@@ -684,31 +683,7 @@ class DatabaseSeeder extends Seeder
                     ->pluck('shifts.id')
                     ->toArray();
 
-                $targetPending1Shifts = DB::table('user_shifts')
-                    ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
-                    ->where('user_shifts.user_id', $targetPending1->id)
-                    ->whereNotIn('shifts.shift_type_id', [
-                        $shiftTypeIds['dayOff'],
-                        $shiftTypeIds['holidays'],
-                        $shiftTypeIds['sick leave']
-                    ])
-                    ->orderBy('shifts.shift_date')
-                    ->pluck('shifts.id')
-                    ->toArray();
-
-                $targetPending2Shifts = DB::table('user_shifts')
-                    ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
-                    ->where('user_shifts.user_id', $targetPending2->id)
-                    ->whereNotIn('shifts.shift_type_id', [
-                        $shiftTypeIds['dayOff'],
-                        $shiftTypeIds['holidays'],
-                        $shiftTypeIds['sick leave']
-                    ])
-                    ->orderBy('shifts.shift_date')
-                    ->pluck('shifts.id')
-                    ->toArray();
-
-                // Create accepted swap request (Status: accepted)
+                // Create Accepted Shift Swap (Status: accepted)
                 if (count($requesterShifts) > 0 && count($targetAcceptedShifts) > 0) {
                     $reqShift = $requesterShifts[0];
                     $tarShift = $targetAcceptedShifts[min(count($targetAcceptedShifts) - 1, 1)];
@@ -732,7 +707,7 @@ class DatabaseSeeder extends Seeder
                     ]);
                 }
 
-                // Create cancelled swap request (Status: cancelled)
+                // Create Cancelled Shift Swap (Status: cancelled)
                 if (count($requesterShifts) > 1 && count($targetCancelledShifts) > 1) {
                     $reqShift = $requesterShifts[1];
                     $tarShift = $targetCancelledShifts[min(count($targetCancelledShifts) - 1, 2)];
@@ -756,7 +731,7 @@ class DatabaseSeeder extends Seeder
                     ]);
                 }
 
-                // Create rejected swap request (Status: rejected)
+                // Create Rejected Shift Swap (Status: rejected)
                 if (count($requesterShifts) > 2 && count($targetRejectedShifts) > 2) {
                     $reqShift = $requesterShifts[2];
                     $tarShift = $targetRejectedShifts[min(count($targetRejectedShifts) - 1, 3)];
@@ -780,51 +755,54 @@ class DatabaseSeeder extends Seeder
                     ]);
                 }
 
-                // Create the first pending swap request (Status: pending)
-                if (count($requesterShifts) > 3 && count($targetPending1Shifts) > 3) {
-                    $reqShift = $requesterShifts[3];
-                    $tarShift = $targetPending1Shifts[min(count($targetPending1Shifts) - 1, 4)];
+                // Date Configuration and Creation of Pending Requests for July 30th
+                $datePending = '2026-07-30';
+                $createdAtPending = \Carbon\Carbon::parse($datePending)->setTime(10, 0, 0);
 
+                // Get the specific shifts generated for July 30th for each user
+                $reqShiftPending = $shiftsByDateAndNurse[$datePending][$requester->id] ?? null;
+                $tarShiftPending1 = $shiftsByDateAndNurse[$datePending][$targetPending1->id] ?? null;
+                $tarShiftPending2 = $shiftsByDateAndNurse[$datePending][$targetPending2->id] ?? null;
+
+                // Create 1st Pending Request Sent (Status: pending)
+                if ($reqShiftPending && $tarShiftPending1) {
                     $swapId = DB::table('shift_swap_requests')->insertGetId([
                         'created_by' => $requester->id,
                         'status' => 'pending',
-                        'notes' => 'Troca pendente enviada por ' . $requester->name . '.',
-                        'created_at' => $now,
-                        'updated_at' => $now,
+                        'notes' => 'Troca pendente de 30 de Julho por ' . $requester->name . '.',
+                        'created_at' => $createdAtPending,
+                        'updated_at' => $createdAtPending,
                     ]);
 
                     DB::table('shift_swap_participants')->insert([
-                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'user_id' => $targetPending1->id, 'role' => 'target', 'created_at' => $now, 'updated_at' => $now]
+                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending],
+                        ['swap_request_id' => $swapId, 'user_id' => $targetPending1->id, 'role' => 'target', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending]
                     ]);
 
                     DB::table('shift_swap_request_shifts')->insert([
-                        ['swap_request_id' => $swapId, 'shift_id' => $reqShift, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'shift_id' => $tarShift, 'owner_user_id' => $targetPending1->id, 'type' => 'requested', 'created_at' => $now, 'updated_at' => $now]
+                        ['swap_request_id' => $swapId, 'shift_id' => $reqShiftPending, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending],
+                        ['swap_request_id' => $swapId, 'shift_id' => $tarShiftPending1, 'owner_user_id' => $targetPending1->id, 'type' => 'requested', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending]
                     ]);
                 }
 
-                // Create the second pending swap request (Status: pending)
-                if (count($requesterShifts) > 4 && count($targetPending2Shifts) > 4) {
-                    $reqShift = $requesterShifts[4];
-                    $tarShift = $targetPending2Shifts[min(count($targetPending2Shifts) - 1, 5)];
-
+                // Create 2nd Pending Request Sent (Status: pending)
+                if ($reqShiftPending && $tarShiftPending2) {
                     $swapId = DB::table('shift_swap_requests')->insertGetId([
                         'created_by' => $requester->id,
                         'status' => 'pending',
-                        'notes' => 'Troca pendente enviada por ' . $requester->name . '.',
-                        'created_at' => $now,
-                        'updated_at' => $now,
+                        'notes' => 'Troca pendente de 30 de Julho por ' . $requester->name . '.',
+                        'created_at' => $createdAtPending,
+                        'updated_at' => $createdAtPending,
                     ]);
 
                     DB::table('shift_swap_participants')->insert([
-                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'user_id' => $targetPending2->id, 'role' => 'target', 'created_at' => $now, 'updated_at' => $now]
+                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending],
+                        ['swap_request_id' => $swapId, 'user_id' => $targetPending2->id, 'role' => 'target', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending]
                     ]);
 
                     DB::table('shift_swap_request_shifts')->insert([
-                        ['swap_request_id' => $swapId, 'shift_id' => $reqShift, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'shift_id' => $tarShift, 'owner_user_id' => $targetPending2->id, 'type' => 'requested', 'created_at' => $now, 'updated_at' => $now]
+                        ['swap_request_id' => $swapId, 'shift_id' => $reqShiftPending, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending],
+                        ['swap_request_id' => $swapId, 'shift_id' => $tarShiftPending2, 'owner_user_id' => $targetPending2->id, 'type' => 'requested', 'created_at' => $createdAtPending, 'updated_at' => $createdAtPending]
                     ]);
                 }
             }
