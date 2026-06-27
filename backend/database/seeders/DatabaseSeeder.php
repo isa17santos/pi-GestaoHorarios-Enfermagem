@@ -613,8 +613,7 @@ class DatabaseSeeder extends Seeder
 
 
         //------------------- Shift Swap ---------------------------
-
-        // Only active nurses
+        // Only active Nurses
         $nurseUsers = DB::table('users')
             ->where('role', UserRole::Nurse->value)
             ->where('active', true)
@@ -623,18 +622,12 @@ class DatabaseSeeder extends Seeder
 
         $nurseCount = $nurseUsers->count();
 
-        if ($nurseCount >= 6) {
+        if ($nurseCount >= 4) {
             foreach ($nurseUsers as $index => $requester) {
-                // Defines the target users (targets) using different circular indices.
-                // By making each nurse send 2 pending requests in a circular manner (i+4 and i+5),
-                // we ensure that each one also receives exactly 2 pending requests.
                 $targetAccepted = $nurseUsers[($index + 1) % $nurseCount];
                 $targetCancelled = $nurseUsers[($index + 2) % $nurseCount];
                 $targetRejected = $nurseUsers[($index + 3) % $nurseCount];
-                $targetPending1 = $nurseUsers[($index + 4) % $nurseCount];
-                $targetPending2 = $nurseUsers[($index + 5) % $nurseCount];
 
-                // Find active working shifts for the requester (excluding days off, holidays, and sick leave)
                 $requesterShifts = DB::table('user_shifts')
                     ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
                     ->where('user_shifts.user_id', $requester->id)
@@ -647,7 +640,6 @@ class DatabaseSeeder extends Seeder
                     ->pluck('shifts.id')
                     ->toArray();
 
-                // Find working shifts for the targets
                 $targetAcceptedShifts = DB::table('user_shifts')
                     ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
                     ->where('user_shifts.user_id', $targetAccepted->id)
@@ -684,31 +676,6 @@ class DatabaseSeeder extends Seeder
                     ->pluck('shifts.id')
                     ->toArray();
 
-                $targetPending1Shifts = DB::table('user_shifts')
-                    ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
-                    ->where('user_shifts.user_id', $targetPending1->id)
-                    ->whereNotIn('shifts.shift_type_id', [
-                        $shiftTypeIds['dayOff'],
-                        $shiftTypeIds['holidays'],
-                        $shiftTypeIds['sick leave']
-                    ])
-                    ->orderBy('shifts.shift_date')
-                    ->pluck('shifts.id')
-                    ->toArray();
-
-                $targetPending2Shifts = DB::table('user_shifts')
-                    ->join('shifts', 'user_shifts.shift_id', '=', 'shifts.id')
-                    ->where('user_shifts.user_id', $targetPending2->id)
-                    ->whereNotIn('shifts.shift_type_id', [
-                        $shiftTypeIds['dayOff'],
-                        $shiftTypeIds['holidays'],
-                        $shiftTypeIds['sick leave']
-                    ])
-                    ->orderBy('shifts.shift_date')
-                    ->pluck('shifts.id')
-                    ->toArray();
-
-                // Create accepted swap request (Status: accepted)
                 if (count($requesterShifts) > 0 && count($targetAcceptedShifts) > 0) {
                     $reqShift = $requesterShifts[0];
                     $tarShift = $targetAcceptedShifts[min(count($targetAcceptedShifts) - 1, 1)];
@@ -716,23 +683,48 @@ class DatabaseSeeder extends Seeder
                     $swapId = DB::table('shift_swap_requests')->insertGetId([
                         'created_by' => $requester->id,
                         'status' => 'accepted',
-                        'notes' => 'Troca aceite de ' . $requester->name . '.',
+                        'notes' => 'Troca de turno aceite iniciada por ' . $requester->name . '.',
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
 
                     DB::table('shift_swap_participants')->insert([
-                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'user_id' => $targetAccepted->id, 'role' => 'target', 'created_at' => $now, 'updated_at' => $now]
+                        [
+                            'swap_request_id' => $swapId,
+                            'user_id' => $requester->id,
+                            'role' => 'requester',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        [
+                            'swap_request_id' => $swapId,
+                            'user_id' => $targetAccepted->id,
+                            'role' => 'target',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]
                     ]);
 
                     DB::table('shift_swap_request_shifts')->insert([
-                        ['swap_request_id' => $swapId, 'shift_id' => $reqShift, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'shift_id' => $tarShift, 'owner_user_id' => $targetAccepted->id, 'type' => 'requested', 'created_at' => $now, 'updated_at' => $now]
+                        [
+                            'swap_request_id' => $swapId,
+                            'shift_id' => $reqShift,
+                            'owner_user_id' => $requester->id,
+                            'type' => 'offered',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        [
+                            'swap_request_id' => $swapId,
+                            'shift_id' => $tarShift,
+                            'owner_user_id' => $targetAccepted->id,
+                            'type' => 'requested',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]
                     ]);
                 }
 
-                // Create cancelled swap request (Status: cancelled)
                 if (count($requesterShifts) > 1 && count($targetCancelledShifts) > 1) {
                     $reqShift = $requesterShifts[1];
                     $tarShift = $targetCancelledShifts[min(count($targetCancelledShifts) - 1, 2)];
@@ -740,23 +732,48 @@ class DatabaseSeeder extends Seeder
                     $swapId = DB::table('shift_swap_requests')->insertGetId([
                         'created_by' => $requester->id,
                         'status' => 'cancelled',
-                        'notes' => 'Troca cancelada de ' . $requester->name . '.',
+                        'notes' => 'Troca de turno cancelada iniciada por ' . $requester->name . '.',
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
 
                     DB::table('shift_swap_participants')->insert([
-                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'user_id' => $targetCancelled->id, 'role' => 'target', 'created_at' => $now, 'updated_at' => $now]
+                        [
+                            'swap_request_id' => $swapId,
+                            'user_id' => $requester->id,
+                            'role' => 'requester',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        [
+                            'swap_request_id' => $swapId,
+                            'user_id' => $targetCancelled->id,
+                            'role' => 'target',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]
                     ]);
 
                     DB::table('shift_swap_request_shifts')->insert([
-                        ['swap_request_id' => $swapId, 'shift_id' => $reqShift, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'shift_id' => $tarShift, 'owner_user_id' => $targetCancelled->id, 'type' => 'requested', 'created_at' => $now, 'updated_at' => $now]
+                        [
+                            'swap_request_id' => $swapId,
+                            'shift_id' => $reqShift,
+                            'owner_user_id' => $requester->id,
+                            'type' => 'offered',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        [
+                            'swap_request_id' => $swapId,
+                            'shift_id' => $tarShift,
+                            'owner_user_id' => $targetCancelled->id,
+                            'type' => 'requested',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]
                     ]);
                 }
 
-                // Create rejected swap request (Status: rejected)
                 if (count($requesterShifts) > 2 && count($targetRejectedShifts) > 2) {
                     $reqShift = $requesterShifts[2];
                     $tarShift = $targetRejectedShifts[min(count($targetRejectedShifts) - 1, 3)];
@@ -764,67 +781,45 @@ class DatabaseSeeder extends Seeder
                     $swapId = DB::table('shift_swap_requests')->insertGetId([
                         'created_by' => $requester->id,
                         'status' => 'rejected',
-                        'notes' => 'Troca rejeitada de ' . $requester->name . '.',
+                        'notes' => 'Troca de turno rejeitada iniciada por ' . $requester->name . '.',
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
 
                     DB::table('shift_swap_participants')->insert([
-                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'user_id' => $targetRejected->id, 'role' => 'target', 'created_at' => $now, 'updated_at' => $now]
+                        [
+                            'swap_request_id' => $swapId,
+                            'user_id' => $requester->id,
+                            'role' => 'requester',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        [
+                            'swap_request_id' => $swapId,
+                            'user_id' => $targetRejected->id,
+                            'role' => 'target',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]
                     ]);
 
                     DB::table('shift_swap_request_shifts')->insert([
-                        ['swap_request_id' => $swapId, 'shift_id' => $reqShift, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'shift_id' => $tarShift, 'owner_user_id' => $targetRejected->id, 'type' => 'requested', 'created_at' => $now, 'updated_at' => $now]
-                    ]);
-                }
-
-                // Create the first pending swap request (Status: pending)
-                if (count($requesterShifts) > 3 && count($targetPending1Shifts) > 3) {
-                    $reqShift = $requesterShifts[3];
-                    $tarShift = $targetPending1Shifts[min(count($targetPending1Shifts) - 1, 4)];
-
-                    $swapId = DB::table('shift_swap_requests')->insertGetId([
-                        'created_by' => $requester->id,
-                        'status' => 'pending',
-                        'notes' => 'Troca pendente enviada por ' . $requester->name . '.',
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-
-                    DB::table('shift_swap_participants')->insert([
-                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'user_id' => $targetPending1->id, 'role' => 'target', 'created_at' => $now, 'updated_at' => $now]
-                    ]);
-
-                    DB::table('shift_swap_request_shifts')->insert([
-                        ['swap_request_id' => $swapId, 'shift_id' => $reqShift, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'shift_id' => $tarShift, 'owner_user_id' => $targetPending1->id, 'type' => 'requested', 'created_at' => $now, 'updated_at' => $now]
-                    ]);
-                }
-
-                // Create the second pending swap request (Status: pending)
-                if (count($requesterShifts) > 4 && count($targetPending2Shifts) > 4) {
-                    $reqShift = $requesterShifts[4];
-                    $tarShift = $targetPending2Shifts[min(count($targetPending2Shifts) - 1, 5)];
-
-                    $swapId = DB::table('shift_swap_requests')->insertGetId([
-                        'created_by' => $requester->id,
-                        'status' => 'pending',
-                        'notes' => 'Troca pendente enviada por ' . $requester->name . '.',
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-
-                    DB::table('shift_swap_participants')->insert([
-                        ['swap_request_id' => $swapId, 'user_id' => $requester->id, 'role' => 'requester', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'user_id' => $targetPending2->id, 'role' => 'target', 'created_at' => $now, 'updated_at' => $now]
-                    ]);
-
-                    DB::table('shift_swap_request_shifts')->insert([
-                        ['swap_request_id' => $swapId, 'shift_id' => $reqShift, 'owner_user_id' => $requester->id, 'type' => 'offered', 'created_at' => $now, 'updated_at' => $now],
-                        ['swap_request_id' => $swapId, 'shift_id' => $tarShift, 'owner_user_id' => $targetPending2->id, 'type' => 'requested', 'created_at' => $now, 'updated_at' => $now]
+                        [
+                            'swap_request_id' => $swapId,
+                            'shift_id' => $reqShift,
+                            'owner_user_id' => $requester->id,
+                            'type' => 'offered',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        [
+                            'swap_request_id' => $swapId,
+                            'shift_id' => $tarShift,
+                            'owner_user_id' => $targetRejected->id,
+                            'type' => 'requested',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]
                     ]);
                 }
             }
