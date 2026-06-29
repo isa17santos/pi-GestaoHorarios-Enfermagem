@@ -71,10 +71,33 @@ const extractApiErrorMessage = (error: unknown, fallback: string) => {
 }
 // ==================== Schedule List Helpers ====================
 const publishedSchedules = computed(() => {
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() // 0 = Janeiro, 1 = Fevereiro, etc.
+
   return schedules.value
-    .filter((item) => item.status === 'published')
+    .filter((item) => {
+      if (item.status !== 'published') return false
+      if (!item.start_date) return false
+
+      const parts = item.start_date.split('-')
+      const partYear = parts[0]
+      const partMonth = parts[1]
+
+      if (partYear === undefined || partMonth === undefined) return false
+
+      const year = parseInt(partYear, 10)
+      const month = parseInt(partMonth, 10) - 1 
+
+      if (Number.isNaN(year) || Number.isNaN(month)) return false
+
+      if (year > currentYear) return true
+      if (year === currentYear && month >= currentMonth) return true
+      return false
+    })
     .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
 })
+
 const revisionSchedules = computed(() => {
   return schedules.value
     .filter((item) => item.status === 'revision')

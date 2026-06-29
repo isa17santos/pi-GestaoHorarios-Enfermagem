@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 definePageMeta({
   middleware: 'auth',
@@ -17,6 +17,7 @@ const {
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 const filter = ref<'all' | 'unread' | 'read'>('all')
 const statusMessage = ref<{ key: string; type: 'success' | 'error' } | null>(null)
+
 
 useHead({
   title: currentLocale.value === 'pt' ? 'Notificações - ShiftCare' : 'Notifications - ShiftCare',
@@ -41,6 +42,10 @@ const texts = computed(() => ({
   markAllReadSuccess: currentLocale.value === 'pt' ? 'Todas as notificações marcadas como lidas.' : 'All notifications marked as read.',
   loading: currentLocale.value === 'pt' ? 'A carregar notificações...' : 'Loading notifications...',
   receivedAt: currentLocale.value === 'pt' ? 'Recebido a' : 'Received at',
+  pagination: {
+    previous: currentLocale.value === 'pt' ? 'Anterior' : 'Previous',
+    next: currentLocale.value === 'pt' ? 'Seguinte' : 'Next',
+  },
 }))
 
 const showToast = (key: string, type: 'success' | 'error' = 'success') => {
@@ -72,6 +77,32 @@ const filteredNotifications = computed(() => {
   }
   return notifications.value
 })
+
+// --- Pagination ---
+const pageSize = 5 
+const currentPage = ref(1)
+
+const totalItems = computed(() => filteredNotifications.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / pageSize)))
+const paginatedNotifications = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredNotifications.value.slice(start, start + pageSize)
+})
+
+const goToPreviousPage = () => { if (currentPage.value > 1) currentPage.value-- }
+const goToNextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++ }
+const setPage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value) currentPage.value = page
+}
+
+watch(filter, () => {
+  currentPage.value = 1
+})
+
+watch(totalPages, (newTotal) => {
+  if (currentPage.value > newTotal) currentPage.value = newTotal
+})
+// ---------------------------
 
 const shiftNameMap: Record<string, { pt: string; en: string }> = {
   morning:         { pt: 'Manhã',           en: 'Morning' },
@@ -209,43 +240,71 @@ onMounted(async () => {
             <p>{{ texts.empty }}</p>
           </div>
 
-          <div v-else class="notifications-list">
-            <div 
-              v-for="notif in filteredNotifications" 
-              :key="notif.id" 
-              :class="['notification-item-card', { 'unread': !notif.read }]"
-              @click="handleCardClick(notif)"
-            >
-              <div class="notif-header-info">
-                <div :class="['notif-avatar', { 'unread-avatar': !notif.read }]">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                    <polyline points="22,6 12,13 2,6"></polyline>
-                  </svg>
-                </div>
-                
-                <div class="notif-text-content">
-                  <div class="notif-title-row">
-                    <h3 class="notif-subject">{{ notif.subject }}</h3>
-                    <span v-if="!notif.read" class="unread-badge-dot"></span>
+                    <template v-else>
+            <div class="notifications-list">
+              <div 
+                v-for="notif in paginatedNotifications" 
+                :key="notif.id" 
+                :class="['notification-item-card', { 'unread': !notif.read }]"
+                @click="handleCardClick(notif)"
+              >
+                <div class="notif-header-info">
+                  <div :class="['notif-avatar', { 'unread-avatar': !notif.read }]">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                      <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
                   </div>
-                  <p class="notif-body">{{ formatNotificationBody(notif.body) }}</p>
-                  <span class="notif-date">{{ texts.receivedAt }}: {{ formatDate(notif.created_at) }}</span>
+                  
+                  <div class="notif-text-content">
+                    <div class="notif-title-row">
+                      <h3 class="notif-subject">{{ notif.subject }}</h3>
+                      <span v-if="!notif.read" class="unread-badge-dot"></span>
+                    </div>
+                    <p class="notif-body">{{ formatNotificationBody(notif.body) }}</p>
+                    <span class="notif-date">{{ texts.receivedAt }}: {{ formatDate(notif.created_at) }}</span>
+                  </div>
                 </div>
-              </div>
-              <div class="notif-actions" v-if="!notif.read">
-                <button 
-                  class="mark-single-read-btn" 
-                  @click.stop="handleCardClick(notif)"
-                  :title="texts.markReadSuccess"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="16" height="16">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </button>
+                <div class="notif-actions" v-if="!notif.read">
+                  <button 
+                    class="mark-single-read-btn" 
+                    @click.stop="handleCardClick(notif)"
+                    :title="texts.markReadSuccess"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="16" height="16">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+
+            <!-- Controles de Paginação -->
+            <div v-if="totalPages > 1" class="notif-pagination">
+              <button class="pagination-btn" :disabled="currentPage === 1" :title="texts.pagination.previous" @click="goToPreviousPage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+
+              <div class="pagination-numbers">
+                <button
+                  v-for="p in totalPages"
+                  :key="p"
+                  :class="['page-num', { active: p === currentPage }]"
+                  @click="setPage(p)"
+                >
+                  {{ p }}
+                </button>
+              </div>
+
+              <button class="pagination-btn" :disabled="currentPage === totalPages || totalItems === 0" :title="texts.pagination.next" @click="goToNextPage">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </section>

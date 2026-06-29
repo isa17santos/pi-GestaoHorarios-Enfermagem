@@ -28,7 +28,9 @@ const statusMessage = ref<{ key: string, type: 'success' | 'error' } | null>(nul
 const errors = ref<Record<string, string>>({})
 
 // Modelo reativo do formulário de dados pessoais
+// Modelo reativo do formulário de dados pessoais
 const profileForm = ref({
+  name: '',
   email: '',
 })
 
@@ -106,7 +108,8 @@ const texts = computed(() => ({
   preferencesSuccess: currentLocale.value === 'pt' ? 'Preferências guardadas com sucesso!' : 'Preferences saved successfully!',
   preferencesError: currentLocale.value === 'pt' ? 'Erro ao guardar preferências.' : 'Error saving preferences.',
   fetchPreferencesError: currentLocale.value === 'pt' ? 'Erro ao carregar preferências.' : 'Error loading preferences.',
-  validation: {
+    validation: {
+    nameRequired: currentLocale.value === 'pt' ? 'O nome é obrigatório' : 'Name is required',
     email: currentLocale.value === 'pt' ? 'O email é obrigatório' : 'Email is required',
     emailInvalid: currentLocale.value === 'pt' ? 'Introduza um email válido' : 'Enter a valid email address',
     month: currentLocale.value === 'pt' ? 'Selecione o mês' : 'Select a month',
@@ -466,7 +469,7 @@ const handleEditPickerOutsideClick = (event: MouseEvent) => {
 }
 
 const hydrateProfileFormFromUser = () => {
-  // O nome é apenas informativo nesta página; apenas o email é editável
+  profileForm.value.name = user.value?.name || ''
   profileForm.value.email = user.value?.email || ''
 }
 
@@ -509,6 +512,12 @@ const fetchPreferences = async () => {
 const validateProfileForm = () => {
   errors.value = {}
 
+  if (user.value?.role === 'admin') {
+    if (!profileForm.value.name.trim()) {
+      errors.value.name = 'nameRequired'
+    }
+  }
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   if (!profileForm.value.email.trim()) {
@@ -536,13 +545,16 @@ const enforceWeekendPreferenceExclusivity = (
 }
 
 const saveProfile = async () => {
+  if (user.value?.role !== 'admin') {
+    return
+  }
+
   if (!validateProfileForm()) {
     showNotification('formError', 'error')
     return
   }
 
-  // Evita chamada à API desnecessária quando o email não foi alterado
-  if (profileForm.value.email === user.value?.email) {
+  if (profileForm.value.name === user.value?.name && profileForm.value.email === user.value?.email) {
     showNotification('noChanges', 'error')
     return
   }
@@ -550,7 +562,6 @@ const saveProfile = async () => {
   savingProfile.value = true
 
   try {
-    // Atualização de perfil simplificada: apenas o email pode ser alterado aqui
     await $fetch(`${config.public.apiBase}/profile`, {
       method: 'PATCH',
       headers: {
@@ -558,6 +569,7 @@ const saveProfile = async () => {
         Accept: 'application/json',
       },
       body: {
+        name: profileForm.value.name,
         email: profileForm.value.email,
       },
     })
@@ -806,13 +818,25 @@ onBeforeUnmount(() => {
 
       <form v-else class="profile-form" @submit.prevent="saveProfile" novalidate>
         <div class="profile-grid">
-          <!-- Nome apenas de leitura; edição de perfil limitada ao email -->
-          <div class="form-group profile-readonly-name">
+          <div v-if="user?.role === 'admin'" class="form-group">
+            <label>{{ texts.labels.name }}</label>
+            <input
+              v-model="profileForm.name"
+              type="text"
+              :placeholder="texts.placeholders.name"
+              class="uc-input"
+              :class="{ 'input-error': errors.name }"
+            />
+            <transition name="fade">
+              <span v-if="errors.name" class="field-error">{{ (texts.validation as any)[errors.name] }}</span>
+            </transition>
+          </div>
+          <div v-else class="form-group profile-readonly-name">
             <label>{{ texts.labels.name }}</label>
             <strong>{{ user?.name || '-' }}</strong>
           </div>
 
-          <div class="form-group">
+          <div v-if="user?.role === 'admin'" class="form-group">
             <label>{{ texts.labels.email }}</label>
             <input
               v-model="profileForm.email"
@@ -825,15 +849,17 @@ onBeforeUnmount(() => {
               <span v-if="errors.email" class="field-error">{{ (texts.validation as any)[errors.email] }}</span>
             </transition>
           </div>
+          <div v-else class="form-group profile-readonly-name">
+            <label>{{ texts.labels.email }}</label>
+            <strong>{{ user?.email || '-' }}</strong>
+          </div>
         </div>
 
-        <!-- A alteração de palavra-passe segue o fluxo de recuperação (envio de email + token) -->
-        <!-- Ações de dados pessoais: métricas alinhadas ao botão "Adicionar Preferências" -->
         <div class="profile-actions profile-actions--personal">
           <NuxtLink to="/change-password" class="secondary-btn">
             {{ texts.changePassword }}
           </NuxtLink>
-          <button type="submit" class="submit-btn" :class="{ loading: savingProfile }" :disabled="savingProfile">
+          <button v-if="user?.role === 'admin'" type="submit" class="submit-btn" :class="{ loading: savingProfile }" :disabled="savingProfile">
             {{ savingProfile ? texts.savingProfile : texts.saveProfile }}
           </button>
         </div>

@@ -1,3 +1,47 @@
+.notif-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px 0 0;
+  margin-top: 20px;
+  border-top: 1px solid rgba(126, 90, 181, 0.08);
+}
+.notif-pagination .pagination-numbers {
+  display: flex;
+  gap: 8px;
+}
+.notif-pagination .pagination-btn,
+.notif-pagination .page-num {
+  height: 40px;
+  width: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 67, 155, 0.15);
+  background: white;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: grid;
+  place-items: center;
+}
+.notif-pagination .pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.notif-pagination .page-num:hover:not(.active),
+.notif-pagination .pagination-btn:hover:not(:disabled) {
+  border-color: var(--primary-soft, #c0a8f5);
+  color: var(--primary-strong, #66439b);
+  transform: translateY(-2px);
+}
+.notif-pagination .page-num.active {
+  background: var(--primary, #ac8af1);
+  color: white;
+  border-color: var(--primary, #ac8af1);
+  box-shadow: 0 6px 12px rgba(125, 83, 213, 0.2);
+}
+
 .notifications-page {
   padding-bottom: 60px;
 }

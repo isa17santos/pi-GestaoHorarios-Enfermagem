@@ -16,7 +16,7 @@ const searchQuery = ref<string>('')
 const isUserDropdownOpen = ref(false)
 const isMonthDropdownOpen = ref(false)
 const isGeneratingPdf = ref(false)
-const pageSize = 10
+const pageSize = 4
 const currentPage = ref(1)
 
 type NurseUser = { id: number; name: string; role: string; active: boolean }

@@ -10,8 +10,15 @@ class UpdateProfileRequest extends FormRequest
     // Determine if the user is authorized to make this request.
     public function authorize(): bool
     {
-        // Authorization is handled by the auth:sanctum middleware.
-        return true;
+        $user = $this->user();
+        if (!$user) {
+            return false;
+        }
+
+        $roleValue = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+
+        // Only the admin is authorized to use this profile update endpoint
+        return $roleValue === 'admin';
     }
 
     // Get the validation rules that apply to the request.
@@ -23,7 +30,6 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name'                  => ['sometimes', 'string', 'max:255'],
             'email'                 => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
-            'password'              => ['sometimes', 'string', 'min:8', 'confirmed'],
         ];
     }
 
@@ -34,8 +40,6 @@ class UpdateProfileRequest extends FormRequest
         return [
             'email.unique' => __('auth.email_already_in_use'),
             'email.email' => __('auth.email_invalid'),
-            'password.min' => __('auth.password_min'),
-            'password.confirmed' => __('auth.password_confirmation_mismatch'),
         ];
     }
 }
