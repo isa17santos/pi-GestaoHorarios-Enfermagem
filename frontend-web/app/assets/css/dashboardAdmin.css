@@ -232,6 +232,32 @@
   line-height: 1.5;
 }
 
+/* Valor numérico destacado nos cards informativos do nurse */
+.bento-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-top: 4px;
+}
+
+/* Badges de contagem por tipo de turno */
+.bento-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.bento-breakdown-badge {
+  background: rgba(102, 67, 155, 0.08);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(102, 67, 155, 0.15);
+}
+
 /* --------------------- MEDIA QUERIES --------------------- */
 
 @media (max-width: 1024px) {

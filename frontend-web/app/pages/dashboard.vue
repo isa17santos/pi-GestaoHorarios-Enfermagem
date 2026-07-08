@@ -5,9 +5,15 @@ definePageMeta({
 
 const { user } = useAuth()
 const { pendingReceivedCount, fetchPendingReceivedCount } = useSwap()
+const { nurseData, headNurseData, fetchDashboard } = useDashboard()
 
 onMounted(() => {
   fetchPendingReceivedCount()
+  // Dashboard summary is fetched for nurse and head_nurse; admin has no summary card yet.
+  const role = user.value?.role?.trim().toLowerCase()
+  if (role === 'nurse' || role === 'head_nurse') {
+    fetchDashboard()
+  }
 })
 
 // Perfis de utilizador simplificados
@@ -32,6 +38,7 @@ const texts = computed(() => ({
   welcome: currentLocale.value === 'pt' ? 'Bem-vindo' : 'Welcome',
   
   // Textos Enfermeiro Chefe
+  teamPendingSwaps: currentLocale.value === 'pt' ? 'Trocas pendentes da equipa' : 'Team pending swaps',
   createSchedule: currentLocale.value === 'pt' ? 'Criar horário' : 'Create schedule',
   editSchedule: currentLocale.value === 'pt' ? 'Editar horário' : 'Edit schedule',
   viewSchedule: currentLocale.value === 'pt' ? 'Consultar horário' : 'View schedule',
@@ -47,6 +54,8 @@ const texts = computed(() => ({
   // Textos Enfermeiro
   schedule: currentLocale.value === 'pt' ? 'Horário' : 'Schedule',
   swaps: currentLocale.value === 'pt' ? 'Trocas' : 'Shift Swaps',
+  monthlyHours: currentLocale.value === 'pt' ? 'Horas este mês' : 'Hours this month',
+  shiftBreakdown: currentLocale.value === 'pt' ? 'Turnos por tipo' : 'Shifts by type',
   
   // Partilhado
   statistics: currentLocale.value === 'pt' ? 'Estatísticas' : 'Statistics',
@@ -80,6 +89,21 @@ const texts = computed(() => ({
         <!-- CARDS DO ENFERMEIRO CHEFE (HEAD NURSE)     -->
         <!-- ========================================== -->
         <template v-if="isHeadNurse">
+
+          <!-- Indicador de trocas pendentes — aparece no topo assim que os dados chegam -->
+          <div v-if="headNurseData" class="bento-card bento-card--sick">
+            <div class="bento-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <polyline points="17 1 21 5 17 9"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 23 3 19 7 15"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+            </div>
+            <h3>{{ texts.teamPendingSwaps }}</h3>
+            <p class="bento-stat-value">{{ headNurseData.team_pending_swaps_count }}</p>
+          </div>
+
           <NuxtLink to="/schedule-create" class="bento-card bento-card--hr">
             <div class="bento-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
@@ -166,6 +190,39 @@ const texts = computed(() => ({
             <h3>{{ texts.swaps }}</h3>
             <p>{{ currentLocale === 'pt' ? 'Gerir pedidos de troca de turno' : 'Manage shift swap requests' }}</p>
           </NuxtLink>
+
+          <!-- Card de horas mensais: só aparece quando os dados do dashboard já chegaram -->
+          <div v-if="nurseData" class="bento-card bento-card--stats">
+            <div class="bento-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3>{{ texts.monthlyHours }}</h3>
+            <p class="bento-stat-value">{{ nurseData.monthly_hours }}h</p>
+          </div>
+
+          <!-- Card de distribuição por tipo de turno -->
+          <div v-if="nurseData" class="bento-card bento-card--shifts">
+            <div class="bento-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+            </div>
+            <h3>{{ texts.shiftBreakdown }}</h3>
+            <div class="bento-breakdown">
+              <span
+                v-for="(count, name) in nurseData.shift_type_breakdown"
+                :key="name"
+                class="bento-breakdown-badge"
+              >
+                {{ name }}: {{ count }}
+              </span>
+            </div>
+          </div>
         </template>
 
 
@@ -243,7 +300,8 @@ const texts = computed(() => ({
         <!-- ========================================== -->
         <!-- CARD PARTILHADO: ESTATÍSTICAS              -->
         <!-- ========================================== -->
-        <NuxtLink v-if="isAdmin || isNurse || isHeadNurse" to="/statistics" class="bento-card bento-card--stats">
+        <!-- Link para estatísticas — apenas admin e head_nurse; nurse não tem acesso a esta página -->
+        <NuxtLink v-if="isAdmin || isHeadNurse" to="/estatisticas" class="bento-card bento-card--stats">
           <div class="bento-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
               <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -252,10 +310,8 @@ const texts = computed(() => ({
             </svg>
           </div>
           <h3>{{ texts.statistics }}</h3>
-          
           <p v-if="isAdmin">{{ currentLocale === 'pt' ? 'Controlo de serviços e recursos' : 'Service and resource control' }}</p>
-          <p v-else-if="isHeadNurse">{{ currentLocale === 'pt' ? 'Relatórios de cobertura da equipa' : 'Team coverage reports' }}</p>
-          <p v-else>{{ currentLocale === 'pt' ? 'As minhas estatísticas e horas' : 'My statistics and hours' }}</p>
+          <p v-else>{{ currentLocale === 'pt' ? 'Relatórios de cobertura da equipa' : 'Team coverage reports' }}</p>
         </NuxtLink>
 
       </div>
