@@ -462,13 +462,13 @@
                                                     ]
                                                 },
                                                 "monthly_hours": {
-                                                    "description": "Apenas para role nurse",
+                                                    "description": "Horas trabalhadas este mês até hoje (exclui turnos futuros) — apenas para role nurse e head_nurse",
                                                     "type": "number",
                                                     "format": "float",
                                                     "example": 160.5
                                                 },
                                                 "shift_type_breakdown": {
-                                                    "description": "Contagem de turnos por tipo — apenas para role nurse",
+                                                    "description": "Contagem de turnos por tipo — apenas para role nurse e head_nurse",
                                                     "type": "object",
                                                     "example": {
                                                         "manhã": 8,
@@ -476,15 +476,36 @@
                                                         "noite": 4
                                                     }
                                                 },
-                                                "pending_swaps_count": {
-                                                    "description": "Pedidos de troca pendentes onde o nurse é target — apenas para role nurse",
-                                                    "type": "integer",
-                                                    "example": 2
-                                                },
                                                 "swaps_this_month": {
-                                                    "description": "Pedidos de troca do mês (como requester ou target) — apenas para role nurse",
+                                                    "description": "Pedidos de troca do mês do próprio utilizador (como requester ou target) — apenas para role nurse e head_nurse",
                                                     "type": "integer",
                                                     "example": 5
+                                                },
+                                                "today_shift": {
+                                                    "description": "Turno do próprio utilizador atribuído a hoje, ou null se não houver — apenas para role nurse e head_nurse",
+                                                    "type": "object",
+                                                    "example": {
+                                                        "shift_type": {
+                                                            "name": "morning",
+                                                            "color": "#7C5CFC",
+                                                            "start_time": "08:00:00",
+                                                            "end_time": "16:00:00"
+                                                        }
+                                                    },
+                                                    "nullable": true
+                                                },
+                                                "tomorrow_shift": {
+                                                    "description": "Turno do próprio utilizador atribuído a amanhã, ou null se não houver — apenas para role nurse e head_nurse",
+                                                    "type": "object",
+                                                    "example": {
+                                                        "shift_type": {
+                                                            "name": "night",
+                                                            "color": "#4C3A8C",
+                                                            "start_time": "23:00:00",
+                                                            "end_time": "08:00:00"
+                                                        }
+                                                    },
+                                                    "nullable": true
                                                 },
                                                 "team_pending_swaps_count": {
                                                     "description": "Total de pedidos de troca pendentes na equipa — apenas para role head_nurse",
@@ -492,7 +513,7 @@
                                                     "example": 3
                                                 },
                                                 "team_swaps_this_month": {
-                                                    "description": "Total de pedidos de troca criados este mês — apenas para role head_nurse",
+                                                    "description": "Total de pedidos de troca criados este mês por toda a equipa — apenas para role head_nurse",
                                                     "type": "integer",
                                                     "example": 10
                                                 },
@@ -3615,6 +3636,16 @@
                                                     "description": "Apenas para role admin",
                                                     "type": "integer",
                                                     "example": 4
+                                                },
+                                                "inactive_users_count": {
+                                                    "description": "Apenas para role admin — total de utilizadores com active = false, sem filtro de role nem de mês",
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "pending_password_change_count": {
+                                                    "description": "Apenas para role admin — total de utilizadores com must_change_password = true, sem filtro de role nem de mês",
+                                                    "type": "integer",
+                                                    "example": 1
                                                 },
                                                 "acceptance_rate": {
                                                     "description": "Percentagem de trocas aceites sobre respondidas no mês — apenas para role head_nurse. Null se não houver pedidos respondidos.",
