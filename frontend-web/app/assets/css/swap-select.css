@@ -159,10 +159,6 @@
   }
 }
 
-.weekly-grid-container {
-  backdrop-filter: none;
-}
-
 .schedule-hint-bar {
   display: flex;
   align-items: center;

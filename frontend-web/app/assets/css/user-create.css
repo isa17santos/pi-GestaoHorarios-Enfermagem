@@ -52,7 +52,6 @@
   border-radius: 40px;
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 30px 60px rgba(102, 67, 155, 0.08);
-  backdrop-filter: blur(24px);
   padding: 60px 80px;
 }
 

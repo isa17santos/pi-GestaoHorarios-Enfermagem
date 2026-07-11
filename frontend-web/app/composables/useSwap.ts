@@ -28,6 +28,7 @@ type SwapParticipant = {
 type SwapShiftType = {
   id: number
   name: string
+  color: string
 }
 
 type SwapShift = {

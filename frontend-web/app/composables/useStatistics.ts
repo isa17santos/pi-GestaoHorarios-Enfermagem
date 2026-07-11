@@ -6,6 +6,8 @@ type StatisticsAdmin = {
   head_nurses_count: number
   medical_leaves_this_month: number
   vacations_this_month: number
+  inactive_users_count: number
+  pending_password_change_count: number
 }
 
 type NurseHoursEntry = {
@@ -17,7 +19,11 @@ type NurseHoursEntry = {
 type QualityBreakdown = {
   swaps_this_month: number
   min_nurses_violations: number
-  preference_violations: number | null
+  // Violações de preferências separadas por unidade: type é contado por enfermeiro (padrão
+  // sistemático), weekend é contado por turno — mantê-las separadas evita números que
+  // excedem o total de enfermeiros da equipa.
+  preference_type_violations: number
+  preference_weekend_violations: number
 }
 
 type StatisticsHeadNurse = {
@@ -25,6 +31,7 @@ type StatisticsHeadNurse = {
   acceptance_rate: number | null
   avg_hours_per_nurse: NurseHoursEntry[]
   quality_indicator: 'bom' | 'medio' | 'mau'
+  quality_score: number
   quality_breakdown: QualityBreakdown
 }
 

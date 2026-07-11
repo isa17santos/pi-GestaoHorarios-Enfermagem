@@ -1,15 +1,30 @@
 // Response shapes for each role variant returned by GET /api/dashboard
 
+type DashboardShift = {
+  shift_type: {
+    name: string
+    color: string
+    start_time: string
+    end_time: string
+  }
+} | null
+
 type DashboardNurse = {
   role: 'nurse'
   monthly_hours: number
   shift_type_breakdown: Record<string, number>
-  pending_swaps_count: number
   swaps_this_month: number
+  today_shift: DashboardShift
+  tomorrow_shift: DashboardShift
 }
 
 type DashboardHeadNurse = {
   role: 'head_nurse'
+  monthly_hours: number
+  shift_type_breakdown: Record<string, number>
+  swaps_this_month: number
+  today_shift: DashboardShift
+  tomorrow_shift: DashboardShift
   team_pending_swaps_count: number
   team_swaps_this_month: number
 }
