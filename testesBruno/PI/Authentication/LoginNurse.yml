@@ -11,13 +11,11 @@ http:
       value: application/json
   body:
     type: json
-    data: "{\r
-
-      \    \"email\": \"mariana.rocha@example.pt\",\r
-
-      \    \"password\": \"password\"\r
-
-      }"
+    data: |-
+      {
+          "email": "beatriz.sousa@example.pt",
+          "password": "password"
+      }
   auth: inherit
 
 settings:

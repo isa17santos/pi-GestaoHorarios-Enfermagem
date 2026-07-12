@@ -29,4 +29,5 @@ return [
     'offered_shift_too_soon' => 'Swaps are not allowed for shifts occurring today or in the past.',
     //'offered_shift_too_soon_old' => 'Offered shifts must be scheduled for more than 2 days from today.',
     'duplicate_request' => 'A pending swap request already exists for these shifts.',
+    'unauthorized_action' => 'The authenticated user cannot interact with this swap request.',
 ];

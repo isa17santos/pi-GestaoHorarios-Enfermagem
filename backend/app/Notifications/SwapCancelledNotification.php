@@ -16,6 +16,7 @@ class SwapCancelledNotification extends Notification
     public function __construct(
         public ShiftSwapRequest $swapRequest,
         public bool $expired = false,
+        public bool $byRequester = false,
     ) {
     }
 
@@ -44,9 +45,14 @@ class SwapCancelledNotification extends Notification
         $requestedDate = $this->formatShiftDate($requestedShift?->shift?->shift_date?->toDateString());
         $requestedType = $requestedShift?->shift?->shiftType?->name ?? '-';
 
-        $body = $this->expired
-            ? "O seu pedido de troca do turno de {$offeredType} ({$offeredDate}) pelo turno de {$requestedType} ({$requestedDate}) foi cancelado automaticamente porque a data do turno já passou."
-            : "O seu pedido de troca do turno de {$offeredType} ({$offeredDate}) pelo turno de {$requestedType} ({$requestedDate}) foi cancelado porque o turno já foi trocado por outro enfermeiro.";
+        $requester = $this->swapRequest->participants->firstWhere('role', 'requester');
+        $requesterName = (string) ($requester?->user?->name ?? '-');
+
+        $body = match (true) {
+            $this->expired => "O seu pedido de troca do turno de {$offeredType} ({$offeredDate}) pelo turno de {$requestedType} ({$requestedDate}) foi cancelado automaticamente porque a data do turno já passou.",
+            $this->byRequester => "{$requesterName} cancelou o pedido de troca do turno de {$requestedType} ({$requestedDate}) pelo turno de {$offeredType} ({$offeredDate}).",
+            default => "O seu pedido de troca do turno de {$offeredType} ({$offeredDate}) pelo turno de {$requestedType} ({$requestedDate}) foi cancelado porque o turno já foi trocado por outro enfermeiro.",
+        };
 
         return [
             'subject' => 'Pedido de Troca Cancelado',

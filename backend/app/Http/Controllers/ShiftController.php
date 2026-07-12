@@ -20,7 +20,7 @@ class ShiftController extends Controller
 {
     #[OA\Get(
         path: '/api/shifts',
-        summary: 'List shifts with optional filters',
+        summary: 'Listar turnos com filtros opcionais',
         security: [['bearerAuth' => []]],
         tags: ['Shifts'],
         parameters: [
@@ -28,56 +28,56 @@ class ShiftController extends Controller
                 name: 'mine',
                 in: 'query',
                 required: false,
-                description: 'Filter shifts assigned to the authenticated user',
+                description: 'Filtrar apenas os turnos do utilizador autenticado',
                 schema: new OA\Schema(type: 'boolean')
             ),
             new OA\Parameter(
                 name: 'user_id',
                 in: 'query',
                 required: false,
-                description: 'Filter shifts assigned to a specific user',
+                description: 'Filtrar turnos atribuídos a um utilizador específico',
                 schema: new OA\Schema(type: 'integer')
             ),
             new OA\Parameter(
                 name: 'from',
                 in: 'query',
                 required: false,
-                description: 'Filter shifts with shift_date >= from (YYYY-MM-DD)',
+                description: 'Filtrar turnos com shift_date >= from (YYYY-MM-DD)',
                 schema: new OA\Schema(type: 'string', format: 'date')
             ),
             new OA\Parameter(
                 name: 'future',
                 in: 'query',
                 required: false,
-                description: 'Filter shifts with shift_date > today',
+                description: 'Filtrar apenas turnos futuros (shift_date > hoje)',
                 schema: new OA\Schema(type: 'boolean')
             ),
             new OA\Parameter(
                 name: 'date',
                 in: 'query',
                 required: false,
-                description: 'Filter shifts by exact shift_date (YYYY-MM-DD)',
+                description: 'Filtrar turnos por data exacta (YYYY-MM-DD)',
                 schema: new OA\Schema(type: 'string', format: 'date')
             ),
             new OA\Parameter(
                 name: 'shift_type_id',
                 in: 'query',
                 required: false,
-                description: 'Filter shifts by shift type id. When combined with month, scopes the availability aggregation.',
+                description: 'Filtrar por tipo de turno. Combinado com month, agrega disponibilidade por data.',
                 schema: new OA\Schema(type: 'integer')
             ),
             new OA\Parameter(
                 name: 'month',
                 in: 'query',
                 required: false,
-                description: 'When combined with shift_type_id, returns aggregated availability per date (YYYY-MM). Response shape: { "data": { "2026-06-15": 3, ... } }',
+                description: 'Combinado com shift_type_id, devolve contagem de disponibilidade por data (YYYY-MM). Formato da resposta: { "data": { "2026-06-15": 3, ... } }',
                 schema: new OA\Schema(type: 'string', example: '2026-06')
             ),
         ],
         responses: [
             new OA\Response(
                 response: 200,
-                description: 'Successful response — array of shifts, or date-keyed counts when month param is present',
+                description: 'Lista de turnos devolvida com sucesso. Quando o parâmetro month está presente, devolve contagens por data.',
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(
@@ -88,7 +88,7 @@ class ShiftController extends Controller
                     ]
                 )
             ),
-            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 401, description: 'Não autenticado'),
         ]
     )]
     public function index(Request $request): AnonymousResourceCollection|JsonResponse
@@ -121,6 +121,12 @@ class ShiftController extends Controller
         // Exclude shifts assigned exclusively to head nurses.
         $query->whereHas('users', function ($q): void {
             $q->where('users.role', '!=', UserRole::HeadNurse->value);
+        });
+
+        // Only consider shifts from published schedules — schedules under revision
+        // duplicate shifts from the original published schedule and shouldn't appear as swap candidates.
+        $query->whereHas('schedule', function ($q): void {
+            $q->where('status', 'published');
         });
 
         if ($request->filled('from')) {

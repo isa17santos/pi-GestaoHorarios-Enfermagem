@@ -1,0 +1,26 @@
+info:
+  name: 201SwapShift_ValidRequest
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/swaps"
+  body:
+    type: json
+    data: |
+      {
+        "offered_shift_ids": [1107],
+        "requested_shift_ids": [1104],
+        "target_user_id": 7,
+        "notes": "Pedido de teste"
+      }
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

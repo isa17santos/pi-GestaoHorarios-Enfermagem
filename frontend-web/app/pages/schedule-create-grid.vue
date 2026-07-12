@@ -566,6 +566,27 @@ const visibleShiftTypes = computed(() => {
   return shiftTypes.value.filter(st => !isVacationOrSickLeaveById(st.id))
 })
 
+// Shift types with a configured minimum, used to build the coverage footer rows (one row per type, dynamic count).
+const coverageShiftTypes = computed(() => {
+  return visibleShiftTypes.value.filter(st => (st.min_nurses ?? 0) > 0)
+})
+
+// Live, read-only coverage for one shift type on one day: how many nurses are currently assigned
+// vs. the shift type's min_nurses target. Purely informational, no backend call, no hard block.
+const getDayShiftCoverage = (shiftType: { id: number; min_nurses?: number }, dateIso: string) => {
+  const assigned = nurses.value.reduce((count, nurse) => {
+    return getCellShiftTypeId(nurse.id, dateIso) === shiftType.id ? count + 1 : count
+  }, 0)
+
+  const min = shiftType.min_nurses ?? 0
+
+  return {
+    assigned,
+    min,
+    isBelowMin: assigned < min,
+  }
+}
+
 type FillValidationResult = {
   allowed: boolean
   reason?: 'overlap' | 'rest_warning'
@@ -876,6 +897,27 @@ const getLocalizedShiftTypeName = (name: string) => {
     shiftNames[normalizedName.replace(/\s+/g, ' ')] ||
     name
   )
+}
+
+// ==================== Coverage Summary Scroll Sync ====================
+// The coverage summary lives in its own card (separate border from the grid), so its horizontal
+// scroll must be synced manually with the main grid's scroll to keep day columns aligned.
+const mainGridScrollRef = ref<HTMLElement | null>(null)
+const coverageScrollRef = ref<HTMLElement | null>(null)
+let isSyncingScroll = false
+
+const handleMainGridScroll = () => {
+  if (isSyncingScroll || !mainGridScrollRef.value || !coverageScrollRef.value) return
+  isSyncingScroll = true
+  coverageScrollRef.value.scrollLeft = mainGridScrollRef.value.scrollLeft
+  isSyncingScroll = false
+}
+
+const handleCoverageScroll = () => {
+  if (isSyncingScroll || !mainGridScrollRef.value || !coverageScrollRef.value) return
+  isSyncingScroll = true
+  mainGridScrollRef.value.scrollLeft = coverageScrollRef.value.scrollLeft
+  isSyncingScroll = false
 }
 
 const showFloatingTooltip = (text: string, event: MouseEvent) => {
@@ -1758,7 +1800,7 @@ onBeforeUnmount(() => {
 
         <!-- ==================== Schedule Grid ==================== -->
 
-        <div class="schedule-grid-container">
+        <div ref="mainGridScrollRef" class="schedule-grid-container" @scroll="handleMainGridScroll">
           <table class="schedule-grid">
             <thead>
               <tr>
@@ -1850,6 +1892,40 @@ onBeforeUnmount(() => {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- ==================== Daily Minimum Coverage Summary ==================== -->
+        <!-- Own card, separate from the grid's container, so its border doesn't visually connect to the grid above.
+             Horizontal scroll is synced to the main grid's scroll position via handleCoverageScroll/mainGridScrollLeft
+             so the columns still stay aligned with the day headers when the user scrolls either one. -->
+        <div v-if="!isBootstrapping && !loadingNurses && !loadingShiftTypes && !loadingShifts && nurses.length"
+          class="schedule-coverage-summary">
+          <p class="schedule-coverage-summary__title">{{ texts.edit.coverageTitle }}</p>
+          <p class="schedule-coverage-summary__subtitle">{{ texts.edit.coverageSubtitle }}</p>
+
+          <div ref="coverageScrollRef" class="schedule-coverage-summary__scroll" @scroll="handleCoverageScroll">
+            <table class="schedule-grid schedule-grid__coverage-table">
+              <tbody>
+                <tr v-for="shiftType in coverageShiftTypes" :key="`coverage-row-${shiftType.id}`"
+                  class="schedule-grid__coverage-row">
+                  <td class="schedule-grid__nurse-cell schedule-grid__coverage-row-label">
+                    <span class="schedule-grid__coverage-row-swatch"
+                      :style="{ backgroundColor: getShiftTypeBackgroundColor(shiftType.id) || '' }"></span>
+                    {{ getLocalizedShiftTypeName(shiftType.name) }}
+                  </td>
+                  <td v-for="day in monthDays" :key="`coverage-${shiftType.id}-${day.dateIso}`"
+                    class="schedule-grid__coverage-cell"
+                    @mouseenter="showFloatingTooltip(getLocalizedShiftTypeName(shiftType.name), $event)"
+                    @mouseleave="hideFloatingTooltip">
+                    <span class="schedule-grid__coverage-value"
+                      :class="{ 'is-below-min': getDayShiftCoverage(shiftType, day.dateIso).isBelowMin }">
+                      <strong>{{ getDayShiftCoverage(shiftType, day.dateIso).assigned }}</strong><span class="schedule-grid__coverage-sep">/</span>{{ getDayShiftCoverage(shiftType, day.dateIso).min }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <Teleport to="body" v-if="tooltipVisible">

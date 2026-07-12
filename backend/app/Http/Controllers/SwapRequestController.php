@@ -434,6 +434,9 @@ class SwapRequestController extends Controller
 
         $swapRequest->load(self::RELATIONS);
 
+        $targetParticipant = $swapRequest->participants->firstWhere('role', 'target');
+        $targetParticipant?->user?->notify(new SwapCancelledNotification($swapRequest, byRequester: true));
+
         return new SwapRequestResource($swapRequest);
     }
 }

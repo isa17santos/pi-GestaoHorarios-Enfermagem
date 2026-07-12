@@ -436,6 +436,127 @@
                 }
             }
         },
+        "/api/dashboard": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Devolve dados de resumo do mês atual para o utilizador autenticado",
+                "operationId": "f9ae6bf029fd5455620e57be01c3b831",
+                "responses": {
+                    "200": {
+                        "description": "Dados de resumo devolvidos com sucesso. A estrutura varia consoante o role.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "nurse",
+                                                    "enum": [
+                                                        "nurse",
+                                                        "head_nurse",
+                                                        "admin"
+                                                    ]
+                                                },
+                                                "monthly_hours": {
+                                                    "description": "Horas trabalhadas este mês até hoje (exclui turnos futuros) — apenas para role nurse e head_nurse",
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 160.5
+                                                },
+                                                "shift_type_breakdown": {
+                                                    "description": "Contagem de turnos por tipo — apenas para role nurse e head_nurse",
+                                                    "type": "object",
+                                                    "example": {
+                                                        "manhã": 8,
+                                                        "tarde": 6,
+                                                        "noite": 4
+                                                    }
+                                                },
+                                                "swaps_this_month": {
+                                                    "description": "Pedidos de troca do mês do próprio utilizador (como requester ou target) — apenas para role nurse e head_nurse",
+                                                    "type": "integer",
+                                                    "example": 5
+                                                },
+                                                "today_shift": {
+                                                    "description": "Turno do próprio utilizador atribuído a hoje, ou null se não houver — apenas para role nurse e head_nurse",
+                                                    "type": "object",
+                                                    "example": {
+                                                        "shift_type": {
+                                                            "name": "morning",
+                                                            "color": "#7C5CFC",
+                                                            "start_time": "08:00:00",
+                                                            "end_time": "16:00:00"
+                                                        }
+                                                    },
+                                                    "nullable": true
+                                                },
+                                                "tomorrow_shift": {
+                                                    "description": "Turno do próprio utilizador atribuído a amanhã, ou null se não houver — apenas para role nurse e head_nurse",
+                                                    "type": "object",
+                                                    "example": {
+                                                        "shift_type": {
+                                                            "name": "night",
+                                                            "color": "#4C3A8C",
+                                                            "start_time": "23:00:00",
+                                                            "end_time": "08:00:00"
+                                                        }
+                                                    },
+                                                    "nullable": true
+                                                },
+                                                "team_pending_swaps_count": {
+                                                    "description": "Total de pedidos de troca pendentes na equipa — apenas para role head_nurse",
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "team_swaps_this_month": {
+                                                    "description": "Total de pedidos de troca criados este mês por toda a equipa — apenas para role head_nurse",
+                                                    "type": "integer",
+                                                    "example": 10
+                                                },
+                                                "nurses_count": {
+                                                    "description": "Número de enfermeiros — apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 20
+                                                },
+                                                "head_nurses_count": {
+                                                    "description": "Número de enfermeiros chefes — apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "medical_leaves_this_month": {
+                                                    "description": "Baixas médicas com sobreposição no mês atual — apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "vacations_this_month": {
+                                                    "description": "Férias com sobreposição no mês atual — apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 4
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/medical-leaves": {
             "get": {
                 "tags": [
@@ -2646,13 +2767,13 @@
                 "tags": [
                     "Shifts"
                 ],
-                "summary": "List shifts with optional filters",
+                "summary": "Listar turnos com filtros opcionais",
                 "operationId": "103e4bf991b78692d4f10f7abf16603c",
                 "parameters": [
                     {
                         "name": "mine",
                         "in": "query",
-                        "description": "Filter shifts assigned to the authenticated user",
+                        "description": "Filtrar apenas os turnos do utilizador autenticado",
                         "required": false,
                         "schema": {
                             "type": "boolean"
@@ -2661,7 +2782,7 @@
                     {
                         "name": "user_id",
                         "in": "query",
-                        "description": "Filter shifts assigned to a specific user",
+                        "description": "Filtrar turnos atribuídos a um utilizador específico",
                         "required": false,
                         "schema": {
                             "type": "integer"
@@ -2670,7 +2791,7 @@
                     {
                         "name": "from",
                         "in": "query",
-                        "description": "Filter shifts with shift_date >= from (YYYY-MM-DD)",
+                        "description": "Filtrar turnos com shift_date >= from (YYYY-MM-DD)",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -2680,7 +2801,7 @@
                     {
                         "name": "future",
                         "in": "query",
-                        "description": "Filter shifts with shift_date > today",
+                        "description": "Filtrar apenas turnos futuros (shift_date > hoje)",
                         "required": false,
                         "schema": {
                             "type": "boolean"
@@ -2689,7 +2810,7 @@
                     {
                         "name": "date",
                         "in": "query",
-                        "description": "Filter shifts by exact shift_date (YYYY-MM-DD)",
+                        "description": "Filtrar turnos por data exacta (YYYY-MM-DD)",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -2699,7 +2820,7 @@
                     {
                         "name": "shift_type_id",
                         "in": "query",
-                        "description": "Filter shifts by shift type id. When combined with month, scopes the availability aggregation.",
+                        "description": "Filtrar por tipo de turno. Combinado com month, agrega disponibilidade por data.",
                         "required": false,
                         "schema": {
                             "type": "integer"
@@ -2708,7 +2829,7 @@
                     {
                         "name": "month",
                         "in": "query",
-                        "description": "When combined with shift_type_id, returns aggregated availability per date (YYYY-MM). Response shape: { \"data\": { \"2026-06-15\": 3, ... } }",
+                        "description": "Combinado com shift_type_id, devolve contagem de disponibilidade por data (YYYY-MM). Formato da resposta: { \"data\": { \"2026-06-15\": 3, ... } }",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -2718,7 +2839,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Successful response — array of shifts, or date-keyed counts when month param is present",
+                        "description": "Lista de turnos devolvida com sucesso. Quando o parâmetro month está presente, devolve contagens por data.",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2736,7 +2857,7 @@
                         }
                     },
                     "401": {
-                        "description": "Unauthenticated"
+                        "description": "Não autenticado"
                     }
                 },
                 "security": [
@@ -3464,6 +3585,116 @@
                     },
                     "422": {
                         "description": "Payload inválido"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/statistics": {
+            "get": {
+                "tags": [
+                    "Statistics"
+                ],
+                "summary": "Devolve estatísticas do mês atual para admin ou head_nurse",
+                "operationId": "1502b3091dc313de47499cddeda4014f",
+                "responses": {
+                    "200": {
+                        "description": "Estatísticas devolvidas com sucesso. A estrutura varia consoante o role.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "role": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "admin",
+                                                        "head_nurse"
+                                                    ]
+                                                },
+                                                "nurses_count": {
+                                                    "description": "Apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 20
+                                                },
+                                                "head_nurses_count": {
+                                                    "description": "Apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "medical_leaves_this_month": {
+                                                    "description": "Apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "vacations_this_month": {
+                                                    "description": "Apenas para role admin",
+                                                    "type": "integer",
+                                                    "example": 4
+                                                },
+                                                "inactive_users_count": {
+                                                    "description": "Apenas para role admin — total de utilizadores com active = false, sem filtro de role nem de mês",
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "pending_password_change_count": {
+                                                    "description": "Apenas para role admin — total de utilizadores com must_change_password = true, sem filtro de role nem de mês",
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "acceptance_rate": {
+                                                    "description": "Percentagem de trocas aceites sobre respondidas no mês — apenas para role head_nurse. Null se não houver pedidos respondidos.",
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 75,
+                                                    "nullable": true
+                                                },
+                                                "avg_hours_per_nurse": {
+                                                    "description": "Horas trabalhadas no mês por cada enfermeiro, ordenadas de forma decrescente — apenas para role head_nurse",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "user_id": {
+                                                                "type": "integer",
+                                                                "example": 5
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "Ana Silva"
+                                                            },
+                                                            "hours": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 168.5
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "quality_indicator": {
+                                                    "description": "Indicador de qualidade — apenas para role head_nurse. Ainda não implementado.",
+                                                    "example": null,
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado"
+                    },
+                    "403": {
+                        "description": "Sem permissão para aceder às estatísticas"
                     }
                 },
                 "security": [
@@ -4645,6 +4876,14 @@
         }
     },
     "tags": [
+        {
+            "name": "Dashboard",
+            "description": "Dados de resumo por role para o painel principal"
+        },
+        {
+            "name": "Statistics",
+            "description": "Dados estatísticos por role"
+        },
         {
             "name": "SwapRequests",
             "description": "Gestão de pedidos de troca de turnos"

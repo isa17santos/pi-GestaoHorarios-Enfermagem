@@ -806,6 +806,71 @@ class DatabaseSeeder extends Seeder
                     ]);
                 }
             }
+
+            // Extra pending request received by Beatriz Sousa, so she can test both
+            // accepting and cancelling requests without switching users.
+            $beatriz = $nurseUsers->firstWhere('email', 'beatriz.sousa@example.pt');
+            $carlos = $nurseUsers->firstWhere('email', 'carlos.santos@example.pt');
+
+            if ($beatriz && $carlos) {
+                $dateBeatrizPending = '2026-07-31';
+                $createdAtBeatrizPending = \Carbon\Carbon::parse($dateBeatrizPending)->setTime(10, 0, 0);
+
+                $reqShiftBeatrizPending = $shiftsByDateAndNurse[$dateBeatrizPending][$carlos->id] ?? null;
+                $tarShiftBeatrizPending = $shiftsByDateAndNurse[$dateBeatrizPending][$beatriz->id] ?? null;
+
+                if ($reqShiftBeatrizPending && $tarShiftBeatrizPending) {
+                    $swapId = DB::table('shift_swap_requests')->insertGetId([
+                        'created_by' => $carlos->id,
+                        'status' => 'pending',
+                        'notes' => 'Troca pendente de 31 de Julho por ' . $carlos->name . '.',
+                        'created_at' => $createdAtBeatrizPending,
+                        'updated_at' => $createdAtBeatrizPending,
+                    ]);
+
+                    DB::table('shift_swap_participants')->insert([
+                        ['swap_request_id' => $swapId, 'user_id' => $carlos->id, 'role' => 'requester', 'created_at' => $createdAtBeatrizPending, 'updated_at' => $createdAtBeatrizPending],
+                        ['swap_request_id' => $swapId, 'user_id' => $beatriz->id, 'role' => 'target', 'created_at' => $createdAtBeatrizPending, 'updated_at' => $createdAtBeatrizPending]
+                    ]);
+
+                    DB::table('shift_swap_request_shifts')->insert([
+                        ['swap_request_id' => $swapId, 'shift_id' => $reqShiftBeatrizPending, 'owner_user_id' => $carlos->id, 'type' => 'offered', 'created_at' => $createdAtBeatrizPending, 'updated_at' => $createdAtBeatrizPending],
+                        ['swap_request_id' => $swapId, 'shift_id' => $tarShiftBeatrizPending, 'owner_user_id' => $beatriz->id, 'type' => 'requested', 'created_at' => $createdAtBeatrizPending, 'updated_at' => $createdAtBeatrizPending]
+                    ]);
+                }
+            }
+
+            // Extra pending request sent to Beatriz Sousa, so she can test rejecting
+            // a request without switching users.
+            $andre = $nurseUsers->firstWhere('email', 'andre.sousa@example.pt');
+
+            if ($beatriz && $andre) {
+                $dateBeatrizReject = '2026-07-29';
+                $createdAtBeatrizReject = \Carbon\Carbon::parse($dateBeatrizReject)->setTime(10, 0, 0);
+
+                $reqShiftBeatrizReject = $shiftsByDateAndNurse[$dateBeatrizReject][$andre->id] ?? null;
+                $tarShiftBeatrizReject = $shiftsByDateAndNurse[$dateBeatrizReject][$beatriz->id] ?? null;
+
+                if ($reqShiftBeatrizReject && $tarShiftBeatrizReject) {
+                    $swapId = DB::table('shift_swap_requests')->insertGetId([
+                        'created_by' => $andre->id,
+                        'status' => 'pending',
+                        'notes' => 'Troca pendente de 29 de Julho por ' . $andre->name . '.',
+                        'created_at' => $createdAtBeatrizReject,
+                        'updated_at' => $createdAtBeatrizReject,
+                    ]);
+
+                    DB::table('shift_swap_participants')->insert([
+                        ['swap_request_id' => $swapId, 'user_id' => $andre->id, 'role' => 'requester', 'created_at' => $createdAtBeatrizReject, 'updated_at' => $createdAtBeatrizReject],
+                        ['swap_request_id' => $swapId, 'user_id' => $beatriz->id, 'role' => 'target', 'created_at' => $createdAtBeatrizReject, 'updated_at' => $createdAtBeatrizReject]
+                    ]);
+
+                    DB::table('shift_swap_request_shifts')->insert([
+                        ['swap_request_id' => $swapId, 'shift_id' => $reqShiftBeatrizReject, 'owner_user_id' => $andre->id, 'type' => 'offered', 'created_at' => $createdAtBeatrizReject, 'updated_at' => $createdAtBeatrizReject],
+                        ['swap_request_id' => $swapId, 'shift_id' => $tarShiftBeatrizReject, 'owner_user_id' => $beatriz->id, 'type' => 'requested', 'created_at' => $createdAtBeatrizReject, 'updated_at' => $createdAtBeatrizReject]
+                    ]);
+                }
+            }
         }
 
         //------------------- MEDICAL LEAVES & REPLACED SHIFTS ---------------------------

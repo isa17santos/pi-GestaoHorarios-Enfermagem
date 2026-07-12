@@ -10,7 +10,9 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use App\Http\Middleware\ForceJsonResponse;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -67,17 +69,27 @@ return Application::configure(basePath: dirname(__DIR__))
 
 
             // Handle authenticated users trying to access a resource
-            // or action they are not allowed to use.
-            if ($e instanceof AuthorizationException) {
+            // or action they are not allowed to use. $this->authorize()
+            // wraps this in an AccessDeniedHttpException before it
+            // reaches here, so both need to be checked.
+            if ($e instanceof AuthorizationException
+                || ($e instanceof AccessDeniedHttpException && $e->getPrevious() instanceof AuthorizationException)) {
+                $message = $request->is('api/swaps/*')
+                    ? __('swap.unauthorized_action')
+                    : __('auth.unauthorized');
+
                 return response()->json([
-                    'message' => __('auth.unauthorized'),
+                    'message' => $message,
                 ], Response::HTTP_FORBIDDEN);
             }
 
 
             // Handle cases where a model lookup fails, such as
-            // trying to access a record that does not exist.
-            if ($e instanceof ModelNotFoundException) {
+            // trying to access a record that does not exist. Route-model
+            // binding wraps this in a NotFoundHttpException before it
+            // reaches here, so both need to be checked.
+            if ($e instanceof ModelNotFoundException
+                || ($e instanceof NotFoundHttpException && $e->getPrevious() instanceof ModelNotFoundException)) {
                 return response()->json([
                     'message' => __('messages.not_found'),
                 ], Response::HTTP_NOT_FOUND);

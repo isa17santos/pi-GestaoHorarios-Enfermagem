@@ -35,7 +35,6 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  backdrop-filter: blur(10px);
 }
 
 .banner-content { 
@@ -243,7 +242,6 @@
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(12px);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
@@ -1043,7 +1041,6 @@
   background: rgba(255, 255, 255, 0.4);
   border-radius: 20px;
   border: 1px solid var(--line);
-  backdrop-filter: blur(8px);
 }
 
 .print-summary-title {
@@ -1064,7 +1061,6 @@
 
 .print-summary-day-box {
   background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 16px;
@@ -1387,7 +1383,6 @@
   animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   gap: 16px;
   flex-wrap: wrap;
-  backdrop-filter: blur(8px);
 }
 .alert-content {
   display: flex;

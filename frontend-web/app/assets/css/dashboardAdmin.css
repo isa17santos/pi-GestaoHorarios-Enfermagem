@@ -43,7 +43,6 @@
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.72);
   box-shadow: 0 12px 30px rgba(102, 67, 155, 0.08);
-  backdrop-filter: blur(16px);
   margin-bottom: 0;
 }
 
@@ -138,7 +137,6 @@
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 16px 40px rgba(102, 67, 155, 0.08);
-  backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -230,6 +228,227 @@
   color: var(--muted);
   font-size: 1rem;
   line-height: 1.5;
+}
+
+/* Chevron no canto inferior-direito dos cards de navegação */
+.bento-card--nav {
+  cursor: pointer;
+}
+
+.bento-nav-chevron {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  color: var(--muted);
+  opacity: 0.5;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.bento-card--nav:hover .bento-nav-chevron {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+/* Hover mais evidente nos cards de navegação */
+.bento-card--nav:hover {
+  transform: translateY(-6px) scale(1.015);
+  box-shadow: 0 28px 56px rgba(102, 67, 155, 0.18);
+}
+
+/* -------------------------------------------------- */
+/* WIDGET: TURNO DE HOJE / AMANHÃ (coluna dentro do stats-kpi-row) */
+/* -------------------------------------------------- */
+
+.today-tomorrow-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.today-tomorrow-card {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-left: 4px solid var(--shift-accent, var(--muted));
+  box-shadow: 0 8px 24px rgba(102, 67, 155, 0.06);
+  border-radius: 16px;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.today-tomorrow-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.today-tomorrow-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: -0.02em;
+}
+
+.today-tomorrow-time {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Coluna de KPIs empilhados (horas + trocas) dentro do stats-kpi-row */
+.stats-kpi-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+/* -------------------------------------------------- */
+/* SECÇÃO DE ESTATÍSTICAS — não clicável, informativa */
+/* -------------------------------------------------- */
+
+.dashboard-stats-section {
+  margin-top: 40px;
+}
+
+.stats-section-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+/* Linha que agrupa os KPIs lado a lado */
+.stats-kpi-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+/* Card KPI: número grande + legenda pequena */
+.stats-kpi-card {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 24px rgba(102, 67, 155, 0.06);
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 160px;
+  flex: 1;
+}
+
+.stats-kpi-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.stats-kpi-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Título de cada coluna dentro do stats-kpi-row (ex: "Os meus turnos") */
+.stats-column-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary-strong, var(--primary));
+}
+
+/* Wrapper de coluna genérico: título fora do card + conteúdo esticado por baixo */
+.stats-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 220px;
+}
+
+.stats-column > *:last-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.stats-column--wide {
+  flex: 2;
+}
+
+.stats-column--narrow {
+  flex: 1;
+}
+
+/* Lista de turnos por tipo dentro da secção de estatísticas */
+.stats-shift-breakdown {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 24px rgba(102, 67, 155, 0.06);
+  border-radius: 20px;
+  padding: 20px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 1;
+  min-width: 220px;
+}
+
+/* Linha de cada tipo de turno: ícone + nome + contagem */
+.stats-shift-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.stats-shift-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+/* Cores de fundo por tipo */
+.stats-shift-icon--sunrise { background: rgba(251, 191, 36, 0.15); color: #d97706; }
+.stats-shift-icon--sun     { background: rgba(249, 115, 22, 0.12); color: #ea580c; }
+.stats-shift-icon--moon    { background: rgba(102, 67, 155, 0.12); color: var(--primary-strong); }
+.stats-shift-icon--circle  { background: rgba(148, 163, 184, 0.15); color: #64748b; }
+
+.stats-shift-label {
+  flex: 1;
+  font-size: 0.95rem;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.stats-shift-count {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* Grid extra para head_nurse (card de estatísticas abaixo do resumo) */
+.bento-grid--extras {
+  margin-top: 24px;
 }
 
 /* --------------------- MEDIA QUERIES --------------------- */

@@ -3,7 +3,7 @@
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\ShiftSwapRequestController;
 use App\Http\Controllers\SwapRequestController;
-use App\Http\Controllers\SwapvalidationController;
+use App\Http\Controllers\SwapValidationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {

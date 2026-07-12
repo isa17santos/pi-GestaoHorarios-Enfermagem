@@ -431,6 +431,118 @@
   background: rgba(236, 229, 248, 0.65);
 }
 
+/* ==================== Resumo de Cobertura Mínima Diária ====================
+   Separate block/table below the grid, still inside the same horizontally-scrollable
+   container so it tracks the grid's scroll position. */
+
+/* Own card, fully separate from .schedule-grid-container, so its border never touches the grid's border. */
+.schedule-coverage-summary {
+  margin-top: 24px;
+}
+
+.schedule-coverage-summary__title {
+  margin: 0 0 6px;
+  padding-left: 4px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.schedule-coverage-summary__subtitle {
+  margin: 0 0 20px;
+  padding-left: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* This inner scroll container is kept in sync with the main grid's scroll position via JS.
+   Its own scrollbar is hidden since the grid above already provides the visible scroll control. */
+.schedule-coverage-summary__scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.schedule-coverage-summary__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.schedule-grid__coverage-table {
+  margin: 0;
+}
+
+.schedule-grid__coverage-table th,
+.schedule-grid__coverage-table td {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.schedule-grid__coverage-row:not(:last-child) td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.schedule-grid__coverage-row td {
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.schedule-grid__coverage-row td:last-child {
+  border-right: none;
+}
+
+.schedule-grid__coverage-row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Small colour swatch matching the shift type's own colour in the grid cells above. */
+.schedule-grid__coverage-row-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.schedule-grid__coverage-cell {
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  text-align: center;
+  padding: 6px;
+}
+
+.schedule-grid__coverage-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.schedule-grid__coverage-value strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.schedule-grid__coverage-sep {
+  margin: 0 1px;
+  opacity: 0.6;
+}
+
+.schedule-grid__coverage-value.is-below-min,
+.schedule-grid__coverage-value.is-below-min strong {
+  color: var(--danger);
+}
+
 .schedule-grid__cell {
   width: 72px;
   min-width: 72px;

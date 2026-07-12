@@ -37,6 +37,10 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html,
 body,
 #__nuxt {
@@ -44,13 +48,29 @@ body,
   min-height: 100%;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
+  position: relative;
   font-family: 'Outfit', sans-serif;
+  color: var(--text);
+}
+
+/* Fundo fixo numa camada própria — evita recompor o gradiente a cada frame de scroll,
+   que era a principal causa de lentidão ao fazer scroll sobre elementos com blur. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background:
     radial-gradient(circle at top left, rgba(203, 177, 247, 0.50), transparent 30%),
     radial-gradient(circle at bottom right, rgba(242, 162, 209, 0.30), transparent 25%),
     linear-gradient(135deg, #fffdfd 0%, var(--bg) 50%, #fff8fb 100%);
-  color: var(--text);
 }
 
 a {
@@ -93,7 +113,6 @@ input {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.58);
   border: 1px solid rgba(144, 104, 222, 0.18);
-  backdrop-filter: blur(16px);
   color: var(--primary-strong);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -125,7 +144,6 @@ input {
   display: flex;
   gap: 16px;
   align-items: flex-start;
-  backdrop-filter: blur(18px);
 }
 
 .brand-card strong {
@@ -205,7 +223,6 @@ input {
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.72);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(24px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -446,7 +463,6 @@ input {
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px);
   color: var(--text);
   display: inline-flex;
   align-items: center;
@@ -751,7 +767,6 @@ input {
   background: white;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
 }
 
 .toast-content {
