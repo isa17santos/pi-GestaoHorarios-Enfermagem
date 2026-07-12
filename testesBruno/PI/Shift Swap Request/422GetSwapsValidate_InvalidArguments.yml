@@ -1,0 +1,24 @@
+info:
+  name: 422GetSwapsValidate_InvalidArguments
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  url: "{{base_url}}/swaps/validate?offered_shift_id=1107&requested_shift_id=121221"
+  params:
+    - name: offered_shift_id
+      value: "1107"
+      type: query
+    - name: requested_shift_id
+      value: "121221"
+      type: query
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

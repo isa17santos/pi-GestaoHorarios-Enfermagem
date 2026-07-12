@@ -1,7 +1,7 @@
 info:
   name: 403SwapShift_Forbidden
   type: http
-  seq: 7
+  seq: 16
 
 http:
   method: POST

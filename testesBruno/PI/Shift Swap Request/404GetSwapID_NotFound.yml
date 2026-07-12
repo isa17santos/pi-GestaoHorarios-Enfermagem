@@ -1,11 +1,11 @@
 info:
-  name: 200SwapShift_RejectShift
+  name: 404GetSwapID_NotFound
   type: http
-  seq: 13
+  seq: 4
 
 http:
-  method: POST
-  url: "{{base_url}}/swaps/72/reject"
+  method: GET
+  url: "{{base_url}}/swaps/999999"
   auth:
     type: bearer
     token: "{{token_nurse}}"

@@ -1,11 +1,11 @@
 info:
-  name: 200SwapShift_RejectShift
+  name: 200GetSwaps_ValidRequest
   type: http
-  seq: 13
+  seq: 1
 
 http:
-  method: POST
-  url: "{{base_url}}/swaps/72/reject"
+  method: GET
+  url: "{{base_url}}/swaps"
   auth:
     type: bearer
     token: "{{token_nurse}}"

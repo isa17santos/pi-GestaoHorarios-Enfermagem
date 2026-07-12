@@ -1,11 +1,11 @@
 info:
-  name: 401SwapShift_Unauthenticated
+  name: 401GetSwapID_Unauthenticated
   type: http
-  seq: 15
+  seq: 6
 
 http:
-  method: POST
-  url: "{{base_url}}/swaps/999999/accept"
+  method: GET
+  url: "{{base_url}}/swaps/999999"
 
 settings:
   encodeUrl: true

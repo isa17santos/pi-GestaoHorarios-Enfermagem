@@ -1,14 +1,14 @@
 info:
-  name: 200SwapShift_RejectShift
+  name: 403GetSwapID_Forbidden
   type: http
-  seq: 13
+  seq: 5
 
 http:
-  method: POST
-  url: "{{base_url}}/swaps/72/reject"
+  method: GET
+  url: "{{base_url}}/swaps/44"
   auth:
     type: bearer
-    token: "{{token_nurse}}"
+    token: "{{token_head_nurse}}"
 
 settings:
   encodeUrl: true

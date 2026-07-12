@@ -64,6 +64,13 @@ class SwapValidationController extends Controller
         $validated = $request->validate([
             'offered_shift_id' => ['required', 'integer', 'exists:shifts,id'],
             'requested_shift_id' => ['required', 'integer', 'exists:shifts,id'],
+        ], [
+            'offered_shift_id.required' => __('swap.validate_offered_shift_id.required'),
+            'offered_shift_id.integer' => __('swap.validate_offered_shift_id.integer'),
+            'offered_shift_id.exists' => __('swap.validate_offered_shift_id.exists'),
+            'requested_shift_id.required' => __('swap.validate_requested_shift_id.required'),
+            'requested_shift_id.integer' => __('swap.validate_requested_shift_id.integer'),
+            'requested_shift_id.exists' => __('swap.validate_requested_shift_id.exists'),
         ]);
 
         $user = $request->user();
@@ -78,7 +85,7 @@ class SwapValidationController extends Controller
 
         if (!$offeredShift->users->contains('id', $user->id)) {
             return response()->json([
-                'message' => 'O turno oferecido deve pertencer ao utilizador autenticado.',
+                'message' => __('swap.validate_offered_shift_not_owned'),
             ], 422);
         }
 
@@ -86,7 +93,7 @@ class SwapValidationController extends Controller
 
         if (!$requestedOwner) {
             return response()->json([
-                'message' => 'Não foi possível identificar o enfermeiro dono do turno solicitado.',
+                'message' => __('swap.validate_requested_owner_not_found'),
             ], 422);
         }
 
