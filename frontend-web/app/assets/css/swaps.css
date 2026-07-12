@@ -553,12 +553,21 @@
 .sw-field input,
 .sw-field textarea {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 12px;
   background: #fff;
   color: var(--text);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sw-field textarea {
+  resize: vertical;
+  min-height: 80px;
+  max-height: 220px;
+  font-family: inherit;
 }
 
 .sw-field input:focus,

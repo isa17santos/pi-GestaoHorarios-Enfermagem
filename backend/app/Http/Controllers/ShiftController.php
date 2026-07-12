@@ -123,6 +123,12 @@ class ShiftController extends Controller
             $q->where('users.role', '!=', UserRole::HeadNurse->value);
         });
 
+        // Only consider shifts from published schedules — schedules under revision
+        // duplicate shifts from the original published schedule and shouldn't appear as swap candidates.
+        $query->whereHas('schedule', function ($q): void {
+            $q->where('status', 'published');
+        });
+
         if ($request->filled('from')) {
             // Return only shifts on or after the provided start date.
             $query->whereDate('shift_date', '>=', (string) $request->query('from'));

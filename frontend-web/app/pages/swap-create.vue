@@ -197,8 +197,8 @@ const canGoNextPage = computed(() => currentPage.value < totalPages.value)
 const confirmSummaryLine = computed(() => {
   const count = selectedResults.value.size
   return currentLocale.value === 'pt'
-    ? `Serão criados ${count} pedidos de troca.`
-    : `${count} swap requests will be created.`
+    ? `Vais propor a troca do teu turno a ${count} colega(s). Cada um recebe um pedido individual — assim que um aceitar, os restantes são automaticamente cancelados. O turno mantém-se teu até lá.`
+    : `You're proposing to swap your shift with ${count} colleague(s). Each one receives an individual request — once someone accepts, the rest are automatically cancelled. Your shift stays yours until then.`
 })
 
 const rightPanelTitle = computed(() => {

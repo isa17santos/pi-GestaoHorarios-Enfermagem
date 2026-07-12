@@ -69,6 +69,10 @@ export const useScheduleTexts = () => {
         : 'Select the shift type in each cell to assign the nurse for that day.',
       activeShiftLabel: currentLocale.value === 'pt' ? 'Turno ativo:' : 'Active shift:',
       nurseHeader: currentLocale.value === 'pt' ? 'Enfermeiro' : 'Nurse',
+      coverageTitle: currentLocale.value === 'pt' ? 'Cobertura mínima diária' : 'Daily minimum coverage',
+      coverageSubtitle: currentLocale.value === 'pt'
+        ? 'Enfermeiros atribuídos face ao mínimo definido para cada tipo de turno, por dia.'
+        : 'Assigned nurses versus the minimum defined for each shift type, per day.',
       previousMonth: currentLocale.value === 'pt' ? 'Mês anterior' : 'Previous month',
       nextMonth: currentLocale.value === 'pt' ? 'Mês seguinte' : 'Next month',
       deleteDraft: currentLocale.value === 'pt' ? 'Apagar rascunho' : 'Delete draft',
