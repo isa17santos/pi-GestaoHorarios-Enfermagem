@@ -1,0 +1,20 @@
+info:
+  name: 422PatchShiftType_InvalidArguments
+  type: http
+  seq: 3
+
+http:
+  method: PATCH
+  url: "{{base_url}}/shift-types/1"
+  body:
+    type: json
+    data: "{\r\n\r\n}"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

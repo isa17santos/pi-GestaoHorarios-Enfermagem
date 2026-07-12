@@ -1,0 +1,17 @@
+info:
+  name: 200GetShiftTypes_ValidRequest
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{base_url}}/shift-types"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

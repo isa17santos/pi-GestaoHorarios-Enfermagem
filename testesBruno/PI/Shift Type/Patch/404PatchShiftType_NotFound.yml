@@ -1,0 +1,32 @@
+info:
+  name: 404PatchShiftType_NotFound
+  type: http
+  seq: 2
+
+http:
+  method: PATCH
+  url: "{{base_url}}/shift-types/9999999"
+  body:
+    type: json
+    data: "{\r
+
+      \    \"name\": \"Teste\",\r
+
+      \    \"start_time\": \"08:00\",\r
+
+      \    \"end_time\": \"16:00\",\r
+
+      \    \"color\": \"#FF5733\",\r
+
+      \    \"min_nurses\": 2\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

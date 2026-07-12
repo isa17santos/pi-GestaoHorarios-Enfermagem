@@ -1,0 +1,38 @@
+info:
+  name: 401EditPreferences_Unauthenticated
+  type: http
+  seq: 7
+
+http:
+  method: PATCH
+  url: "{{base_url}}/profile/preferences"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"month\": 13,\r
+
+      \    \"year\": 2026,\r
+
+      \    \"prefers_morning\": false,\r
+
+      \    \"prefers_afternoon\": true,\r
+
+      \    \"prefers_night\": false,\r
+
+      \    \"avoid_weekends\": false,\r
+
+      \    \"prefers_weekends\": false,\r
+
+      \    \"notes\": \"Teste\"\r
+
+      }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

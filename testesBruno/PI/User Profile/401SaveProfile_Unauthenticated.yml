@@ -1,0 +1,24 @@
+info:
+  name: 401SaveProfile_Unauthenticated
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}/profile"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"email\": \"ana.antunes@example.pt\"\r
+
+      }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,27 @@
+info:
+  name: 422SaveProfileEmail_AlreadyExists
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{base_url}}/profile"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"email\": \"ana.antunes@example.pt\"\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_admin}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

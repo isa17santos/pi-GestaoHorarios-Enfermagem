@@ -1,0 +1,17 @@
+info:
+  name: 403DeletePreferences_Forbidden
+  type: http
+  seq: 10
+
+http:
+  method: DELETE
+  url: "{{base_url}}/profile/preferences/1"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,35 @@
+info:
+  name: 422EditPreferences_InvalidArguments
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{base_url}}/profile/preferences"
+  headers:
+    - name: Accept
+      value: application/json
+  body:
+    type: json
+    data: "{\r
+
+      \    \"prefers_afternoon\": false,\r
+
+      \    \"prefers_night\": false,\r
+
+      \    \"avoid_weekends\": false,\r
+
+      \    \"prefers_weekends\": false,\r
+
+      \    \"notes\": \"Teste\"\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
