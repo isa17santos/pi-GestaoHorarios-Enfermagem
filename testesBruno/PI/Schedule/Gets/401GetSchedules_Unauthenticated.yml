@@ -1,14 +1,11 @@
 info:
-  name: 200StatisticsAdmin
+  name: 401GetSchedules_Unauthenticated
   type: http
-  seq: 2
+  seq: 6
 
 http:
   method: GET
-  url: "{{base_url}}/statistics"
-  auth:
-    type: bearer
-    token: "{{token_admin}}"
+  url: "{{base_url}}/schedules"
 
 settings:
   encodeUrl: true

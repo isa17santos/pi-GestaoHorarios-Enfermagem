@@ -1,0 +1,26 @@
+info:
+  name: 422CreateShift_InvalidScheduleId
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/shifts"
+  body:
+    type: json
+    data: |-
+      {
+          "schedule_id": 666666666,
+          "shift_type_id": 1,
+          "shift_date": "2026-04-07",
+          "user_ids": [4, 5]
+      }
+  auth:
+    type: bearer
+    token: "{{token_head_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

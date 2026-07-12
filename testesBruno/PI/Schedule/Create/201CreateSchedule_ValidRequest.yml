@@ -1,0 +1,24 @@
+info:
+  name: 201CreateSchedule_ValidRequest
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/schedules"
+  body:
+    type: json
+    data: |-
+      {
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-31"
+      }
+  auth:
+    type: bearer
+    token: "{{token_head_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

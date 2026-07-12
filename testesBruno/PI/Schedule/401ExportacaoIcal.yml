@@ -1,7 +1,7 @@
 info:
   name: 401ExportacaoIcal
   type: http
-  seq: 20
+  seq: 19
 
 http:
   method: GET

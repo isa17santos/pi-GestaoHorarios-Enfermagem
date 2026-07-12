@@ -1,11 +1,18 @@
 info:
-  name: 422PublicacaoEdicaoHorario
+  name: 422CreateSchedule_MissingStartDate
   type: http
-  seq: 9
+  seq: 2
 
 http:
   method: POST
-  url: "{{base_url}}/schedules/3/publish-edit"
+  url: "{{base_url}}/schedules"
+  body:
+    type: json
+    data: "{\r
+
+      \  \"end_date\": \"2026-05-31\"\r
+
+      }"
   auth:
     type: bearer
     token: "{{token_head_nurse}}"

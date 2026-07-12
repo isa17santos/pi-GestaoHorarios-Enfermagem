@@ -1,11 +1,11 @@
 info:
-  name: 401Statistics_Unauthenticated
+  name: 401DeleteSchedule_Unauthenticated
   type: http
   seq: 3
 
 http:
-  method: GET
-  url: "{{base_url}}/statistics"
+  method: DELETE
+  url: "{{base_url}}/schedules/1"
 
 settings:
   encodeUrl: true

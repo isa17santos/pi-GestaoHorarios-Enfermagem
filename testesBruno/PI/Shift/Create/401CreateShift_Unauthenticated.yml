@@ -1,0 +1,27 @@
+info:
+  name: 401CreateShift_Unauthenticated
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{base_url}}/shifts"
+  body:
+    type: json
+    data: "{\r
+
+      \  \"schedule_id\": 1,\r
+
+      \  \"shift_type_id\": 1,\r
+
+      \  \"shift_date\": \"2026-05-10\",\r
+
+      \  \"user_ids\": []\r
+
+      }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
