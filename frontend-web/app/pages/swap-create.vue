@@ -123,7 +123,9 @@ const normalizeDateKey = (value: string | null | undefined) => {
 const resultShifts = computed(() => {
   if (swapMode.value === 'shift_for_dayoff') {
     // In shift_for_dayoff mode, availableShifts is populated per selected date.
-    return availableShifts.value
+    // Exclude candidates also on a day-off on the offered day-off's date — they have no work shift to give up.
+    if (loadingTargetShifts.value) return availableShifts.value
+    return availableShifts.value.filter((shift) => getTargetWorkShift(Number(shift.users[0]?.id)) !== null)
   }
 
   const originDate = normalizeDateKey(offeredShift.value?.date)

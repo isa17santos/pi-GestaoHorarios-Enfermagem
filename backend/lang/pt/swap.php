@@ -29,4 +29,5 @@ return [
     'offered_shift_too_soon' => 'Não é possível efetuar trocas para turnos do próprio dia ou passados.',
     //'offered_shift_too_soon_old' => 'Os turnos oferecidos devem ter data superior a 2 dias a partir de hoje.',
     'duplicate_request' => 'Já existe um pedido de troca pendente para estes turnos.',
+    'unauthorized_action' => 'O utilizador autenticado não pode interagir com esta troca.',
 ];
