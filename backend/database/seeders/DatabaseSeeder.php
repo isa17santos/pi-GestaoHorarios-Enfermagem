@@ -813,7 +813,7 @@ class DatabaseSeeder extends Seeder
             $carlos = $nurseUsers->firstWhere('email', 'carlos.santos@example.pt');
 
             if ($beatriz && $carlos) {
-                $dateBeatrizPending = '2026-07-31';
+                $dateBeatrizPending = '2026-07-26';
                 $createdAtBeatrizPending = \Carbon\Carbon::parse($dateBeatrizPending)->setTime(10, 0, 0);
 
                 $reqShiftBeatrizPending = $shiftsByDateAndNurse[$dateBeatrizPending][$carlos->id] ?? null;
@@ -823,7 +823,7 @@ class DatabaseSeeder extends Seeder
                     $swapId = DB::table('shift_swap_requests')->insertGetId([
                         'created_by' => $carlos->id,
                         'status' => 'pending',
-                        'notes' => 'Troca pendente de 31 de Julho por ' . $carlos->name . '.',
+                        'notes' => 'Troca pendente de 26 de Julho por ' . $carlos->name . '.',
                         'created_at' => $createdAtBeatrizPending,
                         'updated_at' => $createdAtBeatrizPending,
                     ]);
