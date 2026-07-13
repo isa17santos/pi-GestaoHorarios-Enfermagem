@@ -1,0 +1,26 @@
+info:
+  name: 201CreateShift_ValidRequest
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/shifts"
+  body:
+    type: json
+    data: |-
+      {
+          "schedule_id": 4,
+          "shift_type_id": 1,
+          "shift_date": "2026-08-01",
+          "user_ids": [2]
+      }
+  auth:
+    type: bearer
+    token: "{{token_head_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

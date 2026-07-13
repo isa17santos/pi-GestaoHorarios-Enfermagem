@@ -1,7 +1,0 @@
-info:
-  name: Schedule Export
-  type: folder
-  seq: 11
-
-request:
-  auth: inherit

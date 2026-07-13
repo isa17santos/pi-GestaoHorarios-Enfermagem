@@ -1,0 +1,30 @@
+info:
+  name: 422CreateShift_DateOutOfRange
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{base_url}}/shifts"
+  body:
+    type: json
+    data: "{\r
+
+      \  \"schedule_id\": 1,\r
+
+      \  \"shift_type_id\": 1,\r
+
+      \  \"shift_date\": \"2026-12-25\",\r
+
+      \  \"user_ids\": [1]\r
+
+      }"
+  auth:
+    type: bearer
+    token: "{{token_head_nurse}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

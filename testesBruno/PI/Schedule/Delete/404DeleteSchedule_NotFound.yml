@@ -1,14 +1,14 @@
 info:
-  name: 200StatisticsAdmin
+  name: 404DeleteSchedule_NotFound
   type: http
   seq: 2
 
 http:
-  method: GET
-  url: "{{base_url}}/statistics"
+  method: DELETE
+  url: "{{base_url}}/schedules/9999"
   auth:
     type: bearer
-    token: "{{token_admin}}"
+    token: "{{token_head_nurse}}"
 
 settings:
   encodeUrl: true

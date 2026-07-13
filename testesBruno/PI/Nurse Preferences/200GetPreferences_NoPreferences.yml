@@ -1,14 +1,14 @@
 info:
-  name: 200StatisticsAdmin
+  name: 200GetPreferences_NoPreferences
   type: http
   seq: 2
 
 http:
   method: GET
-  url: "{{base_url}}/statistics"
+  url: "{{base_url}}/users/2/preferences"
   auth:
     type: bearer
-    token: "{{token_admin}}"
+    token: "{{token_head_nurse}}"
 
 settings:
   encodeUrl: true

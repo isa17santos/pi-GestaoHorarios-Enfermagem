@@ -5,15 +5,17 @@ info:
 
 http:
   method: GET
-  url: "{{base_url}}/shifts?user_id=2&future=true"
+  url: "{{base_url}}/shifts?user_id=3&future=true"
   params:
     - name: user_id
-      value: "2"
+      value: "3"
       type: query
     - name: future
       value: "true"
       type: query
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{token_nurse}}"
 
 settings:
   encodeUrl: true

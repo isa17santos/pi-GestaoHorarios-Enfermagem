@@ -1,0 +1,22 @@
+info:
+  name: 401PatchShift_Unauthenticated
+  type: http
+  seq: 4
+
+http:
+  method: PATCH
+  url: "{{base_url}}/shifts/7"
+  body:
+    type: json
+    data: |-
+      {
+          "shift_type_id": 1,
+          "shift_date": "2026-05-04",
+          "user_ids": [1, 2]
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,11 +1,11 @@
 info:
-  name: 200StatisticsHeadNurse
+  name: 422PublishSchedule_AlreadyPublished
   type: http
   seq: 1
 
 http:
-  method: GET
-  url: "{{base_url}}/statistics"
+  method: PATCH
+  url: "{{base_url}}/schedules/1/publish"
   auth:
     type: bearer
     token: "{{token_head_nurse}}"
