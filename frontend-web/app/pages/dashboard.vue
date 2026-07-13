@@ -67,6 +67,7 @@ const texts = computed(() => ({
   today: currentLocale.value === 'pt' ? 'Hoje' : 'Today',
   tomorrow: currentLocale.value === 'pt' ? 'Amanhã' : 'Tomorrow',
   noShift: currentLocale.value === 'pt' ? 'Sem turno' : 'No shift',
+  allDay: currentLocale.value === 'pt' ? 'Dia Inteiro' : 'All Day',
   myShifts: currentLocale.value === 'pt' ? 'Os meus turnos' : 'My shifts',
   myTeam: currentLocale.value === 'pt' ? 'A minha equipa' : 'My team',
 
@@ -81,6 +82,11 @@ const getShiftName = (shiftType: { name: string } | null | undefined) => {
   const pt: Record<string, string> = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite', dayoff: 'Folga', 'day off': 'Folga', holidays: 'Férias', 'sick leave': 'Baixa Médica', 'parental leave': 'Licença Parental' }
   const en: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', night: 'Night', dayoff: 'Day Off', 'day off': 'Day Off', holidays: 'Holidays', 'sick leave': 'Sick Leave', 'parental leave': 'Parental Leave' }
   return currentLocale.value === 'pt' ? (pt[name] || shiftType.name) : (en[name] || shiftType.name)
+}
+
+// Turnos não laborais (folga, férias, baixa, licença) têm start_time === end_time.
+const isNonWorkingShift = (shiftType: { start_time: string, end_time: string } | null | undefined) => {
+  return !!shiftType && shiftType.start_time === shiftType.end_time
 }
 
 // ---------------- Formatação de data (dia da semana + dia/mês) ----------------
@@ -102,11 +108,11 @@ const tomorrowLabel = computed(() => {
   return formatDayLabel(tomorrow)
 })
 
-// Nome do mês atual, capitalizado — usado como título da coluna de horas/trocas
+// Mês e ano atuais, capitalizados — mostrado ao lado do título "Resumo do mês"
 const currentMonthLabel = computed(() => {
   const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-GB'
-  const month = new Date().toLocaleDateString(locale, { month: 'long' })
-  return month.charAt(0).toUpperCase() + month.slice(1)
+  const label = new Date().toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
 })
 
 // As 4 categorias fixas de turno — mostradas sempre, mesmo com valor 0
@@ -243,7 +249,7 @@ const shiftCategories = computed(() => [
 
         <!-- Secção de resumo mensal — igual à do enfermeiro, pois o chefe também tem turnos próprios -->
         <div v-if="headNurseData" class="dashboard-stats-section">
-          <h2 class="stats-section-title">{{ texts.monthlySummary }}</h2>
+          <h2 class="stats-section-title">{{ texts.monthlySummary }} – {{ currentMonthLabel }}</h2>
           <div class="stats-kpi-row">
 
             <!-- Coluna 1: turno de hoje e de amanhã, empilhados -->
@@ -257,7 +263,7 @@ const shiftCategories = computed(() => [
                     {{ headNurseData.today_shift ? getShiftName(headNurseData.today_shift.shift_type) : texts.noShift }}
                   </span>
                   <span v-if="headNurseData.today_shift" class="today-tomorrow-time">
-                    {{ headNurseData.today_shift.shift_type.start_time.slice(0, 5) }}h – {{ headNurseData.today_shift.shift_type.end_time.slice(0, 5) }}h
+                    {{ isNonWorkingShift(headNurseData.today_shift.shift_type) ? texts.allDay : `${headNurseData.today_shift.shift_type.start_time.slice(0, 5)}h – ${headNurseData.today_shift.shift_type.end_time.slice(0, 5)}h` }}
                   </span>
                 </div>
 
@@ -267,7 +273,7 @@ const shiftCategories = computed(() => [
                     {{ headNurseData.tomorrow_shift ? getShiftName(headNurseData.tomorrow_shift.shift_type) : texts.noShift }}
                   </span>
                   <span v-if="headNurseData.tomorrow_shift" class="today-tomorrow-time">
-                    {{ headNurseData.tomorrow_shift.shift_type.start_time.slice(0, 5) }}h – {{ headNurseData.tomorrow_shift.shift_type.end_time.slice(0, 5) }}h
+                    {{ isNonWorkingShift(headNurseData.tomorrow_shift.shift_type) ? texts.allDay : `${headNurseData.tomorrow_shift.shift_type.start_time.slice(0, 5)}h – ${headNurseData.tomorrow_shift.shift_type.end_time.slice(0, 5)}h` }}
                   </span>
                 </div>
               </div>
@@ -410,7 +416,7 @@ const shiftCategories = computed(() => [
 
         <!-- Secção de resumo mensal (informação, não navegação) -->
         <div v-if="nurseData" class="dashboard-stats-section">
-          <h2 class="stats-section-title">{{ texts.monthlySummary }}</h2>
+          <h2 class="stats-section-title">{{ texts.monthlySummary }} – {{ currentMonthLabel }}</h2>
           <div class="stats-kpi-row">
 
             <!-- Coluna 1: turno de hoje e de amanhã, empilhados -->
@@ -424,7 +430,7 @@ const shiftCategories = computed(() => [
                     {{ nurseData.today_shift ? getShiftName(nurseData.today_shift.shift_type) : texts.noShift }}
                   </span>
                   <span v-if="nurseData.today_shift" class="today-tomorrow-time">
-                    {{ nurseData.today_shift.shift_type.start_time.slice(0, 5) }}h – {{ nurseData.today_shift.shift_type.end_time.slice(0, 5) }}h
+                    {{ isNonWorkingShift(nurseData.today_shift.shift_type) ? texts.allDay : `${nurseData.today_shift.shift_type.start_time.slice(0, 5)}h – ${nurseData.today_shift.shift_type.end_time.slice(0, 5)}h` }}
                   </span>
                 </div>
 
@@ -434,7 +440,7 @@ const shiftCategories = computed(() => [
                     {{ nurseData.tomorrow_shift ? getShiftName(nurseData.tomorrow_shift.shift_type) : texts.noShift }}
                   </span>
                   <span v-if="nurseData.tomorrow_shift" class="today-tomorrow-time">
-                    {{ nurseData.tomorrow_shift.shift_type.start_time.slice(0, 5) }}h – {{ nurseData.tomorrow_shift.shift_type.end_time.slice(0, 5) }}h
+                    {{ isNonWorkingShift(nurseData.tomorrow_shift.shift_type) ? texts.allDay : `${nurseData.tomorrow_shift.shift_type.start_time.slice(0, 5)}h – ${nurseData.tomorrow_shift.shift_type.end_time.slice(0, 5)}h` }}
                   </span>
                 </div>
               </div>

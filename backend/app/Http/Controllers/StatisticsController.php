@@ -140,6 +140,7 @@ class StatisticsController extends Controller
             $shifts = Shift::query()
                 ->with('shiftType')
                 ->whereHas('users', fn ($q) => $q->where('users.id', $nurse->id))
+                ->whereHas('schedule', fn ($q) => $q->where('status', 'published'))
                 ->whereDate('shift_date', '>=', $monthStart)
                 ->whereDate('shift_date', '<=', $monthEnd)
                 ->get();
@@ -177,8 +178,9 @@ class StatisticsController extends Controller
 
         usort($nurseHours, fn ($a, $b) => $b['hours'] <=> $a['hours']);
 
-        // Swaps created this month — high volume is a proxy for instability.
+        // Accepted swaps created this month — high volume is a proxy for instability.
         $swapsThisMonth = ShiftSwapRequest::query()
+            ->where('status', ShiftSwapStatus::Accepted)
             ->whereDate('created_at', '>=', $monthStart)
             ->whereDate('created_at', '<=', $monthEnd)
             ->count();
@@ -198,6 +200,7 @@ class StatisticsController extends Controller
 
         $workingShifts = Shift::query()
             ->with(['shiftType', 'users'])
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'published'))
             ->whereNotIn('shift_type_id', $nonWorkingTypeIds)
             ->whereDate('shift_date', '>=', $monthStart)
             ->whereDate('shift_date', '<=', $monthEnd)
@@ -240,6 +243,7 @@ class StatisticsController extends Controller
         $preferenceShifts = Shift::query()
             ->with(['shiftType', 'users'])
             ->whereHas('shiftType', fn ($q) => $q->whereIn('name', $workingTypeNames))
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'published'))
             ->whereDate('shift_date', '>=', $monthStart)
             ->whereDate('shift_date', '<=', $monthEnd)
             ->get();

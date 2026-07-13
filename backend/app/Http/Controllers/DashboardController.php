@@ -106,6 +106,7 @@ class DashboardController extends Controller
         $shifts = Shift::query()
             ->with('shiftType')
             ->whereHas('users', fn ($q) => $q->where('users.id', $user->id))
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'published'))
             ->whereDate('shift_date', '>=', $monthStart->toDateString())
             ->whereDate('shift_date', '<=', $monthEnd->toDateString())
             ->get();
@@ -142,8 +143,9 @@ class DashboardController extends Controller
             }
         }
 
-        // Count all swap requests (as requester or target) created this month.
+        // Count accepted swap requests (as requester or target) created this month.
         $swapsThisMonth = ShiftSwapRequest::query()
+            ->where('status', ShiftSwapStatus::Accepted)
             ->whereDate('created_at', '>=', $monthStart->toDateString())
             ->whereDate('created_at', '<=', $monthEnd->toDateString())
             ->whereHas('participants', fn ($q) => $q->where('user_id', $user->id))
@@ -166,6 +168,7 @@ class DashboardController extends Controller
         $shift = Shift::query()
             ->with('shiftType')
             ->whereHas('users', fn ($q) => $q->where('users.id', $user->id))
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'published'))
             ->whereDate('shift_date', $date->toDateString())
             ->first();
 
@@ -198,8 +201,9 @@ class DashboardController extends Controller
             ->where('status', ShiftSwapStatus::Pending)
             ->count();
 
-        // Count all swap requests created this month, regardless of participant.
+        // Count accepted swap requests created this month, regardless of participant.
         $teamSwapsThisMonth = ShiftSwapRequest::query()
+            ->where('status', ShiftSwapStatus::Accepted)
             ->whereDate('created_at', '>=', $monthStart->toDateString())
             ->whereDate('created_at', '<=', $monthEnd->toDateString())
             ->count();

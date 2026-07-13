@@ -573,6 +573,9 @@ const texts = computed(() => ({
 .quality-breakdown-list strong {
   color: var(--text);
   font-weight: 700;
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
 }
 
 /* Card da tabela de horas ocupa coluna dupla em ecrãs largos */
