@@ -324,7 +324,21 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+  margin: 0;
+}
+
+.stats-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin: 0 0 20px;
+  flex-wrap: wrap;
+}
+
+.dashboard-month-nav {
+  margin-bottom: 0;
+  width: auto;
 }
 
 /* Linha que agrupa os KPIs lado a lado */

@@ -2,6 +2,9 @@
 
 type StatisticsAdmin = {
   role: 'admin'
+  month: number
+  year: number
+  next_month_available: boolean
   nurses_count: number
   head_nurses_count: number
   medical_leaves_this_month: number
@@ -28,6 +31,9 @@ type QualityBreakdown = {
 
 type StatisticsHeadNurse = {
   role: 'head_nurse'
+  month: number
+  year: number
+  next_month_available: boolean
   acceptance_rate: number | null
   swaps_accepted: number
   swaps_rejected: number
@@ -49,7 +55,7 @@ export const useStatistics = () => {
   const loadingStatistics = useState<boolean>('statistics.loading', () => false)
   const errorStatistics = useState<string | null>('statistics.error', () => null)
 
-  const fetchStatistics = async () => {
+  const fetchStatistics = async (year?: number, month?: number) => {
     if (!token.value) return
 
     loadingStatistics.value = true
@@ -62,6 +68,7 @@ export const useStatistics = () => {
           headers: {
             Authorization: `Bearer ${token.value}`,
           },
+          query: year && month ? { year, month } : undefined,
         }
       )
 
@@ -70,6 +77,7 @@ export const useStatistics = () => {
     } catch (error) {
       const apiError = error as { data?: { message?: string }; message?: string }
       errorStatistics.value = apiError?.data?.message ?? apiError?.message ?? 'Erro ao carregar as estatísticas.'
+      throw error
     } finally {
       loadingStatistics.value = false
     }

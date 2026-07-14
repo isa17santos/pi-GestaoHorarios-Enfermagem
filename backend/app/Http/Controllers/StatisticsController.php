@@ -7,6 +7,7 @@ use App\Enums\ShiftTypeName;
 use App\Enums\UserRole;
 use App\Models\MedicalLeave;
 use App\Models\NursePreference;
+use App\Models\Schedule;
 use App\Models\Shift;
 use App\Enums\ShiftSwapRequestShiftType;
 use App\Models\ShiftSwapRequest;
@@ -62,15 +63,67 @@ class StatisticsController extends Controller
         $user = $request->user();
         $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
 
+        [$year, $month] = $this->resolveRequestedMonth($request);
+
+        if (! $this->isMonthAvailable($year, $month)) {
+            return response()->json(['message' => __('statistics.future_month_not_available')], 422);
+        }
+
         if ($role === UserRole::Admin->value) {
-            return $this->adminStatistics();
+            return $this->adminStatistics($year, $month);
         }
 
         if ($role === UserRole::HeadNurse->value) {
-            return $this->headNurseStatistics();
+            return $this->headNurseStatistics($year, $month);
         }
 
         return response()->json(['message' => 'Sem permissão para aceder às estatísticas.'], 403);
+    }
+
+    /**
+     * Resolve the requested month/year from the query string, defaulting to the current month.
+     * Falls back to today's month/year when the input is missing or out of range.
+     */
+    private function resolveRequestedMonth(Request $request): array
+    {
+        $year  = $request->integer('year');
+        $month = $request->integer('month');
+
+        if (! $year || ! $month || $month < 1 || $month > 12) {
+            return [Carbon::now()->year, Carbon::now()->month];
+        }
+
+        return [$year, $month];
+    }
+
+    /**
+     * A month is available when it isn't in the future, or when a published schedule already
+     * covers it (e.g. next month's schedule was published ahead of time).
+     */
+    private function isMonthAvailable(int $year, int $month): bool
+    {
+        $requested = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+
+        if ($requested->lessThanOrEqualTo(Carbon::now()->startOfMonth())) {
+            return true;
+        }
+
+        return Schedule::query()
+            ->where('status', 'published')
+            ->whereDate('start_date', '<=', $requested->copy()->endOfMonth())
+            ->whereDate('end_date', '>=', $requested)
+            ->exists();
+    }
+
+    /**
+     * Whether the month right after the given one is available for navigation — lets the
+     * frontend enable/disable the "next month" control without an extra request.
+     */
+    private function isNextMonthAvailable(int $year, int $month): bool
+    {
+        $next = Carbon::createFromDate($year, $month, 1)->addMonthNoOverflow();
+
+        return $this->isMonthAvailable($next->year, $next->month);
     }
 
     // Percentagem (0-1) de turnos fora das preferências de período marcadas a partir da qual
@@ -85,10 +138,10 @@ class StatisticsController extends Controller
     // tipo de período — evita falsos positivos com amostras demasiado pequenas.
     private const MIN_SHIFTS_FOR_PREFERENCE_CHECK = 4;
 
-    private function headNurseStatistics(): JsonResponse
+    private function headNurseStatistics(int $year, int $month): JsonResponse
     {
-        $monthStart = Carbon::now()->startOfMonth()->toDateString();
-        $monthEnd   = Carbon::now()->endOfMonth()->toDateString();
+        $monthStart = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateString();
+        $monthEnd   = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString();
 
         // Acceptance rate: requests are grouped by the offered shift, since concurrent requests
         // for the same shift are resolved together (accepting one auto-cancels the rest — see
@@ -240,8 +293,8 @@ class StatisticsController extends Controller
         // turnos do mês que caem fora das preferências marcadas, e só conta 1 violação (o
         // enfermeiro, não os turnos) quando essa percentagem atinge PREFERENCE_MISMATCH_THRESHOLD —
         // ou seja, quando há um padrão sistemático de desalinhamento, não uma variação pontual.
-        $currentMonth = Carbon::now()->month;
-        $currentYear  = Carbon::now()->year;
+        $currentMonth = $month;
+        $currentYear  = $year;
 
         $workingTypeNames = [
             ShiftTypeName::Morning->value,
@@ -338,6 +391,9 @@ class StatisticsController extends Controller
         return response()->json([
             'data' => [
                 'role'                => UserRole::HeadNurse->value,
+                'month'               => $month,
+                'year'                => $year,
+                'next_month_available' => $this->isNextMonthAvailable($year, $month),
                 'acceptance_rate'     => $acceptanceRate,
                 'swaps_accepted'      => $groupsSuccess,
                 'swaps_rejected'      => $groupsFailure,
@@ -352,10 +408,10 @@ class StatisticsController extends Controller
         ]);
     }
 
-    private function adminStatistics(): JsonResponse
+    private function adminStatistics(int $year, int $month): JsonResponse
     {
-        $monthStart = Carbon::now()->startOfMonth()->toDateString();
-        $monthEnd   = Carbon::now()->endOfMonth()->toDateString();
+        $monthStart = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateString();
+        $monthEnd   = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateString();
 
         // Count nurses and head nurses by role.
         $nursesCount     = User::query()->where('role', UserRole::Nurse->value)->count();
@@ -382,6 +438,9 @@ class StatisticsController extends Controller
         return response()->json([
             'data' => [
                 'role'                           => UserRole::Admin->value,
+                'month'                          => $month,
+                'year'                           => $year,
+                'next_month_available'          => $this->isNextMonthAvailable($year, $month),
                 'nurses_count'                   => $nursesCount,
                 'head_nurses_count'              => $headNursesCount,
                 'medical_leaves_this_month'      => $medicalLeavesThisMonth,

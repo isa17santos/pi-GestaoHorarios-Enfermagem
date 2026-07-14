@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\ShiftSwapStatus;
 use App\Enums\UserRole;
+use App\Models\Schedule;
 use App\Models\Shift;
 use App\Models\ShiftSwapRequest;
 use Illuminate\Http\JsonResponse;
@@ -71,11 +72,22 @@ class DashboardController extends Controller
         $user = $request->user();
         $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
 
+        [$year, $month] = $this->resolveRequestedMonth($request);
+
+        if (! $this->isMonthAvailable($year, $month)) {
+            return response()->json(['message' => __('statistics.future_month_not_available')], 422);
+        }
+
         if ($role === UserRole::Nurse->value) {
             return response()->json([
                 'data' => array_merge(
-                    ['role' => UserRole::Nurse->value],
-                    $this->personalShiftData($user)
+                    [
+                        'role' => UserRole::Nurse->value,
+                        'month' => $month,
+                        'year' => $year,
+                        'next_month_available' => $this->isNextMonthAvailable($year, $month),
+                    ],
+                    $this->personalShiftData($user, $year, $month)
                 ),
             ]);
         }
@@ -83,9 +95,14 @@ class DashboardController extends Controller
         if ($role === UserRole::HeadNurse->value) {
             return response()->json([
                 'data' => array_merge(
-                    ['role' => UserRole::HeadNurse->value],
-                    $this->personalShiftData($user),
-                    $this->teamSwapData()
+                    [
+                        'role' => UserRole::HeadNurse->value,
+                        'month' => $month,
+                        'year' => $year,
+                        'next_month_available' => $this->isNextMonthAvailable($year, $month),
+                    ],
+                    $this->personalShiftData($user, $year, $month),
+                    $this->teamSwapData($year, $month)
                 ),
             ]);
         }
@@ -94,13 +111,59 @@ class DashboardController extends Controller
     }
 
     /**
+     * Resolve the requested month/year from the query string, defaulting to the current month.
+     * Falls back to today's month/year when the input is missing or out of range.
+     */
+    private function resolveRequestedMonth(Request $request): array
+    {
+        $year  = $request->integer('year');
+        $month = $request->integer('month');
+
+        if (! $year || ! $month || $month < 1 || $month > 12) {
+            return [Carbon::now()->year, Carbon::now()->month];
+        }
+
+        return [$year, $month];
+    }
+
+    /**
+     * A month is available when it isn't in the future, or when a published schedule already
+     * covers it (e.g. next month's schedule was published ahead of time).
+     */
+    private function isMonthAvailable(int $year, int $month): bool
+    {
+        $requested = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+
+        if ($requested->lessThanOrEqualTo(Carbon::now()->startOfMonth())) {
+            return true;
+        }
+
+        return Schedule::query()
+            ->where('status', 'published')
+            ->whereDate('start_date', '<=', $requested->copy()->endOfMonth())
+            ->whereDate('end_date', '>=', $requested)
+            ->exists();
+    }
+
+    /**
+     * Whether the month right after the given one is available for navigation — lets the
+     * frontend enable/disable the "next month" control without an extra request.
+     */
+    private function isNextMonthAvailable(int $year, int $month): bool
+    {
+        $next = Carbon::createFromDate($year, $month, 1)->addMonthNoOverflow();
+
+        return $this->isMonthAvailable($next->year, $next->month);
+    }
+
+    /**
      * Build the authenticated user's own shift/hours summary for the current month.
      * Shared between nurse and head_nurse — both are staff members with assigned shifts.
      */
-    private function personalShiftData(\App\Models\User $user): array
+    private function personalShiftData(\App\Models\User $user, int $year, int $month): array
     {
-        $monthStart = Carbon::now()->startOfMonth();
-        $monthEnd   = Carbon::now()->endOfMonth();
+        $monthStart = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $monthEnd   = Carbon::createFromDate($year, $month, 1)->endOfMonth();
 
         // Fetch all shifts assigned to this user in the current month, with their type loaded.
         $shifts = Shift::query()
@@ -191,10 +254,10 @@ class DashboardController extends Controller
     /**
      * Build team-wide swap counters, shown alongside the head_nurse's own shift summary.
      */
-    private function teamSwapData(): array
+    private function teamSwapData(int $year, int $month): array
     {
-        $monthStart = Carbon::now()->startOfMonth();
-        $monthEnd   = Carbon::now()->endOfMonth();
+        $monthStart = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $monthEnd   = Carbon::createFromDate($year, $month, 1)->endOfMonth();
 
         // Count all pending swap requests across the entire team.
         $teamPendingSwapsCount = ShiftSwapRequest::query()

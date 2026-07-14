@@ -11,6 +11,9 @@ type DashboardShift = {
 
 type DashboardNurse = {
   role: 'nurse'
+  month: number
+  year: number
+  next_month_available: boolean
   monthly_hours: number
   shift_type_breakdown: Record<string, number>
   swaps_this_month: number
@@ -20,6 +23,9 @@ type DashboardNurse = {
 
 type DashboardHeadNurse = {
   role: 'head_nurse'
+  month: number
+  year: number
+  next_month_available: boolean
   monthly_hours: number
   shift_type_breakdown: Record<string, number>
   swaps_this_month: number
@@ -60,7 +66,7 @@ export const useDashboard = () => {
    * Fetch dashboard summary from GET /api/dashboard and store the result.
    * The returned shape depends on the authenticated user's role.
    */
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (year?: number, month?: number) => {
     if (!token.value) return
 
     loadingDashboard.value = true
@@ -73,6 +79,7 @@ export const useDashboard = () => {
           headers: {
             Authorization: `Bearer ${token.value}`,
           },
+          query: year && month ? { year, month } : undefined,
         }
       )
 
@@ -82,6 +89,7 @@ export const useDashboard = () => {
       const apiError = error as { data?: { message?: string }; message?: string }
       errorDashboard.value = apiError?.data?.message ?? apiError?.message ?? 'Erro ao carregar o painel.'
       console.error('Erro ao carregar dashboard:', error)
+      throw error
     } finally {
       loadingDashboard.value = false
     }

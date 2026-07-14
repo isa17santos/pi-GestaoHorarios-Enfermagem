@@ -8,12 +8,34 @@ const { pendingReceivedCount, fetchPendingReceivedCount } = useSwap()
 const { nurseData, headNurseData, fetchDashboard } = useDashboard()
 const { texts: scheduleTexts } = useScheduleTexts()
 
+const {
+  selectedYear,
+  selectedMonth,
+  allowNextMonth,
+  canGoNext,
+  monthLabel,
+  goToPreviousMonth,
+  goToNextMonth,
+} = useMonthNavigation()
+
+const loadDashboardForSelectedMonth = async () => {
+  const result = await fetchDashboard(selectedYear.value, selectedMonth.value)
+  allowNextMonth.value = (result as { next_month_available?: boolean } | undefined)?.next_month_available ?? false
+}
+
 onMounted(() => {
   fetchPendingReceivedCount()
   // Dashboard summary is fetched for nurse and head_nurse; admin has no summary card yet.
   const role = user.value?.role?.trim().toLowerCase()
   if (role === 'nurse' || role === 'head_nurse') {
-    fetchDashboard()
+    loadDashboardForSelectedMonth()
+  }
+})
+
+watch([selectedYear, selectedMonth], () => {
+  const role = user.value?.role?.trim().toLowerCase()
+  if (role === 'nurse' || role === 'head_nurse') {
+    loadDashboardForSelectedMonth()
   }
 })
 
@@ -106,13 +128,6 @@ const tomorrowLabel = computed(() => {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   return formatDayLabel(tomorrow)
-})
-
-// Mês e ano atuais, capitalizados — mostrado ao lado do título "Resumo do mês"
-const currentMonthLabel = computed(() => {
-  const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-GB'
-  const label = new Date().toLocaleDateString(locale, { month: 'long', year: 'numeric' })
-  return label.charAt(0).toUpperCase() + label.slice(1)
 })
 
 // As 4 categorias fixas de turno — mostradas sempre, mesmo com valor 0
@@ -249,7 +264,18 @@ const shiftCategories = computed(() => [
 
         <!-- Secção de resumo mensal — igual à do enfermeiro, pois o chefe também tem turnos próprios -->
         <div v-if="headNurseData" class="dashboard-stats-section">
-          <h2 class="stats-section-title">{{ texts.monthlySummary }} – {{ currentMonthLabel }}</h2>
+          <div class="stats-section-header">
+            <h2 class="stats-section-title">{{ texts.monthlySummary }}</h2>
+            <div class="swc-cal-nav dashboard-month-nav">
+              <button class="swc-cal-nav-btn" @click="goToPreviousMonth" :aria-label="currentLocale === 'pt' ? 'Mês anterior' : 'Previous month'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <span class="swc-cal-month-label">{{ monthLabel }}</span>
+              <button class="swc-cal-nav-btn" :disabled="!canGoNext" @click="goToNextMonth" :aria-label="currentLocale === 'pt' ? 'Mês seguinte' : 'Next month'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+          </div>
           <div class="stats-kpi-row">
 
             <!-- Coluna 1: turno de hoje e de amanhã, empilhados -->
@@ -328,7 +354,7 @@ const shiftCategories = computed(() => [
 
             <!-- Coluna 3: horas trabalhadas e trocas este mês, empilhados -->
             <div class="stats-column stats-column--narrow">
-              <span class="stats-column-title">{{ currentMonthLabel }}</span>
+              <span class="stats-column-title">{{ monthLabel }}</span>
 
               <div class="stats-kpi-column">
                 <div class="stats-kpi-card">
@@ -416,7 +442,18 @@ const shiftCategories = computed(() => [
 
         <!-- Secção de resumo mensal (informação, não navegação) -->
         <div v-if="nurseData" class="dashboard-stats-section">
-          <h2 class="stats-section-title">{{ texts.monthlySummary }} – {{ currentMonthLabel }}</h2>
+          <div class="stats-section-header">
+            <h2 class="stats-section-title">{{ texts.monthlySummary }}</h2>
+            <div class="swc-cal-nav dashboard-month-nav">
+              <button class="swc-cal-nav-btn" @click="goToPreviousMonth" :aria-label="currentLocale === 'pt' ? 'Mês anterior' : 'Previous month'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <span class="swc-cal-month-label">{{ monthLabel }}</span>
+              <button class="swc-cal-nav-btn" :disabled="!canGoNext" @click="goToNextMonth" :aria-label="currentLocale === 'pt' ? 'Mês seguinte' : 'Next month'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+          </div>
           <div class="stats-kpi-row">
 
             <!-- Coluna 1: turno de hoje e de amanhã, empilhados -->
@@ -500,7 +537,7 @@ const shiftCategories = computed(() => [
 
             <!-- Coluna 3: horas trabalhadas e trocas este mês, empilhados -->
             <div class="stats-column stats-column--narrow">
-              <span class="stats-column-title">{{ currentMonthLabel }}</span>
+              <span class="stats-column-title">{{ monthLabel }}</span>
 
               <div class="stats-kpi-column">
                 <div class="stats-kpi-card">

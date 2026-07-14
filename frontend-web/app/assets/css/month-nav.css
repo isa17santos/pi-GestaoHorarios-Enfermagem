@@ -1,0 +1,42 @@
+/* Shared month navigation control — same styling as the calendar month nav in swap-create.css. */
+
+.swc-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.swc-cal-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-strong);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.swc-cal-nav-btn:hover {
+  border-color: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.swc-cal-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.swc-cal-month-label {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+  text-transform: capitalize;
+}

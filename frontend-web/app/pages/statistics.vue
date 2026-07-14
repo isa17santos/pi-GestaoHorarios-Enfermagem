@@ -8,12 +8,22 @@ const { adminData, headNurseData, loadingStatistics: loadingDashboard, fetchStat
 
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
 
-// Nome do mês atual, capitalizado — mesmo padrão usado no resumo mensal do dashboard.vue
-const currentMonthLabel = computed(() => {
-  const locale = currentLocale.value === 'pt' ? 'pt-PT' : 'en-GB'
-  const month = new Date().toLocaleDateString(locale, { month: 'long', year: 'numeric' })
-  return month.charAt(0).toUpperCase() + month.slice(1)
-})
+const {
+  selectedYear,
+  selectedMonth,
+  allowNextMonth,
+  canGoNext,
+  monthLabel,
+  goToPreviousMonth,
+  goToNextMonth,
+} = useMonthNavigation()
+
+const loadStatisticsForSelectedMonth = async () => {
+  const result = await fetchStatistics(selectedYear.value, selectedMonth.value)
+  allowNextMonth.value = result?.next_month_available ?? false
+}
+
+watch([selectedYear, selectedMonth], loadStatisticsForSelectedMonth)
 
 // Gauge circular da taxa de aceitação — perímetro fixo (raio 52) para calcular o offset do traço
 const ACCEPTANCE_GAUGE_CIRCUMFERENCE = 2 * Math.PI * 52
@@ -38,7 +48,7 @@ onMounted(async () => {
     await navigateTo('/dashboard')
     return
   }
-  if (role === 'admin' || role === 'head_nurse') fetchStatistics()
+  if (role === 'admin' || role === 'head_nurse') loadStatisticsForSelectedMonth()
 })
 
 const texts = computed(() => ({
@@ -105,8 +115,16 @@ const texts = computed(() => ({
         <p class="uc-subtitle">{{ texts.subtitle }}</p>
       </div>
 
-      <!-- Mês de referência das estatísticas apresentadas -->
-      <p class="stats-month-label">{{ currentMonthLabel }}</p>
+      <!-- Mês de referência das estatísticas apresentadas, com navegação para meses anteriores/seguintes -->
+      <div class="swc-cal-nav stats-month-nav">
+        <button class="swc-cal-nav-btn" @click="goToPreviousMonth" :aria-label="currentLocale === 'pt' ? 'Mês anterior' : 'Previous month'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <span class="swc-cal-month-label stats-month-label">{{ monthLabel }}</span>
+        <button class="swc-cal-nav-btn" :disabled="!canGoNext" @click="goToNextMonth" :aria-label="currentLocale === 'pt' ? 'Mês seguinte' : 'Next month'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
 
       <!-- ========================================== -->
       <!-- KPIS DO ADMIN — mesmo padrão informativo usado no resumo mensal -->
@@ -369,6 +387,11 @@ const texts = computed(() => ({
 
 /* Mês de referência, acima dos blocos de estatísticas — maior e centrado na página para
    funcionar como um subtítulo de destaque, não uma etiqueta discreta. */
+.stats-month-nav {
+  max-width: 280px;
+  margin: 0 auto 20px;
+}
+
 .stats-month-label {
   font-size: 1.4rem;
   font-weight: 700;
@@ -376,7 +399,6 @@ const texts = computed(() => ({
   letter-spacing: 0.08em;
   color: var(--muted);
   text-align: center;
-  margin: 0 0 20px;
 }
 
 /* Título centrado — diferente do padrão à esquerda dos restantes bento-card, para ficar
