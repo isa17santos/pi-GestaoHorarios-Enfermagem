@@ -138,7 +138,7 @@ class DashboardController extends Controller
                     }
                 }
 
-                $typeName = $type->name;
+                $typeName = strtolower($type->name);
                 $shiftTypeBreakdown[$typeName] = ($shiftTypeBreakdown[$typeName] ?? 0) + 1;
             }
         }
