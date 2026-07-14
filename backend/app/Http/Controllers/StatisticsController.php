@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Models\MedicalLeave;
 use App\Models\NursePreference;
 use App\Models\Shift;
+use App\Enums\ShiftSwapRequestShiftType;
 use App\Models\ShiftSwapRequest;
 use App\Models\ShiftType;
 use App\Models\User;
@@ -42,9 +43,11 @@ class StatisticsController extends Controller
                                 new OA\Property(property: 'vacations_this_month', type: 'integer', example: 4, description: 'Apenas para role admin'),
                                 new OA\Property(property: 'inactive_users_count', type: 'integer', example: 3, description: 'Apenas para role admin — total de utilizadores com active = false, sem filtro de role nem de mês'),
                                 new OA\Property(property: 'pending_password_change_count', type: 'integer', example: 1, description: 'Apenas para role admin — total de utilizadores com must_change_password = true, sem filtro de role nem de mês'),
-                                new OA\Property(property: 'acceptance_rate', type: 'number', format: 'float', nullable: true, example: 75.0, description: 'Percentagem de trocas aceites sobre respondidas no mês — apenas para role head_nurse. Null se não houver pedidos respondidos.'),
+                                new OA\Property(property: 'acceptance_rate', type: 'number', format: 'float', nullable: true, example: 75.0, description: 'Percentagem de grupos de troca (por turno oferecido) com sucesso sobre grupos decididos no mês — apenas para role head_nurse. Null se não houver grupos decididos.'),
+                                new OA\Property(property: 'swaps_accepted', type: 'integer', example: 3, description: 'Número de grupos de troca com sucesso (pelo menos um pedido aceite) no mês — apenas para role head_nurse'),
+                                new OA\Property(property: 'swaps_rejected', type: 'integer', example: 3, description: 'Número de grupos de troca sem sucesso (todos os pedidos rejeitados) no mês — apenas para role head_nurse'),
                                 new OA\Property(property: 'avg_hours_per_nurse', type: 'array', description: 'Horas trabalhadas no mês por cada enfermeiro, ordenadas de forma decrescente — apenas para role head_nurse', items: new OA\Items(properties: [new OA\Property(property: 'user_id', type: 'integer', example: 5), new OA\Property(property: 'name', type: 'string', example: 'Ana Silva'), new OA\Property(property: 'hours', type: 'number', format: 'float', example: 168.5)])),
-                                new OA\Property(property: 'quality_indicator', nullable: true, example: null, description: 'Indicador de qualidade — apenas para role head_nurse. Ainda não implementado.'),
+                                new OA\Property(property: 'quality_breakdown', type: 'object', description: 'Dados brutos que podem alimentar uma futura fórmula de qualidade de horário — apenas para role head_nurse. Não há pontuação nem classificação calculada, só os números.', properties: [new OA\Property(property: 'swaps_this_month', type: 'integer', example: 3), new OA\Property(property: 'min_nurses_violations', type: 'integer', example: 0), new OA\Property(property: 'preference_type_violations', type: 'integer', example: 2), new OA\Property(property: 'preference_weekend_violations', type: 'integer', example: 5)]),
                             ]
                         ),
                     ]
@@ -70,10 +73,6 @@ class StatisticsController extends Controller
         return response()->json(['message' => 'Sem permissão para aceder às estatísticas.'], 403);
     }
 
-    // Thresholds usados para calcular o quality_score — valores provisórios a validar com
-    // orientador/utilizadores reais.
-    private const MAX_SWAPS_FOR_GOOD  = 5;
-    private const MAX_SWAPS_FOR_MEDIO = 15;
     // Percentagem (0-1) de turnos fora das preferências de período marcadas a partir da qual
     // um enfermeiro é considerado ter um padrão sistemático de violação — não conta por turno,
     // conta o enfermeiro uma única vez. Fixado acima do ruído estatístico esperado: com 3 tipos
@@ -86,47 +85,57 @@ class StatisticsController extends Controller
     // tipo de período — evita falsos positivos com amostras demasiado pequenas.
     private const MIN_SHIFTS_FOR_PREFERENCE_CHECK = 4;
 
-    // Pesos de penalização do quality_score (0-100) — valores provisórios a validar com dados
-    // reais. Cada fator penaliza proporcionalmente à gravidade que representa:
-    // - Trocas: sintoma de instabilidade, não um problema em si — penalização suave e gradual.
-    // - Mínimos de enfermeiros: risco operacional direto (cobertura insuficiente do serviço),
-    //   por isso pesa muito mais que os restantes fatores.
-    // - Preferências de tipo: já é um sinal agregado por enfermeiro (padrão sistemático), por
-    //   isso cada ocorrência pesa mais que uma violação de fim de semana isolada.
-    // - Preferências de fim de semana: evento pontual por turno, não um padrão — peso mínimo.
-    private const SWAPS_PENALTY_MAX               = 40;
-    private const MIN_NURSES_PENALTY_PER_VIOLATION = 25;
-    private const MIN_NURSES_PENALTY_MAX           = 50;
-    private const PREFERENCE_TYPE_PENALTY_PER_NURSE = 5;
-    private const PREFERENCE_WEEKEND_PENALTY_PER_SHIFT = 1;
-
-    // Thresholds do quality_indicator, derivados diretamente do quality_score — valores
-    // provisórios a validar com dados reais.
-    private const QUALITY_SCORE_GOOD_THRESHOLD  = 70;
-    private const QUALITY_SCORE_MEDIO_THRESHOLD = 40;
-
     private function headNurseStatistics(): JsonResponse
     {
         $monthStart = Carbon::now()->startOfMonth()->toDateString();
         $monthEnd   = Carbon::now()->endOfMonth()->toDateString();
 
-        // Acceptance rate: accepted / (accepted + rejected) for the current month.
-        // Pending and cancelled requests are excluded — they haven't been decided yet.
-        $accepted = ShiftSwapRequest::query()
-            ->where('status', ShiftSwapStatus::Accepted)
+        // Acceptance rate: requests are grouped by the offered shift, since concurrent requests
+        // for the same shift are resolved together (accepting one auto-cancels the rest — see
+        // SwapRequestController::accept()). A group counts as a success if any request in it was
+        // accepted; it counts as a failure only if every request ever made for that shift ended
+        // up rejected — i.e. no nurse ever accepted that shift AND there is no other request for
+        // the same shift still pending. That requires looking at each group's full history, not
+        // just the requests decided this month: a request rejected this month may still have a
+        // sibling request for the same shift sitting Pending (undecided) from a different month,
+        // in which case the group's outcome isn't settled yet and must not count as a failure.
+        $decidedThisMonth = ShiftSwapRequest::query()
+            ->whereIn('status', [ShiftSwapStatus::Accepted, ShiftSwapStatus::Rejected, ShiftSwapStatus::Cancelled])
             ->whereDate('updated_at', '>=', $monthStart)
             ->whereDate('updated_at', '<=', $monthEnd)
-            ->count();
+            ->with(['requestShifts' => fn ($q) => $q->where('type', ShiftSwapRequestShiftType::Offered)])
+            ->get()
+            ->filter(fn (ShiftSwapRequest $r) => $r->requestShifts->isNotEmpty());
 
-        $rejected = ShiftSwapRequest::query()
-            ->where('status', ShiftSwapStatus::Rejected)
-            ->whereDate('updated_at', '>=', $monthStart)
-            ->whereDate('updated_at', '<=', $monthEnd)
-            ->count();
+        $shiftIds = $decidedThisMonth
+            ->map(fn (ShiftSwapRequest $r) => $r->requestShifts->first()->shift_id)
+            ->unique();
 
-        $responded      = $accepted + $rejected;
+        // Full history (any month, any status) for every shift touched this month, so a group's
+        // outcome can be judged against ALL of its requests, not just the ones decided this month.
+        $fullHistoryByShift = ShiftSwapRequest::query()
+            ->with(['requestShifts' => fn ($q) => $q->where('type', ShiftSwapRequestShiftType::Offered)])
+            ->get()
+            ->filter(fn (ShiftSwapRequest $r) => $r->requestShifts->isNotEmpty())
+            ->groupBy(fn (ShiftSwapRequest $r) => $r->requestShifts->first()->shift_id);
+
+        $groupsSuccess = 0;
+        $groupsFailure = 0;
+
+        foreach ($shiftIds as $shiftId) {
+            $group = $fullHistoryByShift->get($shiftId) ?? collect();
+
+            if ($group->contains(fn (ShiftSwapRequest $r) => $r->status === ShiftSwapStatus::Accepted)) {
+                $groupsSuccess++;
+            } elseif ($group->every(fn (ShiftSwapRequest $r) => $r->status === ShiftSwapStatus::Rejected)) {
+                // No pending siblings left and nobody ever accepted — the group is settled as a failure.
+                $groupsFailure++;
+            }
+        }
+
+        $responded      = $groupsSuccess + $groupsFailure;
         $acceptanceRate = $responded > 0
-            ? round(($accepted / $responded) * 100, 2)
+            ? round(($groupsSuccess / $responded) * 100, 2)
             : null;
 
         // Hours worked this month per nurse, sorted descending.
@@ -326,55 +335,13 @@ class StatisticsController extends Controller
         $preferenceTypeViolations    = $typeViolations;
         $preferenceWeekendViolations = $weekendViolations;
 
-        // Quality score (0-100): parte de 100 e subtrai penalizações por cada fator, em vez de
-        // classificar diretamente em 3 níveis — dá uma escala contínua mais granular, da qual o
-        // quality_indicator passa a ser apenas uma leitura em faixas.
-        //
-        // Penalização de trocas: sobe linearmente entre MAX_SWAPS_FOR_GOOD e MAX_SWAPS_FOR_MEDIO,
-        // até saturar em SWAPS_PENALTY_MAX. Volume de trocas é sintoma de instabilidade, não um
-        // problema em si — por isso a penalização é gradual, não um corte abrupto.
-        if ($swapsThisMonth <= self::MAX_SWAPS_FOR_GOOD) {
-            $swapsPenalty = 0;
-        } elseif ($swapsThisMonth >= self::MAX_SWAPS_FOR_MEDIO) {
-            $swapsPenalty = self::SWAPS_PENALTY_MAX;
-        } else {
-            $swapsRange   = self::MAX_SWAPS_FOR_MEDIO - self::MAX_SWAPS_FOR_GOOD;
-            $swapsPenalty = (($swapsThisMonth - self::MAX_SWAPS_FOR_GOOD) / $swapsRange) * self::SWAPS_PENALTY_MAX;
-        }
-
-        // Penalização de mínimos de enfermeiros: pesa muito mais que os restantes fatores porque
-        // representa risco operacional direto — cobertura insuficiente do serviço, não apenas uma
-        // preferência não respeitada.
-        $minNursesPenalty = min(
-            $minNursesViolations * self::MIN_NURSES_PENALTY_PER_VIOLATION,
-            self::MIN_NURSES_PENALTY_MAX
-        );
-
-        // Penalização de preferências de tipo: cada ocorrência já é um enfermeiro inteiro com
-        // padrão sistemático (agregado acima), por isso pesa mais que uma violação de fim de
-        // semana isolada.
-        $preferenceTypePenalty = $preferenceTypeViolations * self::PREFERENCE_TYPE_PENALTY_PER_NURSE;
-
-        // Penalização de fim de semana: evento pontual por turno, não um padrão — peso mínimo.
-        $preferenceWeekendPenalty = $preferenceWeekendViolations * self::PREFERENCE_WEEKEND_PENALTY_PER_SHIFT;
-
-        $qualityScore = max(0, 100 - ($swapsPenalty + $minNursesPenalty + $preferenceTypePenalty + $preferenceWeekendPenalty));
-        $qualityScore = (int) round($qualityScore);
-
-        // Quality indicator — leitura em 3 faixas diretamente sobre o quality_score.
-        $qualityIndicator = match (true) {
-            $qualityScore >= self::QUALITY_SCORE_GOOD_THRESHOLD  => 'bom',
-            $qualityScore >= self::QUALITY_SCORE_MEDIO_THRESHOLD => 'medio',
-            default => 'mau',
-        };
-
         return response()->json([
             'data' => [
                 'role'                => UserRole::HeadNurse->value,
                 'acceptance_rate'     => $acceptanceRate,
+                'swaps_accepted'      => $groupsSuccess,
+                'swaps_rejected'      => $groupsFailure,
                 'avg_hours_per_nurse' => $nurseHours,
-                'quality_indicator'   => $qualityIndicator,
-                'quality_score'       => $qualityScore,
                 'quality_breakdown'   => [
                     'swaps_this_month'            => $swapsThisMonth,
                     'min_nurses_violations'       => $minNursesViolations,

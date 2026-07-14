@@ -25,7 +25,7 @@ return [
         'string' => 'The notes field must be a string.',
         'max' => 'The notes field must not be greater than 500 characters.',
     ],
-    'rest_hours_violation' => 'Violates the minimum 11-hour rest between consecutive shifts.',
+    'afternoon_night_violation' => 'Will work an afternoon shift followed by a night shift.',
     'validate_offered_shift_not_owned' => 'The offered shift must belong to the authenticated user.',
     'validate_requested_owner_not_found' => 'Could not identify the nurse who owns the requested shift.',
     'validate_offered_shift_id' => [

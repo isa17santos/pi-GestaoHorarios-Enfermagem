@@ -15,31 +15,6 @@ const currentMonthLabel = computed(() => {
   return month.charAt(0).toUpperCase() + month.slice(1)
 })
 
-// Limiar de desvio face à média de horas — enfermeiros fora deste intervalo são destacados na tabela
-const HOURS_DEVIATION_THRESHOLD = 0.15
-
-// Média de horas calculada client-side a partir dos dados já recebidos do backend
-const avgHours = computed(() => {
-  const entries = headNurseData.value?.avg_hours_per_nurse ?? []
-  if (entries.length === 0) return 0
-  return entries.reduce((sum, entry) => sum + entry.hours, 0) / entries.length
-})
-
-// Classifica cada enfermeiro como 'above' | 'below' | 'normal' consoante o desvio à média
-const hoursWithDeviation = computed(() => {
-  const entries = headNurseData.value?.avg_hours_per_nurse ?? []
-  const avg = avgHours.value
-  return entries.map((entry) => {
-    let deviation: 'above' | 'below' | 'normal' = 'normal'
-    if (avg > 0) {
-      const diff = (entry.hours - avg) / avg
-      if (diff > HOURS_DEVIATION_THRESHOLD) deviation = 'above'
-      else if (diff < -HOURS_DEVIATION_THRESHOLD) deviation = 'below'
-    }
-    return { ...entry, deviation }
-  })
-})
-
 // Gauge circular da taxa de aceitação — perímetro fixo (raio 52) para calcular o offset do traço
 const ACCEPTANCE_GAUGE_CIRCUMFERENCE = 2 * Math.PI * 52
 const acceptanceGaugeOffset = computed(() => {
@@ -47,14 +22,6 @@ const acceptanceGaugeOffset = computed(() => {
   if (rate === null || rate === undefined) return ACCEPTANCE_GAUGE_CIRCUMFERENCE
   const clamped = Math.min(100, Math.max(0, rate))
   return ACCEPTANCE_GAUGE_CIRCUMFERENCE * (1 - clamped / 100)
-})
-
-// Posição (%) do marcador do quality_score na barra 0-100 — clamped por segurança,
-// já que o score já vem limitado a [0,100] no backend.
-const qualityScorePosition = computed(() => {
-  const score = headNurseData.value?.quality_score
-  if (score === null || score === undefined) return 0
-  return Math.min(100, Math.max(0, score))
 })
 
 // Role helpers
@@ -79,31 +46,25 @@ const texts = computed(() => ({
   title:               currentLocale.value === 'pt' ? 'Estatísticas' : 'Statistics',
   subtitle:            currentLocale.value === 'pt' ? 'Indicadores de serviço e cobertura da equipa' : 'Service and team coverage indicators',
   nurses:              currentLocale.value === 'pt' ? 'Enfermeiros ativos' : 'Active nurses',
-  nursesDesc:          currentLocale.value === 'pt' ? 'Utilizadores com role enfermeiro' : 'Users with nurse role',
+  nursesDesc:          currentLocale.value === 'pt' ? 'Pessoas — utilizadores com role enfermeiro' : 'People — users with nurse role',
   headNurses:          currentLocale.value === 'pt' ? 'Enfermeiros Chefes ativos' : 'Active head nurses',
-  headNursesDesc:      currentLocale.value === 'pt' ? 'Utilizadores com role enfermeiro chefe' : 'Users with head nurse role',
-  medicalLeaves:       currentLocale.value === 'pt' ? 'Baixas este mês' : 'Medical leaves this month',
+  headNursesDesc:      currentLocale.value === 'pt' ? 'Pessoas — utilizadores com role enfermeiro chefe' : 'People — users with head nurse role',
+  medicalLeaves:       currentLocale.value === 'pt' ? 'Pessoas estão de baixa este mês' : 'People are on medical leave this month',
   medicalLeavesDesc:   currentLocale.value === 'pt' ? 'Baixas com sobreposição no mês atual' : 'Leaves overlapping the current month',
-  vacations:           currentLocale.value === 'pt' ? 'Férias este mês' : 'Vacations this month',
+  vacations:           currentLocale.value === 'pt' ? 'Pessoas estão de férias este mês' : 'People are on vacation this month',
   vacationsDesc:       currentLocale.value === 'pt' ? 'Férias com sobreposição no mês atual' : 'Vacations overlapping the current month',
   inactiveUsers:       currentLocale.value === 'pt' ? 'Contas inativas' : 'Inactive accounts',
-  inactiveUsersDesc:   currentLocale.value === 'pt' ? 'Utilizadores desativados no sistema' : 'Users deactivated in the system',
+  inactiveUsersDesc:   currentLocale.value === 'pt' ? 'Pessoas — utilizadores desativados no sistema' : 'People — users deactivated in the system',
   pendingPasswordChange:     currentLocale.value === 'pt' ? 'Alteração de password pendente' : 'Pending password change',
-  pendingPasswordChangeDesc: currentLocale.value === 'pt' ? 'Utilizadores que ainda não alteraram a password' : 'Users who have not changed their password yet',
-  // Head nurse — quality indicator
+  pendingPasswordChangeDesc: currentLocale.value === 'pt' ? 'Pessoas — utilizadores que ainda não alteraram a password' : 'People — users who have not changed their password yet',
+  // Head nurse — quality data (raw numbers only, no score/level/formula)
   qualityLabel:        currentLocale.value === 'pt' ? 'Qualidade de Horário' : 'Schedule Quality',
-  qualityBom:          currentLocale.value === 'pt' ? 'Bom' : 'Good',
-  medioo:              currentLocale.value === 'pt' ? 'Médio' : 'Fair',
-  mau:                 currentLocale.value === 'pt' ? 'Mau' : 'Poor',
-  // Substitui a nota genérica "Indicador provisório" por algo específico sobre a calibração
-  // atual dos thresholds do backend, para o head nurse perceber o alcance da ressalva.
-  qualityProvisorio:   currentLocale.value === 'pt'
-    ? 'Calibrado para equipas de referência (~15 enfermeiros); valores a confirmar com uso real'
-    : 'Calibrated for reference teams (~15 nurses); values to be confirmed with real-world use',
-  // Head nurse — quality breakdown (fatores usados no cálculo do quality_indicator).
+  qualityExample:      currentLocale.value === 'pt'
+    ? 'Estes são apenas os dados que podem alimentar uma futura fórmula de qualidade de horário — não há pontuação nem classificação calculada'
+    : 'These are just the data points that could feed a future schedule-quality formula — no score or classification is calculated',
   // Textos revistos para serem compreensíveis sem contexto do desenvolvimento — cada item
   // explica o que significa, não só o número cru.
-  qualityBasedOn:      currentLocale.value === 'pt' ? 'Baseado em:' : 'Based on:',
+  qualityBasedOn:      currentLocale.value === 'pt' ? 'Dados disponíveis:' : 'Available data:',
   breakdownSwaps:      currentLocale.value === 'pt' ? 'trocas de turno este mês' : 'shift swaps this month',
   breakdownSwapsHint:  currentLocale.value === 'pt' ? 'Um número elevado de trocas pode indicar instabilidade no horário' : 'A high number of swaps may indicate schedule instability',
   breakdownMinNurses:  currentLocale.value === 'pt' ? 'turnos com falta de enfermeiros' : 'shifts understaffed',
@@ -112,21 +73,17 @@ const texts = computed(() => ({
   // Misturar as duas num só número dava contagens que podiam exceder o total de enfermeiros.
   breakdownPreferenceType:    currentLocale.value === 'pt' ? 'enfermeiros com preferências de turno não respeitadas' : 'nurses with unmet shift preferences',
   breakdownPreferenceWeekend: currentLocale.value === 'pt' ? 'turnos de fim de semana contra preferência' : 'weekend shifts against preference',
-  // Head nurse — barra de quality_score (0-100)
-  qualityScoreLabel:   currentLocale.value === 'pt' ? 'Pontuação' : 'Score',
   // Head nurse — acceptance rate
   acceptanceRate:      currentLocale.value === 'pt' ? 'Taxa de aceitação de trocas' : 'Swap acceptance rate',
-  acceptanceRateDesc:  currentLocale.value === 'pt' ? 'Pedidos aceites sobre o total de respondidos este mês' : 'Accepted over total responded this month',
+  acceptanceRateDesc:  currentLocale.value === 'pt' ? 'Percentagem de turnos trocados com sucesso, considerando pedidos concorrentes pelo mesmo turno' : 'Percentage of shifts successfully swapped, accounting for competing requests on the same shift',
+  swapsAccepted:       currentLocale.value === 'pt' ? 'trocas aceites' : 'accepted swaps',
+  swapsRejected:       currentLocale.value === 'pt' ? 'trocas rejeitadas' : 'rejected swaps',
   noData:              currentLocale.value === 'pt' ? 'Sem dados' : 'No data',
   // Head nurse — hours table
   hoursTable:          currentLocale.value === 'pt' ? 'Horas por enfermeiro' : 'Hours per nurse',
   hoursTableDesc:      currentLocale.value === 'pt' ? 'Total de horas trabalhadas no mês atual' : 'Total hours worked this month',
   colName:             currentLocale.value === 'pt' ? 'Nome' : 'Name',
   colHours:            currentLocale.value === 'pt' ? 'Horas' : 'Hours',
-  legendAbove:         currentLocale.value === 'pt' ? 'Acima da média' : 'Above average',
-  legendBelow:         currentLocale.value === 'pt' ? 'Abaixo da média' : 'Below average',
-  legendThreshold:     currentLocale.value === 'pt' ? 'Limiar' : 'Threshold',
-  avgRowLabel:         currentLocale.value === 'pt' ? 'Média' : 'Average',
 }))
 </script>
 
@@ -167,23 +124,47 @@ const texts = computed(() => ({
         <template v-else>
           <div class="dashboard-stats-section">
             <div class="stats-kpi-row">
-              <div class="stats-kpi-card">
-                <span class="stats-kpi-value">{{ adminData.nurses_count }}</span>
+              <div class="stats-kpi-card" :title="texts.nursesDesc">
+                <span class="stats-kpi-value stats-kpi-value--with-icon">
+                  {{ adminData.nurses_count }}
+                  <svg class="stats-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
                 <span class="stats-kpi-label">{{ texts.nurses }}</span>
               </div>
 
-              <div class="stats-kpi-card">
-                <span class="stats-kpi-value">{{ adminData.head_nurses_count }}</span>
+              <div class="stats-kpi-card" :title="texts.headNursesDesc">
+                <span class="stats-kpi-value stats-kpi-value--with-icon">
+                  {{ adminData.head_nurses_count }}
+                  <svg class="stats-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
                 <span class="stats-kpi-label">{{ texts.headNurses }}</span>
               </div>
 
-              <div class="stats-kpi-card">
-                <span class="stats-kpi-value">{{ adminData.medical_leaves_this_month }}</span>
+              <div class="stats-kpi-card" :title="texts.medicalLeavesDesc">
+                <span class="stats-kpi-value stats-kpi-value--with-icon">
+                  {{ adminData.medical_leaves_this_month }}
+                  <svg class="stats-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
                 <span class="stats-kpi-label">{{ texts.medicalLeaves }}</span>
               </div>
 
-              <div class="stats-kpi-card">
-                <span class="stats-kpi-value">{{ adminData.vacations_this_month }}</span>
+              <div class="stats-kpi-card" :title="texts.vacationsDesc">
+                <span class="stats-kpi-value stats-kpi-value--with-icon">
+                  {{ adminData.vacations_this_month }}
+                  <svg class="stats-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
                 <span class="stats-kpi-label">{{ texts.vacations }}</span>
               </div>
             </div>
@@ -192,13 +173,25 @@ const texts = computed(() => ({
             <div class="stats-kpi-row admin-kpi-row--system">
               <!-- Contas inativas -->
               <div class="stats-kpi-card" :title="texts.inactiveUsersDesc">
-                <span class="stats-kpi-value">{{ adminData.inactive_users_count }}</span>
+                <span class="stats-kpi-value stats-kpi-value--with-icon">
+                  {{ adminData.inactive_users_count }}
+                  <svg class="stats-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
                 <span class="stats-kpi-label">{{ texts.inactiveUsers }}</span>
               </div>
 
               <!-- Alteração de password pendente -->
               <div class="stats-kpi-card" :title="texts.pendingPasswordChangeDesc">
-                <span class="stats-kpi-value">{{ adminData.pending_password_change_count }}</span>
+                <span class="stats-kpi-value stats-kpi-value--with-icon">
+                  {{ adminData.pending_password_change_count }}
+                  <svg class="stats-kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
                 <span class="stats-kpi-label">{{ texts.pendingPasswordChange }}</span>
               </div>
             </div>
@@ -218,47 +211,14 @@ const texts = computed(() => ({
           </template>
 
           <template v-else>
-            <!-- Quality indicator — classificação em 3 níveis baseada em trocas + violações de mínimos.
-                 Cor via style inline porque é determinada por dados da API (excepção permitida pela convenção).
+            <!-- Dados de qualidade de horário — apenas os números brutos que poderiam alimentar uma
+                 futura fórmula de qualidade; sem pontuação, classificação ou badge calculados.
                  Sem bento-icon: este estilo de ícone fica reservado para cards de navegação/ação,
                  não para blocos informativos (mesmo tratamento já aplicado ao bloco admin). -->
             <div class="bento-card bento-card--stats quality-card">
               <h3>{{ texts.qualityLabel }}</h3>
-              <!-- Badge/pill com fundo suave na cor do nível — mais destaque que texto colorido
-                   simples. O nível vem da API, por isso a cor é aplicada via classe dinâmica
-                   quality-badge--<nível> (bom/medio/mau), definida em CSS abaixo. -->
-              <p
-                class="bento-stat-value quality-badge"
-                :class="`quality-badge--${headNurseData.quality_indicator}`"
-              >
-                {{
-                  headNurseData.quality_indicator === 'bom' ? texts.qualityBom
-                  : headNurseData.quality_indicator === 'mau' ? texts.mau
-                  : texts.medioo
-                }}
-              </p>
-              <!-- Barra de quality_score (0-100) — complementa o badge com uma escala contínua.
-                   3 zonas de fundo (mau/medio/bom) nas mesmas cores do badge, e um marcador
-                   vertical na posição exata do score atual. -->
-              <div class="quality-score-bar-wrapper">
-                <div class="quality-score-bar">
-                  <span class="quality-score-zone quality-score-zone--mau"></span>
-                  <span class="quality-score-zone quality-score-zone--medio"></span>
-                  <span class="quality-score-zone quality-score-zone--bom"></span>
-                  <span class="quality-score-marker" :style="{ left: `${qualityScorePosition}%` }"></span>
-                </div>
-                <span class="quality-score-label">{{ texts.qualityScoreLabel }}: {{ headNurseData.quality_score }}/100</span>
-              </div>
+              <p class="quality-note">{{ texts.qualityExample }}</p>
 
-              <p class="quality-note">{{ texts.qualityProvisorio }}</p>
-
-              <!-- Quality breakdown — os 4 fatores usados no cálculo do quality_score acima.
-                   Informação de apoio (não é o elemento mais destacado do card, esse continua a
-                   ser o badge + barra acima), mas em tamanho de texto normal da página — não uma
-                   legenda/caption minúscula — para ser confortavelmente legível. Cada item numa
-                   linha própria com um marcador (bullet), para leitura rápida em vez de texto
-                   corrido. O item de trocas tem um tooltip (title) com contexto extra, para não
-                   sobrecarregar o card com texto de apoio permanente. -->
               <div class="quality-breakdown">
                 <span class="quality-breakdown-label">{{ texts.qualityBasedOn }}</span>
                 <ul class="quality-breakdown-list">
@@ -292,6 +252,10 @@ const texts = computed(() => ({
                   <span v-else class="gauge-value gauge-value--empty">{{ texts.noData }}</span>
                 </div>
               </div>
+              <div class="acceptance-counts">
+                <span class="acceptance-count acceptance-count--accepted">{{ headNurseData.swaps_accepted }} {{ texts.swapsAccepted }}</span>
+                <span class="acceptance-count acceptance-count--rejected">{{ headNurseData.swaps_rejected }} {{ texts.swapsRejected }}</span>
+              </div>
               <p>{{ texts.acceptanceRateDesc }}</p>
             </div>
 
@@ -310,28 +274,17 @@ const texts = computed(() => ({
                 </thead>
                 <tbody>
                   <tr
-                    v-for="entry in hoursWithDeviation"
+                    v-for="entry in headNurseData.avg_hours_per_nurse"
                     :key="entry.user_id"
-                    :class="{
-                      'row-above': entry.deviation === 'above',
-                      'row-below': entry.deviation === 'below',
-                    }"
                   >
                     <td>{{ entry.name }}</td>
                     <td class="hours-col">{{ entry.hours }}h</td>
                   </tr>
-                  <tr v-if="hoursWithDeviation.length === 0">
+                  <tr v-if="!headNurseData.avg_hours_per_nurse || headNurseData.avg_hours_per_nurse.length === 0">
                     <td colspan="2" class="hours-empty">{{ texts.noData }}</td>
                   </tr>
                 </tbody>
               </table>
-              <!-- Legenda das cores de desvio -->
-              <div v-if="hoursWithDeviation.length > 0" class="hours-legend">
-                <span class="legend-item"><span class="legend-dot legend-dot--above"></span>{{ texts.legendAbove }}</span>
-                <span class="legend-item"><span class="legend-dot legend-dot--below"></span>{{ texts.legendBelow }}</span>
-                <span class="legend-item">{{ texts.legendThreshold }}: ±{{ (HOURS_DEVIATION_THRESHOLD * 100).toFixed(0) }}%</span>
-                <span class="legend-average">{{ texts.avgRowLabel }}: {{ avgHours.toFixed(1) }}h</span>
-              </div>
             </div>
           </template>
         </template>
@@ -347,6 +300,19 @@ const texts = computed(() => ({
 .bento-card:hover {
   transform: none;
   box-shadow: none;
+}
+
+/* Ícone de pessoa no KPI de férias — único KPI com ícone, para reforçar visualmente que a
+   contagem é de pessoas (ver nota acima sobre a convenção "sem ícone" nos restantes cards). */
+.stats-kpi-value--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats-kpi-icon {
+  flex-shrink: 0;
+  color: var(--primary-strong);
 }
 
 /* Segunda linha de KPIs do admin (estado do sistema) — espaço claro face à linha mensal acima */
@@ -413,109 +379,13 @@ const texts = computed(() => ({
   margin: 0 0 20px;
 }
 
-/* Título e badge de nível centrados — diferente do padrão à esquerda dos restantes
-   bento-card, para ficar alinhado com a barra/breakdown, também centrados abaixo.
-   .quality-badge é inline-block, por isso precisa de text-align: center no pai para centrar. */
-.quality-card h3,
-.quality-card .quality-badge {
+/* Título centrado — diferente do padrão à esquerda dos restantes bento-card, para ficar
+   alinhado com o breakdown, também centrado abaixo. */
+.quality-card h3 {
   text-align: center;
 }
 
-/* Badge/pill do quality_indicator — fundo suave + texto na cor do nível, em vez do texto
-   colorido simples anterior. Uma variante por nível ('bom' | 'medio' | 'mau'), aplicada via
-   classe dinâmica no template. */
-.quality-badge {
-  display: inline-block;
-  padding: 6px 20px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 1.1rem;
-}
-
-.quality-badge--bom {
-  background: rgba(76, 175, 125, 0.14);
-  color: #4caf7d;
-}
-
-.quality-badge--medio {
-  background: rgba(255, 179, 128, 0.16);
-  color: var(--peach);
-}
-
-.quality-badge--mau {
-  background: var(--danger-background);
-  color: var(--danger);
-}
-
-/* Barra de quality_score (0-100) — 3 zonas de fundo fixas nas proporções dos thresholds
-   (0-39 mau, 40-69 medio, 70-100 bom) mais um marcador vertical na posição do score atual.
-   Mesmas cores do badge (var(--danger) é o tom "Mau" usado em toda a app — é laranja, não
-   vermelho puro, mas é o vermelho/tom de alerta oficial da paleta). Cor sólida em cada zona
-   (sem opacity). O border-radius fica só no wrapper com overflow:hidden — assim as pontas
-   arredondadas cortam sempre a zona que lá estiver (mau no início, bom no fim), em vez de
-   depender de border-radius nos filhos, que não preenchia visualmente o canto. Uma borda fina
-   entre zonas (box-shadow) marca a transição sem quebrar o preenchimento contínuo da barra. */
-.quality-score-bar-wrapper {
-  width: 100%;
-  max-width: 220px;
-  margin: 12px auto 0;
-}
-
-.quality-score-bar {
-  position: relative;
-  width: 100%;
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  display: flex;
-  background: var(--line);
-}
-
-.quality-score-zone {
-  height: 100%;
-}
-
-.quality-score-zone:not(:last-child) {
-  box-shadow: 1px 0 0 var(--surface-strong);
-}
-
-/* Proporções alinhadas com QUALITY_SCORE_MEDIO_THRESHOLD (40) e
-   QUALITY_SCORE_GOOD_THRESHOLD (70) do backend: 0-39% / 40-69% / 70-100%. */
-.quality-score-zone--mau {
-  width: 40%;
-  background: var(--danger);
-}
-
-.quality-score-zone--medio {
-  width: 30%;
-  background: var(--peach);
-}
-
-.quality-score-zone--bom {
-  width: 30%;
-  background: #4caf7d;
-}
-
-.quality-score-marker {
-  position: absolute;
-  top: -3px;
-  width: 3px;
-  height: 16px;
-  background: var(--text);
-  border-radius: 2px;
-  transform: translateX(-50%);
-}
-
-.quality-score-label {
-  display: block;
-  margin-top: 6px;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-/* Nota de rodapé discreta abaixo do quality indicator */
+/* Nota de rodapé discreta abaixo do título do quality card */
 .quality-note {
   font-size: 0.78rem;
   color: var(--muted);
@@ -672,6 +542,23 @@ const texts = computed(() => ({
   justify-content: center;
 }
 
+/* Contagens de trocas aceites/rejeitadas por baixo do gauge — complementa a percentagem
+   com os números absolutos que a compõem. */
+.acceptance-counts {
+  display: flex;
+  gap: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.acceptance-count--accepted {
+  color: #4caf7d;
+}
+
+.acceptance-count--rejected {
+  color: var(--danger);
+}
+
 .gauge-value {
   font-size: 1.1rem;
   font-weight: 700;
@@ -684,59 +571,4 @@ const texts = computed(() => ({
   color: var(--muted);
 }
 
-/* Destaque de linhas na tabela de horas consoante o desvio face à média */
-.row-above {
-  background: var(--danger-background);
-}
-
-.row-above td {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.row-below {
-  background: rgba(172, 138, 241, 0.16);
-}
-
-.row-below td {
-  color: var(--primary-strong);
-  font-weight: 600;
-}
-
-/* Legenda de cores por baixo da tabela de horas */
-.hours-legend {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 12px;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.legend-average {
-  margin-left: auto;
-  font-weight: 600;
-  color: var(--primary-strong);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.legend-dot--above {
-  background: var(--danger);
-}
-
-.legend-dot--below {
-  background: var(--primary-strong);
-}
 </style>

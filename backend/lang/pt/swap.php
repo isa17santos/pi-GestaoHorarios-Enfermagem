@@ -25,7 +25,7 @@ return [
         'string' => 'O campo notes deve ser um texto.',
         'max' => 'O campo notes não pode ter mais de 500 caracteres.',
     ],
-    'rest_hours_violation' => 'Viola o descanso mínimo de 11 horas entre turnos consecutivos.',
+    'afternoon_night_violation' => 'Vai fazer um turno de tarde seguido de um turno de noite.',
     'validate_offered_shift_not_owned' => 'O turno oferecido deve pertencer ao utilizador autenticado.',
     'validate_requested_owner_not_found' => 'Não foi possível identificar o enfermeiro dono do turno solicitado.',
     'validate_offered_shift_id' => [

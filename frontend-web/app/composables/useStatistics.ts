@@ -29,9 +29,9 @@ type QualityBreakdown = {
 type StatisticsHeadNurse = {
   role: 'head_nurse'
   acceptance_rate: number | null
+  swaps_accepted: number
+  swaps_rejected: number
   avg_hours_per_nurse: NurseHoursEntry[]
-  quality_indicator: 'bom' | 'medio' | 'mau'
-  quality_score: number
   quality_breakdown: QualityBreakdown
 }
 

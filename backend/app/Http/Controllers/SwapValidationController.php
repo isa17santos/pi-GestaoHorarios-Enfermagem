@@ -47,8 +47,8 @@ class SwapValidationController extends Controller
                                 properties: [
                                     new OA\Property(property: 'nurse_id', type: 'integer', example: 1),
                                     new OA\Property(property: 'nurse_name', type: 'string', example: 'Ana Silva'),
-                                    new OA\Property(property: 'type', type: 'string', enum: ['rest_hours']),
-                                    new OA\Property(property: 'message', type: 'string', example: 'Viola o descanso mínimo de 11 horas entre turnos consecutivos.'),
+                                    new OA\Property(property: 'type', type: 'string', enum: ['afternoon_night']),
+                                    new OA\Property(property: 'message', type: 'string', example: 'Vai fazer um turno de tarde seguido de um turno de noite.'),
                                 ]
                             )
                         ),
@@ -137,22 +137,22 @@ class SwapValidationController extends Controller
 
         $warnings = [];
 
-        if ($this->hasRestHoursViolation($weekShifts)) {
+        if ($this->hasAfternoonNightViolation($weekShifts)) {
             $warnings[] = [
                 'nurse_id' => $nurse->id,
                 'nurse_name' => $nurse->name,
-                'type' => 'rest_hours',
-                'message' => __('swap.rest_hours_violation'),
+                'type' => 'afternoon_night',
+                'message' => __('swap.afternoon_night_violation'),
             ];
         }
 
         return $warnings;
     }
 
-    private function hasRestHoursViolation($shifts): bool
+    private function hasAfternoonNightViolation($shifts): bool
     {
         // Day-off shifts have no meaningful start/end times; exclude them so
-        // a folga swap never incorrectly triggers a rest-hours warning.
+        // a folga swap never incorrectly triggers a shift-sequence warning.
         $workShifts = $shifts->filter(function (Shift $shift): bool {
             $name = strtolower($shift->shiftType->name ?? '');
             return !in_array($name, ['dayoff', 'day off', 'folga'], true);
@@ -167,37 +167,15 @@ class SwapValidationController extends Controller
             ->values();
 
         for ($index = 1; $index < $sortedShifts->count(); $index++) {
-            $previousInterval = $this->resolveShiftInterval($sortedShifts[$index - 1]);
-            $currentInterval = $this->resolveShiftInterval($sortedShifts[$index]);
+            $previousName = strtolower($sortedShifts[$index - 1]->shiftType->name ?? '');
+            $currentName = strtolower($sortedShifts[$index]->shiftType->name ?? '');
 
-            $restMinutes = $previousInterval['end']->diffInMinutes($currentInterval['start'], false);
-
-            if ($restMinutes < 11 * 60) {
+            if ($previousName === 'afternoon' && $currentName === 'night') {
                 return true;
             }
         }
 
         return false;
-    }
-
-    private function resolveShiftInterval(Shift $shift): array
-    {
-        $shiftDate = $shift->shift_date->toDateString();
-        $startTime = $this->normalizeTime((string) $shift->shiftType->start_time);
-        $endTime = $this->normalizeTime((string) $shift->shiftType->end_time);
-
-        $start = Carbon::parse($shiftDate.' '.$startTime);
-        $end = Carbon::parse($shiftDate.' '.$endTime);
-
-        // When end time is earlier/equal, the shift spans to the next day.
-        if ($end->lessThanOrEqualTo($start)) {
-            $end->addDay();
-        }
-
-        return [
-            'start' => $start,
-            'end' => $end,
-        ];
     }
 
     private function normalizeTime(string $time): string

@@ -62,6 +62,7 @@
 .swc-panel-left {
   flex: 1 1 340px;
   max-width: 390px;
+  min-width: 0;
 }
 
 .swc-panel-right {
@@ -759,10 +760,13 @@
   text-transform: capitalize;
 }
 
-/* 7-column grid: one column per ISO week day. */
+/* 7-column grid: one column per ISO week day. minmax(0, 1fr) instead of 1fr so columns can
+   shrink below their content's intrinsic width — plain 1fr tracks default to min-width: auto
+   and a long nowrap label (e.g. a day with two shift-type badges) can widen the whole grid
+   past the panel, pushing the card out of the viewport. */
 .swc-cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -775,19 +779,26 @@
   padding: 4px 0 8px;
 }
 
+/* No aspect-ratio by default (mobile/narrow): the grid's default align-items: stretch makes
+   every cell in a row match the row's height (driven by its tallest cell — e.g. a day with two
+   shift-type badges). min-height keeps cells from collapsing below a roughly square size when
+   nothing in the row is taller. On wide/desktop viewports we do force a square (see the
+   min-width: 901px override below) since there's enough column width there to stay square
+   without content overflowing. */
 .swc-cal-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  aspect-ratio: 1;
+  height: 100%;
+  min-height: 62px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
   cursor: default;
   transition: background 0.18s ease, border-color 0.18s ease;
-  padding: 0;
+  padding: 4px 2px;
 }
 
 .swc-cal-cell--empty {
@@ -995,5 +1006,15 @@
   .swc-cal-count {
     font-size: 0.55rem;
     padding: 1px 3px;
+  }
+}
+
+/* Desktop only: force square cells. There's enough column width here (7 columns inside a wide
+   panel) that squaring off doesn't cause content to overflow the way it would on narrow/mobile
+   viewports, where cells stay stretch-sized instead (see .swc-cal-cell above). */
+@media (min-width: 901px) {
+  .swc-cal-cell {
+    aspect-ratio: 1;
+    height: auto;
   }
 }

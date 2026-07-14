@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, watch } from 'vue'
+import { nextTick, onBeforeUnmount, watch } from 'vue'
 
 definePageMeta({
   middleware: 'auth',
@@ -35,6 +35,26 @@ const { shiftTypes, fetchShiftTypes } = useSchedule()
 const route = useRoute()
 
 const currentLocale = useState<'pt' | 'en'>('locale', () => 'pt')
+
+// Below AVAILABLE_LABEL_MAX_WIDTH the "Available" label starts losing trailing characters
+// proportionally to the remaining width, down to nothing at AVAILABLE_LABEL_MIN_WIDTH — so the
+// day-off calendar cells (which can stack a badge per shift type) shrink gradually instead of
+// abruptly, and never grow tall enough to overlap the row below.
+const AVAILABLE_LABEL_MAX_WIDTH = 840
+const AVAILABLE_LABEL_MIN_WIDTH = 480
+const screenWidth = ref(typeof window !== 'undefined' ? window.innerWidth : AVAILABLE_LABEL_MAX_WIDTH)
+const updateScreenWidth = () => { screenWidth.value = window.innerWidth }
+const isNarrowScreen = computed(() => screenWidth.value <= 640)
+onBeforeUnmount(() => window.removeEventListener('resize', updateScreenWidth))
+const availableLabel = computed(() => {
+  const full = currentLocale.value === 'pt' ? 'Disponíveis' : 'Available'
+  if (screenWidth.value >= AVAILABLE_LABEL_MAX_WIDTH) return full
+
+  const range = AVAILABLE_LABEL_MAX_WIDTH - AVAILABLE_LABEL_MIN_WIDTH
+  const progress = Math.min(1, Math.max(0, (AVAILABLE_LABEL_MAX_WIDTH - screenWidth.value) / range))
+  const visibleChars = Math.round(full.length * (1 - progress))
+  return full.slice(0, visibleChars)
+})
 
 const swapMode = ref<SwapMode>('shift')
 const requestedShiftTypeId = ref<number | null>(null)
@@ -517,6 +537,16 @@ const getShiftName = (shiftType: ShiftOption['shift_type'] | null | undefined) =
   return currentLocale.value === 'pt' ? (pt[name] || shiftType.name) : (en[name] || shiftType.name)
 }
 
+// Single-letter shift name, used on narrow screens only inside the "N available" badges (not
+// the cell's own shift-type label) so cells with multiple badges stay compact instead of
+// overlapping the row below.
+const getShiftInitial = (shiftType: ShiftOption['shift_type'] | null | undefined) => {
+  const name = getShiftName(shiftType)
+  return name ? name.charAt(0).toUpperCase() : ''
+}
+const getShiftLabelForCalendar = (shiftType: ShiftOption['shift_type'] | null | undefined) =>
+  isNarrowScreen.value ? getShiftInitial(shiftType) : getShiftName(shiftType)
+
 const getDayOffCellStyle = (date: string) => {
   const color = myShifts.value.find((s) => s.date.slice(0, 10) === date)?.shift_type.color
   return color ? { backgroundColor: color + '66' } : {}
@@ -755,6 +785,9 @@ watch(resultShifts, () => {
 })
 
 onMounted(async () => {
+  updateScreenWidth()
+  window.addEventListener('resize', updateScreenWidth)
+
   const modeParam = Array.isArray(route.query.mode) ? route.query.mode[0] : route.query.mode
   swapMode.value = modeParam === 'shift_for_dayoff' ? 'shift_for_dayoff' : 'shift'
 
@@ -985,9 +1018,9 @@ onMounted(async () => {
                       class="swc-cal-cell__receive-label"
                       :style="t.color ? { borderLeft: `2px solid ${t.color}`, paddingLeft: '4px' } : {}"
                     >
-                      {{ getShiftName(t) }}
+                      {{ getShiftLabelForCalendar(t) }}
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                      {{ dayOffCandidateCounts.get(cell.date)?.get(Number(t.id)) ?? 0 }} {{ currentLocale === 'pt' ? 'Disponíveis' : 'Available' }}
+                      {{ dayOffCandidateCounts.get(cell.date)?.get(Number(t.id)) ?? 0 }}<template v-if="availableLabel">&nbsp;{{ availableLabel }}</template>
                     </span>
                   </template>
                 </template>
