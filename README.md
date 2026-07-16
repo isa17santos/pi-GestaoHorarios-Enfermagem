@@ -38,3 +38,6 @@ If you are running into some kind of trouble while executing the file it's much 
     chmod +x deploy.sh
 
 
+## Important
+
+After running the containers for the first time, execute the following command: docker exec gh_api php artisan migrate:fresh --seed
