@@ -62,11 +62,6 @@ const sourceShiftId = ref<number | null>(null)
 const offeredShift = ref<ShiftOption | null>(null)
 const selectedResults = ref<Set<number>>(new Set())
 
-const firstSelectedShift = computed(() => {
-  const id = [...selectedResults.value][0]
-  if (!id) return null
-  return availableShifts.value.find((s) => s.id === id) ?? null
-})
 const myShifts = ref<ShiftOption[]>([])
 const availableShifts = ref<ShiftOption[]>([])
 const validationWarnings = ref<Record<number, ValidationWarning[]>>({})
@@ -927,16 +922,10 @@ onMounted(async () => {
               <p class="sw-swap-header__date">{{ formatDate(offeredShift.date) }}</p>
               <p class="sw-swap-header__type">{{ currentLocale === 'pt' ? 'Folga · Dia inteiro' : 'Day off · All day' }}</p>
             </div>
-            <div class="sw-swap-header__panel" :style="{ borderInlineStart: `3px solid ${firstSelectedShift?.shift_type.color || 'var(--line)'}` }">
+            <div class="sw-swap-header__panel" :style="{ borderInlineStart: '3px solid var(--line)' }">
               <span class="sw-swap-header__badge">{{ currentLocale === 'pt' ? 'Turno a receber' : 'Shift to receive' }}</span>
-              <template v-if="firstSelectedShift">
-                <p class="sw-swap-header__date">{{ formatDate(firstSelectedShift.date) }}</p>
-                <p class="sw-swap-header__type">{{ getShiftName(firstSelectedShift.shift_type) }} · {{ formatShiftLabel(firstSelectedShift).timeLabel }}</p>
-              </template>
-              <template v-else>
-                <p class="sw-swap-header__date">—</p>
-                <p class="sw-swap-header__type">—</p>
-              </template>
+              <p class="sw-swap-header__date">—</p>
+              <p class="sw-swap-header__type">—</p>
             </div>
           </div>
         </template>
