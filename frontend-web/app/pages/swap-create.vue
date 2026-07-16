@@ -578,8 +578,18 @@ const runAllValidations = async () => {
 
   await Promise.all(
     results.map(async (shift) => {
+      // shift_for_dayoff: the nurse actually receives the candidate's work shift on the
+      // day-off date, not the candidate's day-off itself — validate that pair instead.
+      const requestedShift = isShiftForDayoffMode.value
+        ? getTargetWorkShift(Number(shift.users[0]?.id))
+        : shift
+      if (!requestedShift) {
+        validationWarnings.value = { ...validationWarnings.value, [shift.id]: [] }
+        return
+      }
+
       try {
-        const warnings = await validateShift(sourceShiftId.value as number, shift.id)
+        const warnings = await validateShift(sourceShiftId.value as number, requestedShift.id)
         validationWarnings.value = { ...validationWarnings.value, [shift.id]: warnings }
       } catch {
         validationWarnings.value = { ...validationWarnings.value, [shift.id]: [] }

@@ -112,23 +112,30 @@ class SwapValidationController extends Controller
 
     private function buildWarningsForNurse(User $nurse, Shift $givenShift, Shift $receivedShift): array
     {
-        $weekStart = $givenShift->shift_date->copy()->startOfWeek(Carbon::MONDAY);
-        $weekEnd = $givenShift->shift_date->copy()->endOfWeek(Carbon::SUNDAY);
+        // The swap can move a shift across a week boundary, so both the given
+        // shift's week and the received shift's week must be evaluated.
+        $givenWeekStart = $givenShift->shift_date->copy()->startOfWeek(Carbon::MONDAY);
+        $givenWeekEnd = $givenShift->shift_date->copy()->endOfWeek(Carbon::SUNDAY);
+
+        $receivedWeekStart = $receivedShift->shift_date->copy()->startOfWeek(Carbon::MONDAY);
+        $receivedWeekEnd = $receivedShift->shift_date->copy()->endOfWeek(Carbon::SUNDAY);
+
+        $rangeStart = $givenWeekStart->lessThan($receivedWeekStart) ? $givenWeekStart : $receivedWeekStart;
+        $rangeEnd = $givenWeekEnd->greaterThan($receivedWeekEnd) ? $givenWeekEnd : $receivedWeekEnd;
 
         $weekShifts = Shift::query()
             ->with('shiftType')
             ->whereHas('users', function ($query) use ($nurse): void {
                 $query->where('users.id', $nurse->id);
             })
-            ->whereDate('shift_date', '>=', $weekStart->toDateString())
-            ->whereDate('shift_date', '<=', $weekEnd->toDateString())
+            ->whereDate('shift_date', '>=', $rangeStart->toDateString())
+            ->whereDate('shift_date', '<=', $rangeEnd->toDateString())
             ->where('id', '!=', $givenShift->id)
+            // The received shift replaces whatever the nurse already has on that date.
+            ->whereDate('shift_date', '!=', $receivedShift->shift_date->toDateString())
             ->get();
 
-        // Add the incoming shift only when it falls inside the evaluated week window.
-        if ($receivedShift->shift_date->betweenIncluded($weekStart, $weekEnd)) {
-            $weekShifts->push($receivedShift);
-        }
+        $weekShifts->push($receivedShift);
 
         $weekShifts = $weekShifts
             ->filter(fn (Shift $shift): bool => $shift->shiftType !== null)
@@ -167,10 +174,15 @@ class SwapValidationController extends Controller
             ->values();
 
         for ($index = 1; $index < $sortedShifts->count(); $index++) {
-            $previousName = strtolower($sortedShifts[$index - 1]->shiftType->name ?? '');
-            $currentName = strtolower($sortedShifts[$index]->shiftType->name ?? '');
+            $previousShift = $sortedShifts[$index - 1];
+            $currentShift = $sortedShifts[$index];
 
-            if ($previousName === 'afternoon' && $currentName === 'night') {
+            $previousName = strtolower($previousShift->shiftType->name ?? '');
+            $currentName = strtolower($currentShift->shiftType->name ?? '');
+
+            $dayGap = $previousShift->shift_date->diffInDays($currentShift->shift_date);
+
+            if ($previousName === 'afternoon' && $currentName === 'night' && $dayGap <= 1) {
                 return true;
             }
         }
