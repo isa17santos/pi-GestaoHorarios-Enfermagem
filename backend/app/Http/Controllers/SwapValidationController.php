@@ -97,13 +97,9 @@ class SwapValidationController extends Controller
             ], 422);
         }
 
+        // Afternoon/night sequence warning disabled: the detection logic produced false
+        // positives and was not correctly identifying consecutive-day violations.
         $warnings = [];
-
-        $warnings = [
-            ...$warnings,
-            ...$this->buildWarningsForNurse($user, $offeredShift, $requestedShift),
-            ...$this->buildWarningsForNurse($requestedOwner, $requestedShift, $offeredShift),
-        ];
 
         return response()->json([
             'warnings' => $warnings,
@@ -158,11 +154,12 @@ class SwapValidationController extends Controller
 
     private function hasAfternoonNightViolation($shifts): bool
     {
-        // Day-off shifts have no meaningful start/end times; exclude them so
-        // a folga swap never incorrectly triggers a shift-sequence warning.
+        // Day-off and all-day leave types (holidays, sick leave, parental leave) have no
+        // meaningful start/end times; exclude them so they never bridge an afternoon/night
+        // pair that isn't actually consecutive shifts.
         $workShifts = $shifts->filter(function (Shift $shift): bool {
             $name = strtolower($shift->shiftType->name ?? '');
-            return !in_array($name, ['dayoff', 'day off', 'folga'], true);
+            return !in_array($name, ['dayoff', 'day off', 'folga', 'holidays', 'sick leave', 'parental leave'], true);
         });
 
         $sortedShifts = $workShifts
