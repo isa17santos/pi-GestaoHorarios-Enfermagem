@@ -404,8 +404,6 @@ const mockIcalLink = computed(() => {
   // hold the current IP address 
   const host = window.location.hostname
   
-  // Força a usar a porta 8000 que é onde está o teu Laravel (Backend)
-  // NOTA: Quando o site for para produção num domínio real, tirar o ":8000"
   const backendUrl = `http://${host}:8000/api`
   
   return `${backendUrl}/schedules/ical?token=${token.value}`

@@ -20,10 +20,10 @@ Starts only the backend services:
     redis
     queue-worker
 
-## ./deploy.sh web
+## ./deploy.sh web [dev|build]
 
 Starts all the services:
-    frontend-web
+    frontend-web (runs in development mode by default, or build mode if 'build' or '--build' is specified)
     backend
 
 ## ./deploy.sh stop
